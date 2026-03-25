@@ -11,6 +11,7 @@ const sections = [
   { text: 'Patterns', dir: 'patterns' },
   { text: 'User Docs', dir: 'user-docs' },
   { text: 'Developer', dir: 'developer' },
+  { text: 'Infra', dir: 'infra' },
   { text: 'Guides', dir: 'guides' },
 ]
 
@@ -30,22 +31,23 @@ function getTitle(filePath: string, fileName: string): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
+type SidebarItem = { text: string; link?: string; items?: SidebarItem[] }
+
 /**
  * Auto-generate sidebar items for a directory by scanning its *.md files
- * and subdirectories. README.md becomes the index (Overview) link.
+ * and subdirectories recursively. README.md/index.md become the directory index.
  */
-function autoSidebar(dir: string, label: string): { text: string; items: { text: string; link: string }[] }[] {
+function autoSidebar(dir: string, label: string): SidebarItem[] {
   const absDir = resolve(docsDir, dir)
   if (!existsSync(absDir)) return []
 
   const entries = readdirSync(absDir, { withFileTypes: true })
-  const items: { text: string; link: string; order: number }[] = []
+  const items: (SidebarItem & { order: number })[] = []
 
   for (const entry of entries) {
     const fullPath = join(absDir, entry.name)
 
     if (entry.isFile() && entry.name.endsWith('.md')) {
-      // README.md and index.md both serve as the section index
       if (entry.name === 'README.md' || entry.name === 'index.md') {
         items.push({ text: 'Overview', link: `/${dir}/`, order: -1 })
       } else {
@@ -59,53 +61,82 @@ function autoSidebar(dir: string, label: string): { text: string; items: { text:
     }
 
     if (entry.isDirectory() && !entry.name.startsWith('.')) {
-      // Check for an index file inside the subdirectory
+      const subDir = `${dir}/${entry.name}`
+      const subLabel = (() => {
+        const subIndex = [join(fullPath, 'README.md'), join(fullPath, 'index.md')]
+          .find(f => existsSync(f))
+        return subIndex
+          ? getTitle(subIndex, entry.name)
+          : entry.name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      })()
+
+      // Recurse into subdirectory
+      const children = autoSidebar(subDir, subLabel)
+      if (children.length > 0) {
+        items.push({
+          text: subLabel,
+          link: `/${subDir}/`,
+          items: children[0].items,
+          order: 1,
+        })
+      } else {
+        items.push({
+          text: subLabel,
+          link: `/${subDir}/`,
+          order: 1,
+        })
+      }
+    }
+  }
+
+  items.sort((a, b) => a.order - b.order || a.text.localeCompare(b.text))
+
+  return [{ text: label, items: items.map(({ order, ...rest }) => rest) }]
+}
+
+/**
+ * Register sidebar entries for a directory and all its subdirectories,
+ * so VitePress shows a sidebar at every nesting level.
+ */
+function registerSidebars(sidebar: Record<string, SidebarItem[]>, dir: string, label: string) {
+  const absDir = resolve(docsDir, dir)
+  if (!existsSync(absDir)) return
+
+  sidebar[`/${dir}/`] = autoSidebar(dir, label)
+
+  for (const entry of readdirSync(absDir, { withFileTypes: true })) {
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
+      const subDir = `${dir}/${entry.name}`
+      const fullPath = join(absDir, entry.name)
       const subIndex = [join(fullPath, 'README.md'), join(fullPath, 'index.md')]
         .find(f => existsSync(f))
       const subLabel = subIndex
         ? getTitle(subIndex, entry.name)
         : entry.name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      items.push({
-        text: subLabel,
-        link: `/${dir}/${entry.name}/`,
-        order: 1,
-      })
+      registerSidebars(sidebar, subDir, subLabel)
     }
   }
-
-  // Sort: overview first, then files, then directories
-  items.sort((a, b) => a.order - b.order || a.text.localeCompare(b.text))
-
-  return [{ text: label, items: items.map(({ text, link }) => ({ text, link })) }]
-}
-
-/**
- * Rewrite README.md → index.md at any depth.
- * Uses path-to-regexp dynamic syntax so every directory is covered
- * automatically, including working/ and future additions.
- */
-const rewrites: Record<string, string> = {
-  'README.md': 'index.md',
-  ':path(.+)/README.md': ':path/index.md',
 }
 
 // Build sidebar from filesystem
-const sidebar: Record<string, ReturnType<typeof autoSidebar>> = {}
+const sidebar: Record<string, SidebarItem[]> = {}
 for (const section of sections) {
-  sidebar[`/${section.dir}/`] = autoSidebar(section.dir, section.text)
+  registerSidebars(sidebar, section.dir, section.text)
 }
 if (workingExist) {
-  sidebar['/working/'] = autoSidebar('working', 'Working (Local Only)')
+  registerSidebars(sidebar, 'working', 'Working (Local Only)')
 }
 
 export default defineConfig({
   title: 'Innovation Patterns Docs',
   description: 'A cohesive platform for reusable innovation patterns',
-  srcExclude: ['**/working/**'],
+  srcExclude: process.env.CI ? ['**/working/**'] : [],
   cleanUrls: true,
   base: '/innovation-patterns-0a90b6/',
-  rewrites,
-
+  rewrites: {
+    'README.md': 'index.md',
+    ':path/README.md': ':path/index.md',
+  },
   themeConfig: {
     nav: [
       ...sections.map(s => ({
