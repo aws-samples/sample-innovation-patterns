@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --port 3001",
+    "build": "vitepress build",
+    "preview": "vitepress serve"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.0"
+  }
+}

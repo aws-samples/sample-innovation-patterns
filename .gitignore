@@ -1,0 +1,8 @@
+.vscode/
+.context/
+
+# Documentation site
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/specs/
+docs/node_modules/
