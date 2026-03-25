@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, join, resolve } from 'path'
 
 const docsDir = resolve(__dirname, '..')
-const specsExist = existsSync(resolve(docsDir, 'specs'))
+const workingExist = existsSync(resolve(docsDir, 'working'))
 
 // Sections that appear in the top nav
 const sections = [
@@ -80,32 +80,13 @@ function autoSidebar(dir: string, label: string): { text: string; items: { text:
 }
 
 /**
- * Build rewrites map so README.md files serve as index pages.
- * e.g. getting-started/README.md → getting-started/index.md
+ * Rewrite README.md → index.md at any depth.
+ * Uses path-to-regexp dynamic syntax so every directory is covered
+ * automatically, including working/ and future additions.
  */
-function buildRewrites(): Record<string, string> {
-  const rewrites: Record<string, string> = {}
-
-  // Top-level README
-  if (existsSync(resolve(docsDir, 'README.md'))) {
-    rewrites['README.md'] = 'index.md'
-  }
-
-  function scan(dir: string) {
-    const absDir = resolve(docsDir, dir)
-    if (!existsSync(absDir)) return
-    for (const entry of readdirSync(absDir, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name === 'README.md') {
-        rewrites[`${dir}/README.md`] = `${dir}/index.md`
-      }
-      if (entry.isDirectory() && !entry.name.startsWith('.')) {
-        scan(`${dir}/${entry.name}`)
-      }
-    }
-  }
-
-  for (const section of sections) scan(section.dir)
-  return rewrites
+const rewrites: Record<string, string> = {
+  'README.md': 'index.md',
+  ':path(.+)/README.md': ':path/index.md',
 }
 
 // Build sidebar from filesystem
@@ -113,17 +94,17 @@ const sidebar: Record<string, ReturnType<typeof autoSidebar>> = {}
 for (const section of sections) {
   sidebar[`/${section.dir}/`] = autoSidebar(section.dir, section.text)
 }
-if (specsExist) {
-  sidebar['/specs/'] = autoSidebar('specs', 'Specs (Local Only)')
+if (workingExist) {
+  sidebar['/working/'] = autoSidebar('working', 'Working (Local Only)')
 }
 
 export default defineConfig({
   title: 'Innovation Patterns Docs',
   description: 'A cohesive platform for reusable innovation patterns',
-  srcExclude: ['**/specs/**'],
+  srcExclude: ['**/working/**'],
   cleanUrls: true,
   base: '/innovation-patterns-0a90b6/',
-  rewrites: buildRewrites(),
+  rewrites,
 
   themeConfig: {
     nav: [
@@ -132,7 +113,7 @@ export default defineConfig({
         link: `/${s.dir}/`,
         activeMatch: `/${s.dir}/`,
       })),
-      ...(specsExist ? [{ text: 'Specs', link: '/specs/', activeMatch: '/specs/' }] : []),
+      ...(workingExist ? [{ text: 'Working', link: '/working/', activeMatch: '/working/' }] : []),
     ],
 
     sidebar,

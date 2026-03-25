@@ -4,5 +4,5 @@
 # Documentation site
 docs/.vitepress/dist/
 docs/.vitepress/cache/
-docs/specs/
+docs/working/
 docs/node_modules/
