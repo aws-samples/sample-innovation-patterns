@@ -6,3 +6,6 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/working/
 docs/node_modules/
+
+.env
+.venv/

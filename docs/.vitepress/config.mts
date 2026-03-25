@@ -9,10 +9,11 @@ const workingExist = existsSync(resolve(docsDir, 'working'))
 const sections = [
   { text: 'Getting Started', dir: 'getting-started' },
   { text: 'Patterns', dir: 'patterns' },
+  { text: 'Guides', dir: 'guides' },
+  { text: 'Concepts', dir: 'concepts' },
   { text: 'User Docs', dir: 'user-docs' },
   { text: 'Developer', dir: 'developer' },
   { text: 'Infra', dir: 'infra' },
-  { text: 'Guides', dir: 'guides' },
 ]
 
 /**
@@ -94,48 +95,26 @@ function autoSidebar(dir: string, label: string): SidebarItem[] {
   return [{ text: label, items: items.map(({ order, ...rest }) => rest) }]
 }
 
-/**
- * Register sidebar entries for a directory and all its subdirectories,
- * so VitePress shows a sidebar at every nesting level.
- */
-function registerSidebars(sidebar: Record<string, SidebarItem[]>, dir: string, label: string) {
-  const absDir = resolve(docsDir, dir)
-  if (!existsSync(absDir)) return
-
-  sidebar[`/${dir}/`] = autoSidebar(dir, label)
-
-  for (const entry of readdirSync(absDir, { withFileTypes: true })) {
-    if (entry.isDirectory() && !entry.name.startsWith('.')) {
-      const subDir = `${dir}/${entry.name}`
-      const fullPath = join(absDir, entry.name)
-      const subIndex = [join(fullPath, 'README.md'), join(fullPath, 'index.md')]
-        .find(f => existsSync(f))
-      const subLabel = subIndex
-        ? getTitle(subIndex, entry.name)
-        : entry.name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      registerSidebars(sidebar, subDir, subLabel)
-    }
-  }
-}
-
-// Build sidebar from filesystem
+// Build sidebar from filesystem — one key per top-level section
+// so the full tree stays visible when drilling into subdirectories
 const sidebar: Record<string, SidebarItem[]> = {}
 for (const section of sections) {
-  registerSidebars(sidebar, section.dir, section.text)
+  sidebar[`/${section.dir}/`] = autoSidebar(section.dir, section.text)
 }
 if (workingExist) {
-  registerSidebars(sidebar, 'working', 'Working (Local Only)')
+  sidebar['/working/'] = autoSidebar('working', 'Working (Local Only)')
 }
 
 export default defineConfig({
-  title: 'Innovation Patterns Docs',
+  title: 'Innovation Patterns',
   description: 'A cohesive platform for reusable innovation patterns',
   srcExclude: process.env.CI ? ['**/working/**'] : [],
   cleanUrls: true,
-  base: '/innovation-patterns-0a90b6/',
-  rewrites: {
-    'README.md': 'index.md',
-    ':path/README.md': ':path/index.md',
+  base: process.env.CI ? '/innovation-patterns-0a90b6/' : '/',
+  rewrites(id) {
+    if (id === 'README.md') return 'index.md'
+    if (id.endsWith('/README.md')) return id.replace(/README\.md$/, 'index.md')
+    return id
   },
   themeConfig: {
     nav: [
@@ -146,6 +125,8 @@ export default defineConfig({
       })),
       ...(workingExist ? [{ text: 'Working', link: '/working/', activeMatch: '/working/' }] : []),
     ],
+
+    outline: [2, 3],
 
     sidebar,
 
