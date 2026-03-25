@@ -22,6 +22,7 @@ stages:
 # Builds VitePress documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
 pages:
   stage: deploy
+  needs: []
   image: public.ecr.aws/docker/library/node:22-bookworm
   before_script:
     - cd docs
