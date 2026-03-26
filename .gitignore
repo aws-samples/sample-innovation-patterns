@@ -14,5 +14,9 @@ docs/node_modules/
 .venv/
 specs/
 
+.temp/
+.sav/
+.delete/
+
 # IPA generated templates (security-sensitive, not committed)
 infra/cfn/generated/
