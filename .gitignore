@@ -20,3 +20,5 @@ specs/
 
 # IPA generated templates (security-sensitive, not committed)
 infra/cfn/generated/
+
+.secrets.baseline
