@@ -19,16 +19,16 @@ The `.env` file contains exactly seven IPA-managed variables. The agent MUST set
 | `AWS_PROFILE` | Yes | _(none)_ | AWS CLI profile name from `~/.aws/config` |
 | `AWS_REGION` | Yes | `us-east-1` | AWS region for deployments |
 | `AWS_ACCOUNT_ID` | Auto-detect, confirm | _(none)_ | 12-digit AWS account ID |
-| `IPA_NAMESPACE` | Yes | _(none)_ | Project name prefix for stack naming (max 12 chars) |
-| `IPA_ENV` | Yes | `dev` | Environment: `dev`, `staging`, or `prod` |
-| `IPA_CODE_AGENT` | No (auto-set) | `claude-code` | AI agent platform — set automatically, do not prompt |
-| `IPA_IAC` | No (auto-set) | `cloudformation` | Infrastructure-as-code tool — set automatically, do not prompt |
+| `APP_NAMESPACE` | Yes | _(none)_ | Project name prefix for stack naming (max 12 chars) |
+| `APP_ENV` | Yes | `dev` | Environment: `dev`, `staging`, or `prod` |
+| `APP_CODE_AGENT` | No (auto-set) | `claude-code` | AI agent platform — set automatically, do not prompt |
+| `APP_IAC` | No (auto-set) | `cloudformation` | Infrastructure-as-code tool — set automatically, do not prompt |
 
 ### Variable Categories
 
-- **Prompted (4)**: `AWS_PROFILE`, `AWS_REGION`, `IPA_NAMESPACE`, `IPA_ENV` — ask the builder for a value, offer default if one exists.
+- **Prompted (4)**: `AWS_PROFILE`, `AWS_REGION`, `APP_NAMESPACE`, `APP_ENV` — ask the builder for a value, offer default if one exists.
 - **Auto-detected (1)**: `AWS_ACCOUNT_ID` — detect via AWS CLI, present for confirmation, fall back to manual prompt on failure.
-- **Auto-set (2)**: `IPA_CODE_AGENT`, `IPA_IAC` — set silently without prompting. These are fixed for this iteration.
+- **Auto-set (2)**: `APP_CODE_AGENT`, `APP_IAC` — set silently without prompting. These are fixed for this iteration.
 
 ### .env File Format
 
@@ -49,10 +49,10 @@ Example:
 AWS_PROFILE=my-profile
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=123456789012
-IPA_NAMESPACE=myproject
-IPA_ENV=dev
-IPA_CODE_AGENT=claude-code
-IPA_IAC=cloudformation
+APP_NAMESPACE=myproject
+APP_ENV=dev
+APP_CODE_AGENT=claude-code
+APP_IAC=cloudformation
 ```
 
 ---
@@ -66,8 +66,8 @@ You MUST validate every value before writing `.env`. If a value fails validation
 | `AWS_PROFILE` | Non-empty string | "AWS_PROFILE is required — provide your AWS CLI profile name" |
 | `AWS_REGION` | `/^[a-z]{2}-[a-z]+-\d+$/` | "Invalid region format — expected format like us-east-1" |
 | `AWS_ACCOUNT_ID` | `/^\d{12}$/` | "Invalid account ID — must be exactly 12 digits" |
-| `IPA_NAMESPACE` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid namespace — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
-| `IPA_ENV` | One of: `dev`, `staging`, `prod` | "Invalid environment — must be one of: dev, staging, prod" |
+| `APP_NAMESPACE` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid namespace — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
+| `APP_ENV` | One of: `dev`, `staging`, `prod` | "Invalid environment — must be one of: dev, staging, prod" |
 
 ### Validation Behavior
 
@@ -75,7 +75,7 @@ You MUST validate every value before writing `.env`. If a value fails validation
 - On failure: display the error message, explain the constraint, and re-prompt.
 - Do NOT proceed to the next variable until the current value passes validation.
 - Do NOT write `.env` if any value is invalid.
-- `IPA_CODE_AGENT` and `IPA_IAC` are auto-set to fixed values and do not require validation.
+- `APP_CODE_AGENT` and `APP_IAC` are auto-set to fixed values and do not require validation.
 
 ---
 
@@ -116,18 +116,18 @@ Prompt the builder for values in this order. For each prompt, validate the input
    - If auto-detection failed: "Enter your 12-digit AWS Account ID:"
    - Validation: matches `/^\d{12}$/`
 
-4. **IPA_NAMESPACE** _(no default)_
+4. **APP_NAMESPACE** _(no default)_
    - Prompt: "Enter a project namespace (max 12 chars, lowercase letters/digits/hyphens, must start with a letter):"
    - Validation: matches `/^[a-z][a-z0-9-]{0,11}$/`
 
-5. **IPA_ENV** _(default: `dev`)_
+5. **APP_ENV** _(default: `dev`)_
    - Prompt: "Enter the environment (dev, staging, or prod; default: dev):"
    - If the builder presses enter or provides empty input, use `dev`.
    - Validation: one of `dev`, `staging`, `prod`
 
 6. **Auto-set** (do not prompt):
-   - `IPA_CODE_AGENT=claude-code`
-   - `IPA_IAC=cloudformation`
+   - `APP_CODE_AGENT=claude-code`
+   - `APP_IAC=cloudformation`
 
 ### Step 4: Confirmation and Write
 
@@ -140,10 +140,10 @@ Display a summary table of all 7 values before writing:
 │ AWS_PROFILE     │ my-dev-admin     │ prompted      │
 │ AWS_REGION      │ us-east-1        │ default       │
 │ AWS_ACCOUNT_ID  │ 123456789012     │ auto-detected │
-│ IPA_NAMESPACE   │ myproject        │ prompted      │
-│ IPA_ENV         │ dev              │ default       │
-│ IPA_CODE_AGENT  │ claude-code      │ auto-set      │
-│ IPA_IAC         │ cloudformation   │ auto-set      │
+│ APP_NAMESPACE   │ myproject        │ prompted      │
+│ APP_ENV         │ dev              │ default       │
+│ APP_CODE_AGENT  │ claude-code      │ auto-set      │
+│ APP_IAC         │ cloudformation   │ auto-set      │
 └─────────────────┴──────────────────┴───────────────┘
 ```
 
@@ -168,7 +168,7 @@ This flow runs when `.env` already exists and contains at least one KEY=VALUE pa
 
 1. Read the `.env` file line by line.
 2. Separate lines into two groups:
-   - **IPA-managed variables**: `AWS_PROFILE`, `AWS_REGION`, `AWS_ACCOUNT_ID`, `IPA_NAMESPACE`, `IPA_ENV`, `IPA_CODE_AGENT`, `IPA_IAC`
+   - **IPA-managed variables**: `AWS_PROFILE`, `AWS_REGION`, `AWS_ACCOUNT_ID`, `APP_NAMESPACE`, `APP_ENV`, `APP_CODE_AGENT`, `APP_IAC`
    - **Extra lines**: all other lines (other variables, comments, blank lines) — these belong to other tooling and MUST be preserved exactly as-is.
 3. If the file is malformed (e.g., lines with no `=` delimiter that aren't comments or blank), warn the builder: "Some lines in .env appear malformed. Would you like to repair them or keep them as-is?" Offer to fix or preserve.
 
@@ -184,10 +184,10 @@ Current IPA Configuration:
 │ AWS_PROFILE     │ my-dev-admin     │
 │ AWS_REGION      │ us-east-1        │
 │ AWS_ACCOUNT_ID  │ 123456789012     │
-│ IPA_NAMESPACE   │ myproject        │
-│ IPA_ENV         │ dev              │
-│ IPA_CODE_AGENT  │ claude-code      │
-│ IPA_IAC         │ cloudformation   │
+│ APP_NAMESPACE   │ myproject        │
+│ APP_ENV         │ dev              │
+│ APP_CODE_AGENT  │ claude-code      │
+│ APP_IAC         │ cloudformation   │
 └─────────────────┴──────────────────┘
 ```
 
@@ -200,15 +200,15 @@ Ask: "Which values would you like to change? (enter variable names separated by 
 - Only prompt for the variables the builder selects.
 - For each selected variable, show the current value and prompt for a new one.
 - Validate each new value per the Validation Rules section.
-- `IPA_CODE_AGENT` and `IPA_IAC` are auto-set and cannot be changed by the builder.
+- `APP_CODE_AGENT` and `APP_IAC` are auto-set and cannot be changed by the builder.
 
 **Special case — AWS_PROFILE changed**: If the builder changes `AWS_PROFILE`, re-run AWS_ACCOUNT_ID auto-detection using the new profile. Present the new detected value for confirmation. If detection fails, ask if they want to update `AWS_ACCOUNT_ID` manually.
 
 ### Step 4: Re-Compose Warning
 
-If the builder changed `IPA_NAMESPACE` or `IPA_ENV`, display this warning BEFORE confirmation:
+If the builder changed `APP_NAMESPACE` or `APP_ENV`, display this warning BEFORE confirmation:
 
-> **Warning**: You changed `IPA_NAMESPACE` and/or `IPA_ENV`. These values are baked into Makefiles by `/ipa.compose`. You MUST re-run `/ipa.compose` after this update to regenerate Makefiles with the new values.
+> **Warning**: You changed `APP_NAMESPACE` and/or `APP_ENV`. These values are baked into Makefiles by `/ipa.compose`. You MUST re-run `/ipa.compose` after this update to regenerate Makefiles with the new values.
 
 ### Step 5: Confirm and Write
 
@@ -221,10 +221,10 @@ Display a summary of changes only (unchanged values marked as "unchanged"):
 │ AWS_PROFILE     │ my-dev-admin     │ my-prod-admin    │ changed   │
 │ AWS_REGION      │ us-east-1        │ us-east-1        │ unchanged │
 │ AWS_ACCOUNT_ID  │ 123456789012     │ 987654321098     │ changed   │
-│ IPA_NAMESPACE   │ myproject        │ myproject        │ unchanged │
-│ IPA_ENV         │ dev              │ dev              │ unchanged │
-│ IPA_CODE_AGENT  │ claude-code      │ claude-code      │ auto-set  │
-│ IPA_IAC         │ cloudformation   │ cloudformation   │ auto-set  │
+│ APP_NAMESPACE   │ myproject        │ myproject        │ unchanged │
+│ APP_ENV         │ dev              │ dev              │ unchanged │
+│ APP_CODE_AGENT  │ claude-code      │ claude-code      │ auto-set  │
+│ APP_IAC         │ cloudformation   │ cloudformation   │ auto-set  │
 └─────────────────┴──────────────────┴──────────────────┴───────────┘
 ```
 
@@ -266,19 +266,19 @@ Use this exact template:
 # AWS_PROFILE      — Your AWS CLI profile name (from ~/.aws/config)
 # AWS_REGION       — AWS region for deployments (e.g., us-east-1)
 # AWS_ACCOUNT_ID   — 12-digit AWS account ID (auto-detected if AWS CLI available)
-# IPA_NAMESPACE    — Project name prefix for stack naming (max 12 chars,
+# APP_NAMESPACE    — Project name prefix for stack naming (max 12 chars,
 #                    lowercase alphanumeric + hyphens, starts with letter)
-# IPA_ENV          — Environment: dev, staging, or prod
-# IPA_CODE_AGENT   — AI agent platform (auto-set, do not change)
-# IPA_IAC          — Infrastructure-as-code tool (auto-set, do not change)
+# APP_ENV          — Environment: dev, staging, or prod
+# APP_CODE_AGENT   — AI agent platform (auto-set, do not change)
+# APP_IAC          — Infrastructure-as-code tool (auto-set, do not change)
 
 AWS_PROFILE=your-aws-profile
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=000000000000
-IPA_NAMESPACE=myproject
-IPA_ENV=dev
-IPA_CODE_AGENT=claude-code
-IPA_IAC=cloudformation
+APP_NAMESPACE=myproject
+APP_ENV=dev
+APP_CODE_AGENT=claude-code
+APP_IAC=cloudformation
 ```
 
 ### Rules
@@ -313,7 +313,7 @@ After the builder provides `AWS_PROFILE`, check if it exists in `~/.aws/config` 
 
 ### Invalid CloudFormation Stack Name
 
-`IPA_NAMESPACE` is used in stack names via `{namespace}-{env}-{service}`. The validation regex (`/^[a-z][a-z0-9-]{0,11}$/`) already prevents most invalid names, but additionally:
+`APP_NAMESPACE` is used in stack names via `{namespace}-{env}-{service}`. The validation regex (`/^[a-z][a-z0-9-]{0,11}$/`) already prevents most invalid names, but additionally:
 
 - Reject namespaces that start or end with a hyphen.
 - Reject namespaces that contain consecutive hyphens (`--`).

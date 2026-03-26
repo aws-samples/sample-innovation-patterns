@@ -108,11 +108,11 @@ The `cfn-outputs` command enables Makefiles to wire stack outputs as parameters 
 ```makefile
 deploy-lambda: deploy-dynamodb deploy-cognito
 	$(eval TABLE := $(shell uv run deploy cfn-outputs \
-		--stack-name $(NAMESPACE)-$(APP_ENV)-dynamodb --output-key TableName))
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-dynamodb --output-key TableName))
 	$(eval POOL_ARN := $(shell uv run deploy cfn-outputs \
-		--stack-name $(NAMESPACE)-$(APP_ENV)-cognito --output-key UserPoolArn))
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito --output-key UserPoolArn))
 	uv run deploy cfn \
-		--stack-name $(NAMESPACE)-$(APP_ENV)-lambda \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-lambda \
 		--template infra/cfn/lambda.yml \
 		--parameter-overrides TableName=$(TABLE) UserPoolArn=$(POOL_ARN)
 ```
