@@ -7,6 +7,13 @@ global_settings:
     - rule_id: 'B101'
       path: 'utils/tests/*'
       reason: 'assert statements are expected in pytest test files'
+    # Bandit B603/B404: utils is a CLI tool that invokes docker/pytest/ash via subprocess with list args (no shell)
+    - rule_id: 'B603'
+      path: 'utils/*'
+      reason: 'CLI tool uses subprocess with list invocation (no shell) for docker, pytest, and ASH'
+    - rule_id: 'B404'
+      path: 'utils/*'
+      reason: 'subprocess import is required for CLI tool that wraps docker, pytest, and ASH'
     # pygments 2.19.2 is latest available; no patched version released yet
     - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
       path: 'utils/uv.lock'

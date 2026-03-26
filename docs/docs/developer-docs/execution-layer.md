@@ -43,7 +43,7 @@ Three entry points are registered in `utils/pyproject.toml` under `[project.scri
 
 | Entry Point | Module | Commands |
 |---|---|---|
-| `deploy` | `ipa_utils.cli.deploy` | `cfn`, `cfn-delete`, `cfn-outputs`, `cfn-status`, `cfn-events`, `cfn-generate` |
+| `deploy` | `ipa_utils.cli.deploy` | `cfn`, `cfn-delete`, `cfn-outputs`, `cfn-status`, `cfn-events`, `cfn-list`, `cfn-generate` |
 | `build` | `ipa_utils.cli.build` | `docker` |
 | `test` | `ipa_utils.cli.test_cmd` | `unit`, `security`, `cfn-lint` |
 
@@ -123,6 +123,18 @@ deploy-lambda: deploy-dynamodb deploy-cognito
 ```
 
 When `--output-key` is specified, the command prints the raw value only (no key prefix), making it suitable for `$(shell ...)` capture.
+
+### Stack Discovery via cfn-list
+
+The `cfn-list` command discovers all IPA-managed stacks for a namespace and environment by querying the CloudFormation `list_stacks` API and filtering by the `{namespace}-{env}-` prefix:
+
+```bash
+uv run deploy cfn-list --namespace myproject --env dev --format json
+```
+
+Returns a JSON array of stack summaries with `StackName`, `Service`, `StackStatus`, `CreatedTime`, and `UpdatedTime`. The `Service` field is the stack name with the namespace-env prefix stripped (e.g., `myproject-dev-security` becomes `security`).
+
+This enables skills to answer "what's already deployed?" instead of checking each expected stack individually — useful for deployment verification, incremental composition, and teardown operations.
 
 ### Credential Resolution
 

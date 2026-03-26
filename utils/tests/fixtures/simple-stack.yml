@@ -24,6 +24,8 @@ Resources:
             reason: Test fixture - PITR not needed for unit tests
           - id: W74
             reason: Test fixture - KMS CMK not needed for unit tests
+          - id: W28
+            reason: Test fixture - explicit name is intentional for unit tests
     Properties:
       TableName: !Ref TableName
       AttributeDefinitions:

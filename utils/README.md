@@ -27,6 +27,7 @@ This installs all dependencies into `utils/.venv/` and registers the CLI entry p
 | `uv run deploy cfn-outputs` | Retrieve stack outputs |
 | `uv run deploy cfn-status` | Check stack status |
 | `uv run deploy cfn-events` | Read stack events |
+| `uv run deploy cfn-list` | List IPA-managed stacks by namespace |
 | `uv run deploy cfn-generate` | Generate a dynamic CloudFormation template |
 | `uv run build docker` | Build and optionally push a Docker image |
 | `uv run test unit` | Run unit tests |
@@ -116,6 +117,34 @@ uv run deploy cfn-events --stack-name myproject-dev-dynamodb --limit 20 --region
 ```
 
 Prints recent stack events as a table: Timestamp, LogicalResourceId, Status, StatusReason.
+
+### deploy cfn-list — List Managed Stacks
+
+Discover all CloudFormation stacks managed by IPA for a given namespace and environment. Uses the `{namespace}-{env}-{service}` naming convention to identify managed stacks.
+
+```bash
+# Table output
+uv run deploy cfn-list --namespace myproject --env dev --region us-east-1
+
+# JSON output (for programmatic consumption)
+uv run deploy cfn-list --namespace myproject --env dev --format json --region us-east-1
+```
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `--namespace` | Yes | — | IPA project namespace (APP_NAMESPACE) |
+| `--env` | Yes | — | Environment: dev, staging, or prod (APP_ENV) |
+| `--region` | No | AWS_DEFAULT_REGION | AWS region |
+| `--profile` | No | default chain | AWS CLI profile |
+| `--format` | No | text | Output format: `text` (table), `json` |
+
+**Output fields:** StackName, Service (extracted from stack name), StackStatus, CreatedTime, UpdatedTime.
+
+**Behavior:**
+- Queries `list_stacks` API with pagination, filters by `{namespace}-{env}-` prefix
+- Excludes deleted stacks
+- Returns results sorted alphabetically by stack name
+- Exit 0 with informational message if no stacks found
 
 ### deploy cfn-generate — Generate Dynamic Template
 
