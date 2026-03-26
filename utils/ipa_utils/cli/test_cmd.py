@@ -46,7 +46,7 @@ def unit(
         cmd.append("-v")
     if coverage:
         cmd.extend(["--cov", "--cov-report=term-missing"])
-    proc = subprocess.run(cmd)
+    proc = subprocess.run(cmd)  # nosec B603 — list invocation, no shell
     raise SystemExit(proc.returncode)
 
 
@@ -70,7 +70,7 @@ def security(
         cmd.extend(["--output-format", "json"])
 
     info(f"Running ASH security scan on: {target}")
-    proc = subprocess.run(cmd)
+    proc = subprocess.run(cmd)  # nosec B603 — list invocation, no shell
     raise SystemExit(proc.returncode)
 
 

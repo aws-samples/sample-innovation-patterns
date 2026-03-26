@@ -9,7 +9,7 @@ Uses subprocess for Docker CLI operations (KISS — Docker SDK is heavy).
 """
 
 import base64
-import subprocess
+import subprocess  # nosec B404 — subprocess required for Docker CLI operations
 
 import boto3
 import click
@@ -29,7 +29,7 @@ def authenticate_ecr(session: boto3.Session, registry: str) -> None:
     username, password = token.split(":", 1)
     endpoint = auth_data["proxyEndpoint"]
 
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603,B607 — list invocation, docker is a known CLI tool
         ["docker", "login", "--username", username, "--password-stdin", endpoint],
         input=password,
         capture_output=True,
@@ -59,7 +59,7 @@ def build_image(
     cmd.append(context)
 
     info(f"Building image: {tag}")
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd)  # nosec B603,B607 — list invocation, docker is a known CLI tool
     if result.returncode != 0:
         raise click.ClickException(f"Docker build failed (exit {result.returncode})")
     info(f"Image built: {tag}")
@@ -70,13 +70,13 @@ def push_image(tag: str, ecr_repo: str) -> None:
     ecr_tag = f"{ecr_repo}:{tag}"
 
     # Tag for ECR
-    result = subprocess.run(["docker", "tag", tag, ecr_tag])
+    result = subprocess.run(["docker", "tag", tag, ecr_tag])  # nosec B603,B607
     if result.returncode != 0:
         raise click.ClickException(f"Docker tag failed (exit {result.returncode})")
 
     # Push
     info(f"Pushing image: {ecr_tag}")
-    result = subprocess.run(["docker", "push", ecr_tag])
+    result = subprocess.run(["docker", "push", ecr_tag])  # nosec B603,B607
     if result.returncode != 0:
         raise click.ClickException(f"Docker push failed (exit {result.returncode})")
     info(f"Image pushed: {ecr_tag}")

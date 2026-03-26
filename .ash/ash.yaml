@@ -7,3 +7,8 @@ global_settings:
     - rule_id: 'B101'
       path: 'utils/tests/*'
       reason: 'assert statements are expected in pytest test files'
+    # pygments 2.19.2 is latest available; no patched version released yet
+    - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
+      path: 'utils/uv.lock'
+      reason: 'pygments is a dev-only dependency (via pytest), no fix available yet'
+      expiration: '2026-06-26'
