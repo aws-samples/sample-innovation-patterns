@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Test stack for utils unit tests
+Parameters:
+  TableName:
+    Type: String
+    Default: test-table
+Resources:
+  TestTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+Outputs:
+  TableArn:
+    Value: !GetAtt TestTable.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-TableArn"
+  TableName:
+    Value: !Ref TestTable
+    Export:
+      Name: !Sub "${AWS::StackName}-TableName"

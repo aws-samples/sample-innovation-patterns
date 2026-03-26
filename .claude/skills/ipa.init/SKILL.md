@@ -1,5 +1,7 @@
 ---
+name: ipa.init
 description: "Initialize IPA project configuration"
+model: opus
 ---
 
 # /ipa.init — Initialize IPA Project Configuration
