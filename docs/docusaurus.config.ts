@@ -24,12 +24,7 @@ const config: Config = {
       docs: {
         routeBasePath: '/',
         sidebarPath: './sidebars.ts',
-        exclude: [
-          'working/**/research*.md',
-          'working/**/plan.md',
-          'working/**/draft.md',
-          'working/**/outline.md',
-        ],
+
       },
       blog: false,
       theme: {customCss: './src/css/custom.css'},

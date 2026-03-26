@@ -24,6 +24,14 @@ pages:
   stage: deploy
   needs: []
   image: public.ecr.aws/docker/library/node:22-bookworm
+  variables:
+    KUBERNETES_CPU_REQUEST: "2"
+    KUBERNETES_CPU_LIMIT: "2"
+    KUBERNETES_MEMORY_REQUEST: "4Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    KUBERNETES_EPHEMERAL_STORAGE_REQUEST: "4Gi"
+    KUBERNETES_EPHEMERAL_STORAGE_LIMIT: "4Gi"
+    NODE_OPTIONS: "--max-old-space-size=3072"
   before_script:
     - cd docs
     - npm ci
