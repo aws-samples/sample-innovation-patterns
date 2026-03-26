@@ -21,8 +21,12 @@ global_settings:
       expiration: '2026-06-26'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
-      path: 'infra/cfn/cognito/cognito-custom-domain.yml'
+      path: 'infra/cfn/cognito/cognito.yml'
       reason: 'False positive — GenerateSecret: false is a CloudFormation property on AWS::Cognito::UserPoolClient, not a secret value'
+    # AdvancedSecurityMode is already ENFORCED — scanner false positive
+    - rule_id: 'AwsSolutions-COG3'
+      path: 'infra/cfn/cognito/cognito.yml'
+      reason: 'False positive — AdvancedSecurityMode is already set to ENFORCED on the CognitoUserPool resource'
     # DynamoDB PITR not needed for test fixture
     - rule_id: 'AwsSolutions-DDB3'
       path: 'utils/tests/fixtures/*'
