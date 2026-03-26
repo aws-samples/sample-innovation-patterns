@@ -1,66 +1,71 @@
-# Cognito User Pool Tool
+# Cognito User Pool Stack
 
 ## Overview
 
-The `cognito-custom-domain.yml` template creates a Cognito User Pool with OAuth/OIDC support and Hosted UI.
+The `cognito.yml` template creates a Cognito User Pool with OAuth 2.0 Hosted UI, OIDC endpoints, and Managed Login Branding. This is the IPA stack skill template for `ipa.stack.cognito`.
 
-## Usage
+**Stack name convention**: `{APP_NAMESPACE}-{APP_ENV}-cognito`
 
-```python
-# TODO: Update usage... 
-# deploy_cognito_user_pool(
-#     stack_name="my-cognito-stack",
-#     user_pool_name="my-user-pool",
-#     region="us-east-1",
-#     cognito_domain_prefix="myapp-dev-123456789012",
-#     callback_url="https://dxxx.cloudfront.net/authentication/callback",
-#     namespace="myapp"
-# )
+## Deployment
+
+```bash
+uv run deploy cfn \
+  --stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+  --template infra/cfn/cognito/cognito.yml \
+  --parameter-overrides \
+    Namespace=$(APP_NAMESPACE) \
+    Environment=$(APP_ENV) \
+    CallbackURL=http://localhost:8080/authentication/callback \
+    CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(AWS_ACCOUNT_ID)
 ```
+
+No `--capabilities` flag needed — this template does not create IAM roles.
 
 ## Parameters
 
-- `stack_name` (required): CloudFormation stack name
-- `user_pool_name` (required): Name of the User Pool
-- `region` (required): AWS region
-- `profile` (optional): AWS profile name
-- `min_password_length` (optional): Minimum password length (default: 8)
-- `deletion_protection` (optional): "ACTIVE" or "INACTIVE" (default: "INACTIVE")
-- `client_name` (optional): User Pool Client name (basic template only)
-- `namespace` (optional): Logical grouping for related stacks
-- `cognito_domain_prefix` (optional): Cognito Hosted UI domain prefix — triggers custom domain template
-- `callback_url` (optional): OAuth callback URL (default: `http://localhost:8080/authentication/callback`)
-- `create_identity_pool` (optional): Create Identity Pool (default: false)
+| Parameter | Type | Default | Required | Notes |
+|-----------|------|---------|----------|-------|
+| `Namespace` | String | `app` | Yes | 1-12 lowercase alphanumeric + hyphens |
+| `Environment` | String | — | Yes | `dev`, `staging`, or `prod` |
+| `MinPasswordLength` | Number | `8` | No | Range: 8–99 |
+| `DeletionProtection` | String | `INACTIVE` | No | `ACTIVE` or `INACTIVE` |
+| `CallbackURL` | String | `http://localhost:8080/authentication/callback` | No | OAuth callback URL |
+| `CognitoDomainPrefix` | String | — | Yes | Globally unique; must not contain `cognito`, `aws`, `amazon` |
 
 ## Output Mapping
 
 | Output | Description | Frontend Consumer | Backend Consumer |
 |--------|-------------|-------------------|------------------|
 | `UserPoolId` | Cognito User Pool ID | — | — |
-| `UserPoolArn` | Cognito User Pool ARN | — | — |
-| `UserPoolClientId` | App Client ID | `OIDC_CLIENT_ID` (in `config.js`) | `AUTH_AUDIENCE` (env var) |
-| `DiscoveryUrl` | OIDC Discovery URL | — | Agent Core `discovery_url` |
-| `IssuerUrl` | OIDC Issuer URL | `OIDC_AUTHORITY` (in `config.js`) | `AUTH_ISSUER` (env var) |
-| `CognitoDomain` | Cognito domain prefix | — | — |
-| `HostedUIURL` | Login URL | — | — |
-| `LogoutURL` | Logout URL | `OIDC_END_SESSION_ENDPOINT` (optional) | — |
-| `IdentityPoolId` | Identity Pool ID (conditional) | — | — |
+| `UserPoolArn` | Cognito User Pool ARN | — | API Gateway (Cognito Authorizer) |
+| `UserPoolClientId` | App Client ID | `OIDC_CLIENT_ID` | `AUTH_AUDIENCE` (Lambda env var) |
+| `IssuerUrl` | OIDC Issuer URL | `OIDC_AUTHORITY` | `AUTH_ISSUER` (Lambda env var) |
+| `EndSessionEndpoint` | Cognito logout base URL | `OIDC_END_SESSION_ENDPOINT` | — |
+| `HostedUIURL` | Full login URL | — | — |
+| `CognitoDomain` | Domain prefix value | OIDC authority derivation | — |
+| `DiscoveryUrl` | OIDC Discovery URL | — | JWT validation libraries |
+
+## Resources (4)
+
+- `CognitoUserPool` — User Pool with advanced security, admin-only creation
+- `CognitoUserPoolClient` — App Client with OAuth 2.0 authorization code grant
+- `CognitoUserPoolDomain` — Custom domain prefix with Managed Login v2
+- `ManagedLoginBranding` — Managed Login UI branding (depends on domain)
 
 ## Security
 
-- Email auto-verification enabled
-- Advanced security mode enforced
-- `PreventUserExistenceErrors: ENABLED`
-- Standard OIDC scopes: `openid`, `profile`, `email`
-- No MFA by default
-- **Self-registration disabled** — only admins can create users
-
-### Self-Registration Vulnerability
-
-The template sets `AdminCreateUserConfig.AllowAdminCreateUserOnly: true` to disable self-registration. This prevents the "Cognito User Pool Self-Registration Enabled" security finding.
-
-**Do not enable self-registration via Isengard or automated tooling.** If a customer requires self-registration, a human must manually edit the template and set `AllowAdminCreateUserOnly: false` after reviewing the security implications.
+- Advanced Security Mode: **ENFORCED**
+- Self-registration: **Disabled** (AdminCreateUserOnly)
+- User enumeration prevention: **ENABLED** (PreventUserExistenceErrors)
+- OAuth flow: **Authorization Code Grant only** (no implicit grant)
+- OIDC scopes: `openid`, `profile`, `email`
+- No MFA by default (POC scope — mitigated by Advanced Security Mode)
+- No IAM roles in this template (Identity Pool removed from base stack)
 
 ## Limitations
 
-- `cognito_domain_prefix` must be globally unique across all AWS accounts
+- `CognitoDomainPrefix` must be globally unique across all AWS accounts
+- Must not contain reserved words: `cognito`, `aws`, `amazon`
+- Managed Login Branding (`AWS::Cognito::ManagedLoginBranding`) requires AWS commercial regions
+- Token validity is hardcoded: 8h access/ID tokens, 24h refresh tokens
+- Identity Pool is not included — use a separate stack if direct AWS service access is needed from the frontend

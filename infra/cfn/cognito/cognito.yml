@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cognito User Pool with OAuth 2.0 Hosted UI and OIDC endpoints'
+
+Parameters:
+  Namespace:
+    Type: String
+    Default: 'app'
+    Description: 'Namespace prefix for resource names (1-12 lowercase alphanumeric + hyphens)'
+
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
+  MinPasswordLength:
+    Type: Number
+    Default: 8
+    MinValue: 8
+    MaxValue: 99
+    Description: 'Minimum length for user passwords'
+
+  DeletionProtection:
+    Type: String
+    Default: 'INACTIVE'
+    AllowedValues: ['ACTIVE', 'INACTIVE']
+    Description: 'Enable deletion protection for the User Pool'
+
+  CallbackURL:
+    Type: String
+    Default: 'http://localhost:8080/authentication/callback'
+    Description: 'Allowed callback URL for OAuth authentication'
+
+  CognitoDomainPrefix:
+    Type: String
+    # Must NOT contain reserved words: cognito, aws, amazon (Cognito rejects them).
+    Description: 'Domain prefix for Cognito hosted UI (must be globally unique)'
+
+Resources:
+  CognitoUserPool:
+    Type: 'AWS::Cognito::UserPool'
+    Metadata:
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-COG2
+            reason: 'MFA not required — this is a proof-of-concept deployment with admin-only user creation'
+          - id: AwsSolutions-COG3
+            reason: 'AdvancedSecurityMode is already set to ENFORCED — false positive from scanner'
+    Properties:
+      UserPoolName: !Sub '${Namespace}-${Environment}-cognito-user-pool-${AWS::AccountId}-${AWS::Region}'
+      AutoVerifiedAttributes:
+        - email
+      DeletionProtection: !Ref DeletionProtection
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: !Ref MinPasswordLength
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      UserPoolAddOns:
+        AdvancedSecurityMode: ENFORCED
+
+  CognitoUserPoolClient:
+    Type: 'AWS::Cognito::UserPoolClient'
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub '${Namespace}-${Environment}-cognito-client-${AWS::AccountId}-${AWS::Region}'
+      GenerateSecret: false  # pragma: allowlist secret
+      TokenValidityUnits:
+        AccessToken: 'minutes'
+        IdToken: 'minutes'
+        RefreshToken: 'minutes'
+      AccessTokenValidity: 480      # 8 hours
+      IdTokenValidity: 480          # 8 hours
+      RefreshTokenValidity: 1440    # 24 hours
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      # OAuth 2.0 Configuration for managed login
+      AllowedOAuthFlows:
+        - code  # Authorization Code Grant
+      AllowedOAuthScopes:
+        - openid
+        - profile
+        - email
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - !Ref CallbackURL
+        - 'http://localhost:8080/authentication/callback'
+      LogoutURLs:
+        - !Ref CallbackURL
+        - 'http://localhost:8080/authentication/callback'
+        # Root URLs for post-logout redirect (Cognito logout_uri must be registered)
+        - !Join ['', [!Select [0, !Split ['/authentication', !Ref CallbackURL]], '']]
+        - 'http://localhost:8080'
+      SupportedIdentityProviders:
+        - COGNITO  # Cognito User Pool as identity provider
+
+  CognitoUserPoolDomain:
+    Type: 'AWS::Cognito::UserPoolDomain'
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      Domain: !Ref CognitoDomainPrefix
+      ManagedLoginVersion: 2
+
+  ManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    DependsOn: CognitoUserPoolDomain
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientId: !Ref CognitoUserPoolClient
+      UseCognitoProvidedValues: true
+
+Outputs:
+  UserPoolId:
+    Description: 'ID of the Cognito User Pool'
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+
+  UserPoolArn:
+    Description: 'ARN of the Cognito User Pool'
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolArn'
+
+  UserPoolClientId:
+    Description: 'ID of the Cognito User Pool Client'
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+
+  CognitoDomain:
+    Description: 'Cognito User Pool Domain'
+    Value: !Ref CognitoUserPoolDomain
+    Export:
+      Name: !Sub '${AWS::StackName}-CognitoDomain'
+
+  HostedUIURL:
+    Description: 'Cognito Hosted UI Login URL'
+    Value: !Sub 'https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoUserPoolClient}&response_type=code&scope=openid+profile+email&redirect_uri=${CallbackURL}'
+    Export:
+      Name: !Sub '${AWS::StackName}-HostedUIURL'
+
+  EndSessionEndpoint:
+    Description: 'Cognito logout base URL (use as OIDC_END_SESSION_ENDPOINT)'
+    Value: !Sub 'https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/logout'
+    Export:
+      Name: !Sub '${AWS::StackName}-EndSessionEndpoint'
+
+  DiscoveryUrl:
+    Description: 'OIDC Discovery URL (full path with /.well-known/openid-configuration)'
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}/.well-known/openid-configuration'
+    Export:
+      Name: !Sub '${AWS::StackName}-DiscoveryUrl'
+
+  IssuerUrl:
+    Description: 'OIDC Issuer URL (base URL, use as OIDC_AUTHORITY and AUTH_ISSUER)'
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}'
+    Export:
+      Name: !Sub '${AWS::StackName}-IssuerUrl'
