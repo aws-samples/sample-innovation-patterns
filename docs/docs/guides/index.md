@@ -1,3 +1,8 @@
+---
+title: Guides
+sidebar_position: 1
+---
+
 # Guides
 
 Tutorials, how-tos, and walkthroughs.

@@ -1,3 +1,8 @@
+---
+title: Developer Docs
+sidebar_position: 1
+---
+
 # Developer Guide
 
 Resources for contributors and maintainers.

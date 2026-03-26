@@ -19,7 +19,7 @@ stages:
   - deploy
 
 # GitLab Pages deployment job - must be named "pages" to trigger Pages deployment
-# Builds VitePress documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
+# Builds Docusaurus documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
 pages:
   stage: deploy
   needs: []
@@ -28,8 +28,8 @@ pages:
     - cd docs
     - npm ci
   script:
-    - npx vitepress build
-    - mv .vitepress/dist ../public
+    - npx docusaurus build
+    - mv build ../public
   artifacts:
     paths:
       - public

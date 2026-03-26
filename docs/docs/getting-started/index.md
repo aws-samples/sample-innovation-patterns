@@ -1,3 +1,9 @@
+---
+title: Getting Started
+sidebar_position: 1
+slug: /
+---
+
 # Getting Started
 
 Get up and running with Innovation Patterns.

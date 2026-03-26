@@ -1,3 +1,8 @@
+---
+title: Installation
+sidebar_position: 2
+---
+
 # Installation
 
 How to install and set up the project.

@@ -1,3 +1,8 @@
+---
+title: User Docs
+sidebar_position: 1
+---
+
 # User Docs
 
 Documentation for end users.

@@ -1,3 +1,8 @@
+---
+title: Execution Layer
+sidebar_position: 3
+---
+
 # Execution Layer (`utils/`)
 
 The Execution Layer is a set of Python CLI utilities that perform infrastructure operations against AWS. Generated Makefiles invoke these commands via `uv run`. The same commands work identically on a builder's local machine and in CodeBuild CI/CD pipelines.
@@ -44,7 +49,7 @@ Three entry points are registered in `utils/pyproject.toml` under `[project.scri
 
 The `test` entry point maps to `test_cmd.py` (not `test.py`) to avoid a collision with Python's stdlib `test` package.
 
-## Architecture: CLI ↔ Library Separation
+## Architecture: CLI and Library Separation
 
 The codebase enforces a strict boundary between CLI parsing and business logic:
 
@@ -225,7 +230,7 @@ External tools (not Python packages):
 
 ## References
 
-- [utils/README.md](/utils/README.md) — Full CLI reference with all options and examples
-- [utils/CLAUDE.md](/utils/CLAUDE.md) — Agent quick reference
-- [Technical Specification](/.context/aicode-technical.md) — Authoritative CLI interface contract (lines 287–297)
-- [Feature Spec](/docs/working/specs/utils-uv-commands/README.md) — Requirements and scope
+- `utils/README.md` — Full CLI reference with all options and examples
+- `utils/CLAUDE.md` — Agent quick reference
+- `.context/aicode-technical.md` — Authoritative CLI interface contract (lines 287-297)
+- `docs/working/specs/utils-uv-commands/README.md` — Requirements and scope

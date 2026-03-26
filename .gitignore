@@ -5,9 +5,9 @@ __pycache__
 .context/
 
 # Documentation site
-docs/.vitepress/dist/
-docs/.vitepress/cache/
-docs/working/
+docs/build/
+docs/.docusaurus/
+docs/docs/working/
 docs/node_modules/
 
 .env

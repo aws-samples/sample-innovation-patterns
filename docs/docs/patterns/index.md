@@ -1,3 +1,8 @@
+---
+title: Patterns
+sidebar_position: 1
+---
+
 # Patterns
 
 Reusable innovation patterns for building applications.

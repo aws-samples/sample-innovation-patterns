@@ -1,3 +1,8 @@
+---
+title: IPA Concept
+sidebar_position: 2
+---
+
 # Innovation Patterns Agent Concept
 
 The Innovation Patterns Agent (IPA) is a library of composable AI agent skills — namespaced under `/ipa.*` — that automate the deployment of full-stack infrastructure on AWS for consulting engagements [1][2]. IPA delivers three distinct categories of value: it lowers the expertise required to assemble secure cloud solutions by allowing an AI agent to compose preconfigured infrastructure patterns; it accelerates the path to production by generating human-readable deployment artifacts that customers can execute on their own terms; and it certifies security compliance through a Deliverable Security Review (DSR) that evaluates each composed pattern against per-service security standards [9].
