@@ -288,7 +288,12 @@ APP_IAC=cloudformation
 - Default values (`us-east-1`, `dev`) are acceptable as placeholders since they are not sensitive.
 - Auto-set values (`claude-code`, `cloudformation`) are written as-is since they are fixed.
 - `.env.example` is version-controlled (NOT in `.gitignore`).
-- Regenerate on every `/ipa.init` run to ensure the template reflects the current schema.
+- **Section-based update**: On every `/ipa.init` run, update only the `# IPA Project Configuration Template` section. Preserve all other sections (e.g., `# IPA Security Configuration`) in their original positions.
+  1. Read the existing `.env.example` file (if it exists).
+  2. Look for the `# IPA Project Configuration Template` header.
+  3. **If the header exists**: Replace everything from the header through the next blank line or next section header (`# `) with the init template content.
+  4. **If the header does not exist** (new file): Write the init template as the entire file.
+  5. **Preserve all other sections** (e.g., `# IPA Security Configuration`) in their original positions.
 
 ---
 

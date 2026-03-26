@@ -386,7 +386,7 @@ description: "Compose and deploy a {solution description}. Use when the user inv
 ## Prerequisites
 
 - /ipa.init completed (.env exists with IPA project variables)
-- /ipa.security completed (BUILDER_ROLE_ARN set in .env)
+- /ipa.security completed (APP_BUILDER_ROLE_ARN set in .env)
 {- ipa.pattern.{base} deployed (add-on patterns only)}
 
 ## Stack Sequence
