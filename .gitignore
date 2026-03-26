@@ -1,3 +1,6 @@
+__pycache__
+.DS_Store
+
 .vscode/
 .context/
 
@@ -10,3 +13,6 @@ docs/node_modules/
 .env
 .venv/
 specs/
+
+# IPA generated templates (security-sensitive, not committed)
+infra/cfn/generated/
