@@ -8,6 +8,7 @@ Subcommands:
     cfn-outputs  Retrieve stack outputs
     cfn-status   Check stack existence and status
     cfn-events   Read recent stack events
+    cfn-list     List IPA-managed stacks for a namespace and environment
     cfn-generate Generate a dynamic CloudFormation template
 
 CLI parsing only. Business logic in ipa_utils.aws.cloudformation.
@@ -26,6 +27,7 @@ from ipa_utils.aws.cloudformation import (
     get_stack_events,
     get_stack_outputs,
     get_stack_status,
+    list_managed_stacks,
     parse_key_value_pairs,
 )
 from ipa_utils.helpers.output import info, result, table
@@ -177,6 +179,39 @@ def cfn_events(
         for e in events
     ]
     table(headers, rows)
+
+
+@main.command("cfn-list")
+@click.option("--namespace", required=True, help="IPA project namespace (APP_NAMESPACE)")
+@click.option("--env", required=True, help="Environment: dev, staging, or prod (APP_ENV)")
+@click.option("--region", default=None, envvar="AWS_DEFAULT_REGION", help="AWS region")
+@click.option("--profile", default=None, help="AWS CLI profile name")
+@click.option(
+    "--format", "output_format", default="text",
+    type=click.Choice(["text", "json"]),
+    help="Output format",
+)
+def cfn_list(
+    namespace: str,
+    env: str,
+    region: str | None,
+    profile: str | None,
+    output_format: str,
+) -> None:
+    """List IPA-managed stacks for a namespace and environment."""
+    session = get_boto3_session(profile=profile, region=region)
+    stacks = list_managed_stacks(session=session, namespace=namespace, env=env)
+
+    if not stacks:
+        info(f"No stacks found matching '{namespace}-{env}-*'.")
+        return
+
+    if output_format == "json":
+        result(json.dumps(stacks, indent=2))
+    else:
+        headers = ["StackName", "Service", "StackStatus", "CreatedTime", "UpdatedTime"]
+        rows = [[s[h] for h in headers] for s in stacks]
+        table(headers, rows)
 
 
 @main.command("cfn-generate")

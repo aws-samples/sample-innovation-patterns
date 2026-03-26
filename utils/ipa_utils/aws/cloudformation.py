@@ -252,6 +252,65 @@ def get_stack_events(
     ]
 
 
+# Status filter: include all "alive" states (exclude DELETE_COMPLETE)
+ACTIVE_STATES = [
+    "CREATE_COMPLETE",
+    "CREATE_IN_PROGRESS",
+    "CREATE_FAILED",
+    "UPDATE_COMPLETE",
+    "UPDATE_IN_PROGRESS",
+    "UPDATE_ROLLBACK_COMPLETE",
+    "UPDATE_ROLLBACK_IN_PROGRESS",
+    "ROLLBACK_COMPLETE",
+    "ROLLBACK_IN_PROGRESS",
+    "DELETE_IN_PROGRESS",
+    "DELETE_FAILED",
+    "IMPORT_COMPLETE",
+    "IMPORT_IN_PROGRESS",
+    "IMPORT_ROLLBACK_COMPLETE",
+    "IMPORT_ROLLBACK_IN_PROGRESS",
+    "REVIEW_IN_PROGRESS",
+]
+
+
+def list_managed_stacks(
+    session: boto3.Session,
+    namespace: str,
+    env: str,
+) -> list[dict[str, str]]:
+    """List CloudFormation stacks managed by IPA for a namespace and environment.
+
+    Discovers stacks matching the naming convention: {namespace}-{env}-{service}.
+    Uses list_stacks with client-side prefix filtering.
+
+    Returns list of dicts with keys: StackName, Service, StackStatus, CreatedTime, UpdatedTime.
+    """
+    client = session.client("cloudformation")
+    prefix = f"{namespace}-{env}-"
+
+    paginator = client.get_paginator("list_stacks")
+    pages = paginator.paginate(StackStatusFilter=ACTIVE_STATES)
+
+    stacks: list[dict[str, str]] = []
+    for page in pages:
+        for summary in page.get("StackSummaries", []):
+            name = summary["StackName"]
+            if not name.startswith(prefix):
+                continue
+            service = name[len(prefix):]
+            stacks.append({
+                "StackName": name,
+                "Service": service,
+                "StackStatus": summary["StackStatus"],
+                "CreatedTime": str(summary.get("CreationTime", "")),
+                "UpdatedTime": str(summary.get("LastUpdatedTime", "")),
+            })
+
+    # Sort by stack name for deterministic output
+    stacks.sort(key=lambda s: s["StackName"])
+    return stacks
+
+
 def _wait_for_stack(
     client: object,
     stack_name: str,

@@ -7,6 +7,19 @@ Parameters:
 Resources:
   TestTable:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_119
+            comment: Test fixture - KMS CMK not needed for unit tests
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-DDB3
+            reason: Test fixture - PITR not needed for unit tests
+      cfn_nag:
+        rules_to_suppress:
+          - id: W78
+            reason: Test fixture - PITR not needed for unit tests
     Properties:
       TableName: !Ref TableName
       AttributeDefinitions:

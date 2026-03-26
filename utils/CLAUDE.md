@@ -16,6 +16,7 @@ Three entry points in `[project.scripts]`. All invoked as `uv run <command> <sub
 | `uv run deploy cfn-outputs --stack-name X --output-key K` | Get single output value |
 | `uv run deploy cfn-status --stack-name X` | Check stack existence and status |
 | `uv run deploy cfn-events --stack-name X` | Read recent stack events |
+| `uv run deploy cfn-list --namespace X --env Y` | List IPA-managed stacks |
 | `uv run deploy cfn-generate --template-type security ...` | Generate dynamic CFN template |
 
 Common options: `--region`, `--profile`, `--wait/--no-wait`
@@ -44,7 +45,7 @@ utils/
 ├── ipa_utils/                  # Library package — DO NOT rename
 │   ├── __init__.py
 │   ├── cli/                    # CLI entry points (click groups)
-│   │   ├── deploy.py           # deploy command group (cfn, cfn-delete, cfn-outputs, cfn-status, cfn-events, cfn-generate)
+│   │   ├── deploy.py           # deploy command group (cfn, cfn-delete, cfn-outputs, cfn-status, cfn-events, cfn-list, cfn-generate)
 │   │   ├── build.py            # build command group (docker)
 │   │   └── test_cmd.py         # test command group (unit, security, cfn-lint)
 │   ├── aws/                    # AWS service wrappers (boto3)
@@ -61,6 +62,7 @@ utils/
 │   ├── test_deploy_cfn_outputs.py
 │   ├── test_deploy_cfn_status.py
 │   ├── test_deploy_cfn_events.py
+│   ├── test_deploy_cfn_list.py
 │   ├── test_deploy_cfn_generate.py
 │   ├── test_deploy_cli.py      # CLI integration tests
 │   ├── test_build_docker.py

@@ -1,5 +1,6 @@
 """CLI integration tests for deploy commands using CliRunner + moto."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -192,3 +193,64 @@ class TestDeployCfnEventsCLI:
             "--region", "us-east-1",
         ])
         assert result.exit_code != 0
+
+
+class TestDeployCfnListCLI:
+    """CLI tests for deploy cfn-list."""
+
+    @mock_aws
+    def test_lists_stacks_text_format(self, runner):
+        """deploy cfn-list prints matching stacks as a table."""
+        runner.invoke(main, [
+            "cfn",
+            "--stack-name", "ns-dev-security",
+            "--template", str(SIMPLE_STACK_TEMPLATE),
+            "--parameter-overrides", "TableName=table-ns-dev-security",
+            "--region", "us-east-1",
+        ], env={"AWS_DEFAULT_REGION": "us-east-1"})
+
+        result = runner.invoke(main, [
+            "cfn-list",
+            "--namespace", "ns",
+            "--env", "dev",
+            "--region", "us-east-1",
+        ], env={"AWS_DEFAULT_REGION": "us-east-1"})
+
+        assert result.exit_code == 0
+        assert "ns-dev-security" in result.output
+
+    @mock_aws
+    def test_lists_stacks_json_format(self, runner):
+        """deploy cfn-list --format json returns valid JSON array."""
+        runner.invoke(main, [
+            "cfn",
+            "--stack-name", "ns-dev-db",
+            "--template", str(SIMPLE_STACK_TEMPLATE),
+            "--parameter-overrides", "TableName=table-ns-dev-db",
+            "--region", "us-east-1",
+        ], env={"AWS_DEFAULT_REGION": "us-east-1"})
+
+        result = runner.invoke(main, [
+            "cfn-list",
+            "--namespace", "ns",
+            "--env", "dev",
+            "--format", "json",
+            "--region", "us-east-1",
+        ], env={"AWS_DEFAULT_REGION": "us-east-1"})
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert data[0]["StackName"] == "ns-dev-db"
+
+    @mock_aws
+    def test_no_stacks_found(self, runner):
+        """deploy cfn-list with no matches exits 0."""
+        result = runner.invoke(main, [
+            "cfn-list",
+            "--namespace", "empty",
+            "--env", "dev",
+            "--region", "us-east-1",
+        ], env={"AWS_DEFAULT_REGION": "us-east-1"})
+
+        assert result.exit_code == 0
