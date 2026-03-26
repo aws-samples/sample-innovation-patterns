@@ -32,6 +32,3 @@ packages = ["ipa_utils"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[tool.bandit]
-exclude_dirs = ["tests"]
