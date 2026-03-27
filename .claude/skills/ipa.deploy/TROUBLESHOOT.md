@@ -1,0 +1,52 @@
+# Deploy Troubleshooting Guide
+
+Reference file for `/ipa.deploy` — failure catalog for deploy-level issues not covered by CloudFormation event diagnosis. For CloudFormation-specific errors, see [DIAGNOSIS.md](DIAGNOSIS.md).
+
+---
+
+## Make Execution Failures
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `make: command not found` | GNU Make is not installed | macOS: pre-installed. Linux: `sudo apt install make` |
+| `uv: command not found` | uv package manager is not installed | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `make: *** No rule to make target 'deploy'` | `scripts/deploy.mk` is missing or malformed | Run `/ipa.compose` to regenerate deployment artifacts |
+| `make: *** No rule to make target 'build'` | `scripts/build.mk` is missing or malformed | Run `/ipa.compose` to regenerate build artifacts |
+| `-include .env: No such file or directory` | This is a warning, not an error — `-include` silently skips missing files | If `.env` is truly missing, run `/ipa.init`. Otherwise ignore this warning. |
+| `make: *** [deploy-{suffix}] Error 1` | The `uv run` command within the target failed | Read the output above this line for the specific error. If it's a CloudFormation error, use [DIAGNOSIS.md](DIAGNOSIS.md) |
+
+---
+
+## Credential Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `ExpiredTokenException` or `ExpiredToken` | AWS session token has expired | Refresh credentials: re-authenticate with your AWS profile (`aws sso login --profile {AWS_PROFILE}` or equivalent) |
+| `InvalidClientTokenId` | AWS access key is invalid or deactivated | Verify `AWS_PROFILE` in `.env` points to a valid, active profile: `aws configure list --profile {AWS_PROFILE}` |
+| `NoCredentialProviders` or `Unable to locate credentials` | No credentials configured for the profile | Configure credentials for `{AWS_PROFILE}`: `aws configure --profile {AWS_PROFILE}` or set up SSO |
+| `Access Denied` on `sts:GetCallerIdentity` | Profile exists but cannot authenticate | Check that the profile's credentials are current and the IAM user/role is active |
+| `SignatureDoesNotMatch` | Clock skew or corrupted credentials | Sync system clock (`sudo ntpdate pool.ntp.org`), then retry. If persists, reconfigure credentials |
+
+---
+
+## Generic CloudFormation Errors
+
+| Error / State | Cause | Fix |
+|---------------|-------|-----|
+| `ROLLBACK_COMPLETE` | Stack creation failed and rolled back | **Auto-recovery available**: `/ipa.deploy` can delete the stack and retry. Or manually: `uv run --project utils deploy cfn-delete --stack-name {stack}`, then re-run `/ipa.deploy` |
+| `CREATE_FAILED` | A resource within the stack failed to create | Run `uv run --project utils deploy cfn-events --stack-name {stack}` to see which resource failed and why. Classify per [DIAGNOSIS.md](DIAGNOSIS.md) |
+| `UPDATE_ROLLBACK_COMPLETE` | Stack update failed and rolled back to previous state | The stack is in a stable state with the previous configuration. Fix the root cause (check `cfn-events`), then re-run `/ipa.deploy` to retry the update |
+| `DELETE_FAILED` | Stack deletion failed (usually during teardown) | Check `cfn-events` for the blocking resource. Common cause: non-empty S3 buckets or ECR repositories. Empty the resource, then retry teardown |
+| Timeout (60 minutes) | Stack operation exceeded the wait timeout | The stack may still be in progress. Check status: `uv run --project utils deploy cfn-status --stack-name {stack}`. Wait for it to reach a terminal state, then re-run `/ipa.deploy` |
+
+---
+
+## Teardown-Specific Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Cannot delete export {export-name}` | Another stack imports an output from this stack | Delete the dependent stack first. Teardown targets in `deploy.mk` are ordered to prevent this, but manual stack creation outside IPA can introduce unexpected dependencies |
+| `The bucket you tried to delete is not empty` | S3 bucket contains objects | Empty the bucket before deletion: `aws s3 rm s3://{bucket-name} --recursive --profile {AWS_PROFILE}`, then retry teardown |
+| `Repository not empty` or `RepositoryNotEmptyException` | ECR repository contains images | Delete all images first: `aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)" --profile {AWS_PROFILE}`, then retry teardown |
+| Partial teardown (some stacks deleted, others remain) | A stack in the middle of the reverse-order sequence failed to delete | Fix the failing stack (see errors above), then re-run `/ipa.deploy` in teardown mode. Already-deleted stacks will be skipped (they no longer exist) |
+| `Stack [{stack}] does not exist` during teardown | Stack was already deleted (manually or in a previous attempt) | This is safe to ignore. The teardown will continue with remaining stacks |
