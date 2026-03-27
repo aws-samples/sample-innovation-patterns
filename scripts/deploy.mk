@@ -20,7 +20,7 @@ deploy-ecr:
 	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--template infra/cfn/ecr/ecr.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)
+		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
 
 # === TEARDOWN (reverse order) ===
 

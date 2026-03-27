@@ -46,7 +46,7 @@ deploy-{suffix}:
 	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template infra/cfn/{service}.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)
+		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
 ```
 
 Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Contract specifies `CAPABILITY_NAMED_IAM`.
@@ -64,7 +64,7 @@ deploy-{suffix}: deploy-{dep1} deploy-{dep2}
 	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template infra/cfn/{service}.yml \
-		--parameter-overrides {TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2)
+		--parameter-overrides "{TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2)"
 ```
 
 **Wiring translation rules**:
