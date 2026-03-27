@@ -7,6 +7,9 @@ global_settings:
     - rule_id: 'B101'
       path: 'utils/tests/*'
       reason: 'assert statements are expected in pytest test files'
+    - rule_id: 'B101'
+      path: 'app-lib/tests/*'
+      reason: 'assert statements are expected in pytest test files'
     # Bandit B603/B404: utils is a CLI tool that invokes docker/pytest/ash via subprocess with list args (no shell)
     - rule_id: 'B603'
       path: 'utils/*'
@@ -19,6 +22,10 @@ global_settings:
       path: 'utils/uv.lock'
       reason: 'pygments is a dev-only dependency (via pytest), no fix available yet'
       expiration: '2026-06-26'
+    - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
+      path: 'app-lib/uv.lock'
+      reason: 'pygments is a dev-only dependency (via pytest), no fix available yet'
+      expiration: '2026-06-26'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
       path: 'infra/cfn/cognito/cognito.yml'
@@ -27,6 +34,10 @@ global_settings:
     - rule_id: 'AwsSolutions-COG3'
       path: 'infra/cfn/cognito/cognito.yml'
       reason: 'False positive — AdvancedSecurityMode is already set to ENFORCED on the CognitoUserPool resource'
+    # Jinja2 direct use — renders YAML/text templates, not HTML served to a browser; no XSS vector
+    - rule_id: 'python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2'
+      path: 'app-lib/src/app_lib/util/jinja_util.py'
+      reason: 'JinjaUtil renders YAML/text templates for code generation, not HTML served in a browser — no XSS vector'
     # DynamoDB PITR not needed for test fixture
     - rule_id: 'AwsSolutions-DDB3'
       path: 'utils/tests/fixtures/*'
