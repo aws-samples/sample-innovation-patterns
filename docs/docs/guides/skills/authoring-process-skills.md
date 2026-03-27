@@ -1,9 +1,9 @@
 ---
 title: Authoring Process Skills
-sidebar_position: 2
+sidebar_position: 3
 ---
 
-# IPA Process Skill Guidance
+# Authoring Process Skills
 
 This document is the authoritative reference for writing process skills that execute reliably under agent control within the Innovation Patterns Agent (IPA). It is written for skill authors and contributors — technical practitioners already familiar with the IPA ecosystem — who need concrete, actionable guidance on producing skills that the builder executes correctly and consistently.
 

@@ -15,7 +15,7 @@ Read `.env` at the project root. Verify all required IPA variables are present a
 |----------|-------------|------------------|
 | `APP_NAMESPACE` | Stack naming | "Missing `APP_NAMESPACE` in `.env`. Run `/ipa.init` first to configure project defaults." |
 | `APP_ENV` | Stack naming | "Missing `APP_ENV` in `.env`. Run `/ipa.init` first to configure project defaults." |
-| `AWS_REGION` | Runbook, composed skill | "Missing `AWS_REGION` in `.env`. Run `/ipa.init` first to configure project defaults." |
+| `AWS_REGION` | Runbook | "Missing `AWS_REGION` in `.env`. Run `/ipa.init` first to configure project defaults." |
 | `AWS_ACCOUNT_ID` | Runbook | "Missing `AWS_ACCOUNT_ID` in `.env`. Run `/ipa.init` first to configure project defaults." |
 | `AWS_PROFILE` | Runbook | "Missing `AWS_PROFILE` in `.env`. Run `/ipa.init` first to configure project defaults." |
 
@@ -31,33 +31,24 @@ If `.env` does not exist at all: "`.env` not found. Run `/ipa.init` first to con
 
 ---
 
-## V2: Pattern Skill Validation
+## V2: Pattern Validation
 
-For the selected pattern skill at `.claude/skills/ipa.pattern.{name}/SKILL.md`:
-
-### V2.1 Required Sections
-
-Verify these sections exist in the pattern SKILL.md:
-
-- `## Composition Type` — must contain `standalone` (for MVP)
-- `## Stack Sequence` — must contain a numbered list of `ipa.stack.*` references
-
-**Error**: "Pattern skill `ipa.pattern.{name}` is missing required section `{section}`. See the pattern skill authoring guide."
+For the selected pattern at `patterns/{name}/PATTERN.md` (relative to the compose skill directory):
 
 ### V2.2 Stack Sequence Non-Empty
 
 The Stack Sequence must reference at least one stack.
 
-**Error**: "Pattern `ipa.pattern.{name}` references zero stacks. A pattern must compose at least one stack."
+**Error**: "Pattern `patterns/{name}` references zero stacks. A pattern must compose at least one stack."
 
-### V2.3 Related Files
+### V2.3 Required Content
 
-Verify these files exist in the pattern skill directory:
+Verify the following content exists for the pattern:
 
-- `WIRING.md` — structured wiring map
-- `ARCHITECTURE.md` — architecture diagram and summary
+- `## Wiring` section in `PATTERN.md` — structured wiring map
+- `ARCHITECTURE.md` file in the pattern directory — architecture diagram and summary
 
-**Error**: "Pattern skill `ipa.pattern.{name}` is missing `{file}`. This file is required for composition."
+**Error**: "Pattern `patterns/{name}` is missing `{item}`. This is required for composition."
 
 ---
 
@@ -69,7 +60,7 @@ For each stack referenced in the pattern's Stack Sequence:
 
 Verify `.claude/skills/ipa.stack.{service}/SKILL.md` exists.
 
-**Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced by pattern `ipa.pattern.{name}` in step {N} of the Stack Sequence."
+**Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced by pattern `patterns/{name}` in step {N} of the Stack Sequence."
 
 ### V3.2 Required Sections
 
@@ -99,19 +90,19 @@ Collect all service suffixes from all stacks in the pattern. Verify no two stack
 
 ## V4: Wiring Map Validation
 
-Read the pattern's `WIRING.md` and validate each wiring entry:
+Read the `## Wiring` section from the pattern's `PATTERN.md` and validate each wiring entry:
 
 ### V4.1 Source Output Exists
 
 For each wiring entry, verify `source.output` exists in the source stack skill's `## Outputs` table.
 
-**Error**: "Wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. Check WIRING.md entry: `{source}.{output}` → `{target}.{parameter}`."
+**Error**: "Wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. Check PATTERN.md ## Wiring section entry: `{source}.{output}` → `{target}.{parameter}`."
 
 ### V4.2 Target Parameter Exists
 
 For each wiring entry with `target.parameter`, verify it exists in the target stack skill's `## Parameters` table.
 
-**Error**: "Wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. Check WIRING.md entry: `{source}.{output}` → `{target}.{parameter}`."
+**Error**: "Wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. Check PATTERN.md ## Wiring section entry: `{source}.{output}` → `{target}.{parameter}`."
 
 ### V4.3 Exactly One Target
 

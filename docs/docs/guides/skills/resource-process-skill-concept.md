@@ -1,6 +1,6 @@
 ---
 title: Resource Skills vs. Process Skills
-sidebar_position: 3
+sidebar_position: 1
 ---
 
 # Resource Skills vs. Process Skills

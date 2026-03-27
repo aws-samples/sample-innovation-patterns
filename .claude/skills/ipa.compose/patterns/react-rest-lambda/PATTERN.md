@@ -1,15 +1,6 @@
----
-name: ipa-pattern-react-rest-lambda
-description: "Full-stack web application: React frontend, REST API via API Gateway, Lambda compute, DynamoDB storage, Cognito auth, CloudFront CDN."
----
-
-# ipa.pattern.react-rest-lambda
+# Pattern: react-rest-lambda
 
 Full-stack serverless web application pattern. Deploys a React frontend served via CloudFront, REST API through API Gateway, Lambda compute with container images from ECR, DynamoDB for data storage, and Cognito for authentication.
-
-## Composition Type
-
-standalone
 
 ## Stack Sequence
 
@@ -20,6 +11,12 @@ standalone
 ## Teardown Sequence
 
 1. ipa.stack.ecr (suffix: ecr)
+
+## Wiring
+
+wiring: []
+# No wiring entries yet — ECR's downstream consumers (Lambda) don't exist.
+# When Spec 4 (Lambda) is implemented, 2 entries will be added here.
 
 ## Known Deferrals
 

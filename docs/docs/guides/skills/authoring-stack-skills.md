@@ -1,4 +1,9 @@
-# Resource Skill Design and Implementation Guidance
+---
+title: Authoring Stack Skills
+sidebar_position: 5
+---
+
+# Authoring Stack Skills
 
 Resource skills define the infrastructure that the Innovation Patterns Agent (IPA) deploys. They are the nouns of the system — CloudFormation stacks, deployable patterns, security metadata — consumed by process skills that orchestrate the deployment workflow [1]. Because resource skills translate directly into AWS infrastructure, any imprecision in their design produces failures that are difficult to diagnose and expensive to reverse.
 

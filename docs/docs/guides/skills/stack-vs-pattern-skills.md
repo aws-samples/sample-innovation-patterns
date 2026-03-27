@@ -1,6 +1,6 @@
 ---
 title: Stack Skills vs. Pattern Skills
-sidebar_position: 4
+sidebar_position: 2
 ---
 
 # Stack Skills vs. Pattern Skills

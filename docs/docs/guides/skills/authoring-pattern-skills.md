@@ -1,4 +1,9 @@
-# Pattern Skill Authoring Guide
+---
+title: Authoring Pattern Skills
+sidebar_position: 6
+---
+
+# Authoring Pattern Skills
 
 ## Introduction
 

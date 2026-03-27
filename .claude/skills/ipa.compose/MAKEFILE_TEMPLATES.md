@@ -53,7 +53,7 @@ Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Co
 
 ### Per-Stack Deploy Target — With Dependencies and Wiring
 
-For stacks that depend on outputs from other stacks (wiring entries from WIRING.md):
+For stacks that depend on outputs from other stacks (wiring entries from the pattern's `## Wiring` section in PATTERN.md):
 
 ```makefile
 deploy-{suffix}: deploy-{dep1} deploy-{dep2}
@@ -72,7 +72,7 @@ deploy-{suffix}: deploy-{dep1} deploy-{dep2}
 2. Each `target.parameter` → one entry in `--parameter-overrides`
 3. Make dependency prerequisites come from the pattern's Stack Sequence "Depends on" declarations
 4. Variable names in `$(eval)` use UPPER_SNAKE_CASE derived from the output key name
-5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides` — they are documented in the composed skill's Environment Variable Contract only
+5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides` — they are documented in the runbook's Environment Variables section only
 
 ### Aggregate Teardown Target
 

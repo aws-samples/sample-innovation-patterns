@@ -71,7 +71,29 @@ Add conditional prerequisites based on stacks in the pattern:
 
 ---
 
-## Section 4: Security Setup
+## Section 4: Environment Variables
+
+```markdown
+## Environment Variables
+
+The following environment variables are required by the deployed infrastructure. These values are derived from `.env` configuration and pattern wiring entries.
+
+| Variable | Source | Value |
+|----------|--------|-------|
+| APP_REGION | .env | {AWS_REGION} |
+| APP_ENV | .env | {APP_ENV} |
+| APP_NAMESPACE | .env | {APP_NAMESPACE} |
+```
+
+If the pattern has wiring entries with `target.env`, add one row per wired environment variable:
+
+```markdown
+| {ENV_VAR_NAME} | wiring: {source_stack}.{output} | {resolved value from source stack output} |
+```
+
+---
+
+## Section 5: Security Setup
 
 ```markdown
 ## Security Setup
@@ -97,7 +119,7 @@ aws cloudformation deploy \
 
 ---
 
-## Section 5: Build
+## Section 6: Build
 
 ```markdown
 ## Build
@@ -133,7 +155,7 @@ No build step required for this pattern. All resources are CloudFormation-only.
 
 ---
 
-## Section 6: Deployment
+## Section 7: Deployment
 
 ```markdown
 ## Deployment
@@ -169,7 +191,7 @@ make -f scripts/deploy.mk deploy
 
 ---
 
-## Section 7: Verification
+## Section 8: Verification
 
 ```markdown
 ## Verification
@@ -190,7 +212,7 @@ Add pattern-specific verification if applicable (e.g., API Gateway endpoint test
 
 ---
 
-## Section 8: Teardown
+## Section 9: Teardown
 
 ```markdown
 ## Teardown
@@ -213,7 +235,7 @@ Or delete individually in reverse order:
 
 ---
 
-## Section 9: Troubleshooting
+## Section 10: Troubleshooting
 
 Always include these three failure scenarios:
 
