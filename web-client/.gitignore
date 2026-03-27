@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+public/config.js
+public/config.local.js
+public/OidcServiceWorker.js
+
+# Generated API files (regenerate with: npm run codegen)
+# openapi-schema.json and generated.ts are committed — run codegen deliberately
+
+# CI/CD lint reports
+lint-eslint.xml
+eslint-junit.xml
