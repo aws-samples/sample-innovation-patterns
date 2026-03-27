@@ -64,3 +64,14 @@ global_settings:
     - rule_id: 'CKV_OPENAPI_21'
       path: 'web-client/openapi-schema.json'
       reason: 'Out of scope for POC — auto-generated FastAPI schema; API enforces practical limits via capped query params'
+    # Same root cause as CKV_OPENAPI_4 — auto-generated FastAPI schema has no security
+    # operations declared, but runtime auth is enforced by JWTAuthMiddleware
+    - rule_id: 'CKV_OPENAPI_5'
+      path: 'web-client/openapi-schema.json'
+      reason: 'Auto-generated OpenAPI spec has no security operations, but all API endpoints are protected by JWTAuthMiddleware with Cognito JWT validation'
+    # brace-expansion 1.1.13 is the latest v1.x; no fix available.
+    # Transitive dep of @docusaurus/core → serve-handler → minimatch@3, pinned to ^1.
+    - rule_id: 'GHSA-f886-m6hf-6m8v-brace-expansion'
+      path: 'docs/package-lock.json'
+      reason: 'No fix available — 1.1.13 is the latest v1.x release; transitive dep pinned by minimatch@3 in @docusaurus/core'
+      expiration: '2026-06-26'

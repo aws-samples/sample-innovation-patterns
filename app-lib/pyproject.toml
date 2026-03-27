@@ -84,6 +84,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 python-preference = "only-managed"
+# Floor pins for transitive deps with known vulnerabilities (prevents regression on re-lock)
+constraint-dependencies = [
+    "requests>=2.33.0",  # GHSA-gc5v-m9x4-r6x2
+]
 
 [dependency-groups]
 dev = [
