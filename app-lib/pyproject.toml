@@ -1,0 +1,104 @@
+[project]
+name = "app-lib"
+version = "0.1.0"
+description = "The application library for the Innovation Playbook"
+readme = "README.md"
+authors = [
+    { name = "Davide Merlin", email = "damerlin@amazon.com" },
+    { name = "Vincil Bishop", email = "vincilb@amazon.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "boto3>=1.42.19,<2.0.0",
+    "loguru>=0.7.3,<1.0.0",
+    "python-dotenv>=1.2.1,<2.0.0",
+    "pyyaml>=6.0.3,<7.0.0",
+]
+
+[project.scripts]
+app-lib = "app_lib:main"
+
+[project.optional-dependencies]
+agent_mcp_server = [
+    "bedrock-agentcore[strands-agents]>=1.1.2,<2.0.0",
+    "jinja2>=3.1.6,<4.0.0",
+    "mcp>=1.25.0,<2.0.0",
+    "pynamodb>=6.1.0,<7.0.0",
+    "strands-agents>=1.21.0,<2.0.0",
+]
+
+streamlit = [
+    "streamlit>=1.45.0,<2.0.0",
+]
+
+sagemaker = [
+    "pytz>=2024.1",
+    "sagemaker>=2.232.0,<3.0.0",
+]
+
+rest = [
+    "fastapi>=0.115.0,<1.0.0",
+    "pynamodb>=6.1.0,<7.0.0",
+    "PyJWT[crypto]>=2.8.0,<3.0.0",
+    "uvicorn>=0.34.0,<1.0.0",
+]
+
+api_lambda = [
+    "fastapi>=0.115.0,<1.0.0",
+    "pynamodb>=6.1.0,<7.0.0",
+    "PyJWT[crypto]>=2.8.0,<3.0.0",
+    "uvicorn>=0.34.0,<1.0.0",
+]
+
+test = [
+    "pytest>=8.3.0,<9.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+]
+
+all = [
+    "bedrock-agentcore[strands-agents]>=1.1.2,<2.0.0",
+    "jinja2>=3.1.6,<4.0.0",
+    "mcp>=1.25.0,<2.0.0",
+    "pynamodb>=6.1.0,<7.0.0",
+    "pytest>=8.3.0,<9.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    "ruff>=0.14.10,<1.0.0",
+    "sagemaker>=2.232.0,<3.0.0",
+    "streamlit>=1.45.0,<2.0.0",
+    "strands-agents>=1.21.0,<2.0.0",
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn>=0.34.0,<1.0.0",
+    "ipykernel>=7.1.0,<8.0.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-awesome-nav>=3.3.0",
+    "mkdocs-material>=9.7.1",
+    "mkdocstrings-python>=2.0.1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+app_lib = ["assets/**/*.csv", "assets/**/*.json", "assets/**/*.md", "assets/**/*.txt", "assets/**/*.yaml", "assets/**/*.yml"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+python-preference = "only-managed"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10,<1.0.0",
+    "pytest>=8.3.0,<9.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    "ipykernel>=7.1.0,<8.0.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-awesome-nav>=3.3.0",
+    "mkdocs-material>=9.7.1",
+    "mkdocstrings-python>=2.0.1",
+]

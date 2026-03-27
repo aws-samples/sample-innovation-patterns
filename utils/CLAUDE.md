@@ -6,6 +6,8 @@ Python CLI utilities invoked by generated Makefiles via `uv run`. Managed by uv.
 
 Three entry points in `[project.scripts]`. All invoked as `uv run <command> <subcommand>`.
 
+> **From project root**: All commands below assume CWD is `utils/`. When invoking from the project root (skills, Makefiles), add `--project utils`: `uv run --project utils deploy cfn ...`
+
 ### deploy — CloudFormation Stack Operations
 
 | Command | What It Does |

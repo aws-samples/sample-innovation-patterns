@@ -6,7 +6,7 @@ model: opus
 
 # /ipa.init — Initialize IPA Project Configuration
 
-This skill interactively configures a project's `.env` file with the seven IPA-managed variables required by all other IPA skills (`/ipa.security`, `/ipa.compose`, `/ipa.deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding.
+This skill interactively configures a project's `.env` file with the seven IPA-managed variables required by all other IPA skills (`/ipa.security`, `/ipa.compose`, `/ipa.deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding. After configuration, it automatically chains to `/ipa.security` if security infrastructure has not been provisioned.
 
 ---
 
@@ -16,7 +16,7 @@ The `.env` file contains exactly seven IPA-managed variables. The agent MUST set
 
 | Variable | Prompted | Default | Description |
 |----------|----------|---------|-------------|
-| `AWS_PROFILE` | Yes | _(none)_ | AWS CLI profile name from `~/.aws/config` |
+| `AWS_PROFILE` | Yes | `default` | AWS CLI profile name |
 | `AWS_REGION` | Yes | `us-east-1` | AWS region for deployments |
 | `AWS_ACCOUNT_ID` | Auto-detect, confirm | _(none)_ | 12-digit AWS account ID |
 | `APP_NAMESPACE` | Yes | _(none)_ | Project name prefix for stack naming (max 12 chars) |
@@ -101,8 +101,9 @@ Before prompting the builder, attempt to auto-detect `AWS_ACCOUNT_ID`:
 
 Prompt the builder for values in this order. For each prompt, validate the input immediately per the Validation Rules section. If validation fails, show the error message and re-prompt.
 
-1. **AWS_PROFILE** _(no default)_
-   - Prompt: "Enter your AWS CLI profile name (from ~/.aws/config):"
+1. **AWS_PROFILE** _(default: `default`)_
+   - Prompt: "Enter your AWS_PROFILE (default: default):"
+   - If the builder presses enter or provides empty input, use `default`.
    - Validation: non-empty string
    - After receiving a valid value, attempt AWS_ACCOUNT_ID auto-detection (Step 2) if not already done.
 
@@ -117,10 +118,14 @@ Prompt the builder for values in this order. For each prompt, validate the input
    - Validation: matches `/^\d{12}$/`
 
 4. **APP_NAMESPACE** _(no default)_
+   - Before prompting, explain:
+     > **What is a namespace?** The namespace is a short name for your project. IPA uses it to group all your CloudFormation stacks together — every stack name starts with `{namespace}-{env}-`, for example `myapp-dev-cognito`, `myapp-dev-dynamodb`. Choose a short, meaningful name that identifies your application. It must be unique within your AWS account and environment.
    - Prompt: "Enter a project namespace (max 12 chars, lowercase letters/digits/hyphens, must start with a letter):"
    - Validation: matches `/^[a-z][a-z0-9-]{0,11}$/`
 
 5. **APP_ENV** _(default: `dev`)_
+   - Before prompting, explain:
+     > **What is the environment?** The environment tag (`dev`, `staging`, `prod`) is the second segment of every stack name — `{namespace}-{env}-{service}`. It allows multiple copies of the same application to coexist in one AWS account. For example, `myapp-dev-cognito` and `myapp-staging-cognito` are separate, independent stacks. For getting started, `dev` is recommended.
    - Prompt: "Enter the environment (dev, staging, or prod; default: dev):"
    - If the builder presses enter or provides empty input, use `dev`.
    - Validation: one of `dev`, `staging`, `prod`
@@ -263,7 +268,7 @@ Use this exact template:
 # IPA Project Configuration Template
 # Copy to .env and fill in your values: cp .env.example .env
 #
-# AWS_PROFILE      — Your AWS CLI profile name (from ~/.aws/config)
+# AWS_PROFILE      — AWS CLI profile name (default: default)
 # AWS_REGION       — AWS region for deployments (e.g., us-east-1)
 # AWS_ACCOUNT_ID   — 12-digit AWS account ID (auto-detected if AWS CLI available)
 # APP_NAMESPACE    — Project name prefix for stack naming (max 12 chars,
@@ -272,7 +277,7 @@ Use this exact template:
 # APP_CODE_AGENT   — AI agent platform (auto-set, do not change)
 # APP_IAC          — Infrastructure-as-code tool (auto-set, do not change)
 
-AWS_PROFILE=your-aws-profile
+AWS_PROFILE=default
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=000000000000
 APP_NAMESPACE=myproject
@@ -284,7 +289,7 @@ APP_IAC=cloudformation
 ### Rules
 
 - `.env.example` MUST NOT contain real account IDs, profile names, or any environment-specific values.
-- Placeholder values: `your-aws-profile`, `000000000000`, `myproject`.
+- Placeholder values: `default`, `000000000000`, `myproject`.
 - Default values (`us-east-1`, `dev`) are acceptable as placeholders since they are not sensitive.
 - Auto-set values (`claude-code`, `cloudformation`) are written as-is since they are fixed.
 - `.env.example` is version-controlled (NOT in `.gitignore`).
@@ -294,6 +299,21 @@ APP_IAC=cloudformation
   3. **If the header exists**: Replace everything from the header through the next blank line or next section header (`# `) with the init template content.
   4. **If the header does not exist** (new file): Write the init template as the entire file.
   5. **Preserve all other sections** (e.g., `# IPA Security Configuration`) in their original positions.
+
+---
+
+## Step 5: Security Chain
+
+After `.env` and `.env.example` are written, check whether security infrastructure has been provisioned:
+
+1. Read the `.env` file just written.
+2. Check if `APP_BUILDER_ROLE_ARN` is present.
+3. **If `APP_BUILDER_ROLE_ARN` is absent**:
+   - Display: "Security infrastructure has not been provisioned yet. Running `/ipa.security` to set up IAM roles and log bucket..."
+   - Invoke `/ipa.security`.
+4. **If `APP_BUILDER_ROLE_ARN` is present**:
+   - Display: "Initialization complete. Security infrastructure is already configured."
+   - Do not invoke `/ipa.security`.
 
 ---
 

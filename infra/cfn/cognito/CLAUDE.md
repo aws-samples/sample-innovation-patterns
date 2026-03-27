@@ -9,7 +9,7 @@ The `cognito.yml` template creates a Cognito User Pool with OAuth 2.0 Hosted UI,
 ## Deployment
 
 ```bash
-uv run deploy cfn \
+uv run --project utils deploy cfn \
   --stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
   --template infra/cfn/cognito/cognito.yml \
   --parameter-overrides \

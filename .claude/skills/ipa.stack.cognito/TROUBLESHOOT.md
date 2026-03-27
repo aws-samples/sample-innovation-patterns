@@ -25,8 +25,8 @@
 
 ### Stack update fails with "No updates are to be performed"
 
-**Symptom**: `uv run deploy cfn` exits with an error about no updates.
+**Symptom**: `uv run --project utils deploy cfn` exits with an error about no updates.
 
 **Root Cause**: The parameters and template have not changed since the last deployment.
 
-**Recovery**: This is not an error — the stack is already in the desired state. The `uv run deploy cfn` utility handles this gracefully and should not report it as a failure. If it does, the execution layer may need a fix.
+**Recovery**: This is not an error — the stack is already in the desired state. The `uv run --project utils deploy cfn` utility handles this gracefully and should not report it as a failure. If it does, the execution layer may need a fix.

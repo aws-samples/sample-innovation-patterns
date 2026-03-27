@@ -244,11 +244,11 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 2. **Aggregate deploy target**: `deploy: deploy-{sfx1} deploy-{sfx2} ... deploy-{sfxN}` in deployment order.
 3. **Per-stack deploy targets**: For each stack in deployment order:
    - Add Make dependency prerequisites from the Stack Sequence dependencies.
-   - For each wiring entry targeting this stack with `target.parameter`: add a `$(eval)` line to capture the source output via `uv run deploy cfn-outputs`.
-   - Write the `uv run deploy cfn` command with `--stack-name`, `--template`, and `--parameter-overrides`.
+   - For each wiring entry targeting this stack with `target.parameter`: add a `$(eval)` line to capture the source output via `uv run --project utils deploy cfn-outputs`.
+   - Write the `uv run --project utils deploy cfn` command with `--stack-name`, `--template`, and `--parameter-overrides`.
    - Add `--capabilities CAPABILITY_NAMED_IAM` if the stack requires it.
 4. **Aggregate teardown target**: `teardown: teardown-{sfxN} ... teardown-{sfx1}` in reverse deployment order.
-5. **Per-stack teardown targets**: `uv run deploy cfn-delete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
+5. **Per-stack teardown targets**: `uv run --project utils deploy cfn-delete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
 
 **Critical rules**:
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
@@ -262,7 +262,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 Write `scripts/build.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
 Scan each stack skill's `## Build Requirements` section:
-- **Type: container** → generate `build-{function}` target with `uv run build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function}`
+- **Type: container** → generate `build-{function}` target with `uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function}`
 - **Type: frontend** → generate `build-frontend` target with `cd frontend && npm ci && npm run build`
 - **No Build Requirements section** → no target for this stack
 
@@ -275,9 +275,9 @@ If no stacks have build requirements, write a no-op `build` target.
 Write `scripts/test.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
 Always include:
-- `test-unit`: `uv run test unit`
-- `test-security`: `uv run test security`
-- `test-cfn-lint`: one `uv run test cfn-lint --template {path}` per CloudFormation template referenced by stacks in the pattern.
+- `test-unit`: `uv run --project utils test unit`
+- `test-security`: `uv run --project utils test security`
+- `test-cfn-lint`: one `uv run --project utils test cfn-lint --template {path}` per CloudFormation template referenced by stacks in the pattern.
 
 Aggregate target: `test: test-unit test-security test-cfn-lint`.
 

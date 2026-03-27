@@ -43,7 +43,7 @@ For stacks with "Depends on: none" in the Stack Sequence:
 
 ```makefile
 deploy-{suffix}:
-	uv run deploy cfn \
+	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template infra/cfn/{service}.yml \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)
@@ -57,11 +57,11 @@ For stacks that depend on outputs from other stacks (wiring entries from WIRING.
 
 ```makefile
 deploy-{suffix}: deploy-{dep1} deploy-{dep2}
-	$(eval OUTPUT1 := $(shell uv run deploy cfn-outputs \
+	$(eval OUTPUT1 := $(shell uv run --project utils deploy cfn-outputs \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} --output-key {OutputName1}))
-	$(eval OUTPUT2 := $(shell uv run deploy cfn-outputs \
+	$(eval OUTPUT2 := $(shell uv run --project utils deploy cfn-outputs \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} --output-key {OutputName2}))
-	uv run deploy cfn \
+	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template infra/cfn/{service}.yml \
 		--parameter-overrides {TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2)
@@ -88,7 +88,7 @@ List all per-stack teardown targets in REVERSE deployment order (from pattern's 
 
 ```makefile
 teardown-{suffix}:
-	uv run deploy cfn-delete \
+	uv run --project utils deploy cfn-delete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
 ```
 
@@ -125,7 +125,7 @@ When a stack skill's Build Requirements has `Type: container`:
 
 ```makefile
 build-{function-name}:
-	uv run build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function-name}
+	uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function-name}
 ```
 
 ### Build Target — Frontend (S3)
@@ -171,17 +171,17 @@ Generate `scripts/test.mk` using this structure.
 test: test-unit test-security test-cfn-lint
 
 test-unit:
-	uv run test unit
+	uv run --project utils test unit
 
 test-security:
-	uv run test security
+	uv run --project utils test security
 
 test-cfn-lint:
-	uv run test cfn-lint --template infra/cfn/{service1}.yml
-	uv run test cfn-lint --template infra/cfn/{service2}.yml
+	uv run --project utils test cfn-lint --template infra/cfn/{service1}.yml
+	uv run --project utils test cfn-lint --template infra/cfn/{service2}.yml
 ```
 
 **Rules**:
 - `test-unit` and `test-security` are always included regardless of pattern
-- `test-cfn-lint` includes one `uv run test cfn-lint` command per CloudFormation template referenced by stacks in the pattern
+- `test-cfn-lint` includes one `uv run --project utils test cfn-lint` command per CloudFormation template referenced by stacks in the pattern
 - All targets are `.PHONY`

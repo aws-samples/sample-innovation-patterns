@@ -79,7 +79,7 @@ Add conditional prerequisites based on stacks in the pattern:
 Before deploying application stacks, ensure the security stack is deployed:
 ```bash
 # Verify security stack exists
-uv run deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-security
+uv run --project utils deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-security
 ```
 
 Expected status: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
@@ -178,8 +178,8 @@ After deployment, verify all stacks are healthy:
 
 ```bash
 # Check each stack status
-uv run deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix1}
-uv run deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix2}
+uv run --project utils deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix1}
+uv run --project utils deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix2}
 # ... one per stack
 ```
 
@@ -205,7 +205,7 @@ make -f scripts/deploy.mk teardown
 Or delete individually in reverse order:
 
 1. Delete {StackN}: `make -f scripts/deploy.mk teardown-{suffixN}`
-2. Verify: `uv run deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffixN}`
+2. Verify: `uv run --project utils deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffixN}`
    (expected: stack not found)
 3. Delete {StackN-1}: `make -f scripts/deploy.mk teardown-{suffixN-1}`
 {... continue in reverse order}
@@ -226,7 +226,7 @@ Always include these three failure scenarios:
 **Cause**: Initial creation failed; CloudFormation rolled back.
 **Fix**: Delete the failed stack and retry.
 ```bash
-uv run deploy cfn-delete --stack-name {stack-name}
+uv run --project utils deploy cfn-delete --stack-name {stack-name}
 # Wait for deletion, then re-run the deploy target
 ```
 

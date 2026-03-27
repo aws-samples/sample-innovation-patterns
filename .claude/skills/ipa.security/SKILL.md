@@ -44,8 +44,8 @@ Validate every builder-provided value before proceeding. If validation fails, di
 | KMS key ARN | `/^arn:aws:kms:[a-z0-9-]+:\d{12}:key\/[a-f0-9-]+$/` | "Invalid KMS key ARN format" |
 
 Accept all three managed policy formats:
-1. **Short name**: `AdministratorAccess` → resolve to `arn:aws:iam::aws:policy/AdministratorAccess`
-2. **AWS-managed ARN**: `arn:aws:iam::aws:policy/PowerUserAccess` → use as-is
+1. **Short name**: `MyCustomPolicy` → resolve to `arn:aws:iam::aws:policy/MyCustomPolicy`
+2. **AWS-managed ARN**: `arn:aws:iam::aws:policy/ReadOnlyAccess` → use as-is
 3. **Customer-managed ARN**: `arn:aws:iam::123456789012:policy/CustomPolicy` → use as-is
 
 ---
@@ -107,11 +107,17 @@ Prompt the builder:
 
 ## Step 3a: Managed Policy Input
 
-1. Prompt: "Enter the managed policy name or ARN to attach to both execution roles (e.g., `AdministratorAccess`):"
+1. Prompt: "Enter the managed policy name or ARN to attach to both execution roles:"
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
-4. Store the resolved ARN as `ManagedPolicyArn` for template generation.
-5. Proceed to **Step 4: KMS Key Prompt**.
+4. **Broad-access policy warning**: If the resolved policy name (extracted from the ARN path) is `AdministratorAccess` or `PowerUserAccess`, display:
+   > **Security Warning**: `{policy name}` grants broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires before proceeding.
+   >
+   > Proceed with `{policy name}`? (yes to continue, no to enter a different policy):
+   - If the builder confirms: proceed to step 5.
+   - If the builder declines: return to the prompt in step 1 of this section.
+5. Store the resolved ARN as `ManagedPolicyArn` for template generation.
+6. Proceed to **Step 4: KMS Key Prompt**.
 
 ---
 
@@ -171,7 +177,7 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ Setting              │ Value                                           │ Source        │
 ├──────────────────────┼─────────────────────────────────────────────────┼───────────────┤
 │ Path                 │ Managed Policy                                  │ prompted      │
-│ Managed Policy       │ AdministratorAccess                             │ prompted      │
+│ Managed Policy       │ {builder's policy}                              │ prompted      │
 │ Builder Role         │ (will be created)                               │ generated     │
 │ CodeBuild Role       │ (will be created)                               │ generated     │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
@@ -461,11 +467,11 @@ Outputs:
 
 ### 7.1 Deployment Command
 
-Try `uv run deploy cfn` first. If it fails (command not found), fall back to AWS CLI.
+Try `uv run --project utils deploy cfn` first. If it fails (command not found), fall back to AWS CLI.
 
 **Primary** (uv run):
 ```bash
-uv run deploy cfn \
+uv run --project utils deploy cfn \
   --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
   --template infra/cfn/generated/security.yml \
   --parameter-overrides \
@@ -602,7 +608,7 @@ This flow runs when pre-flight checks detect existing security configuration (St
 
 Run:
 ```bash
-uv run deploy cfn-list \
+uv run --project utils deploy cfn-list \
   --namespace {APP_NAMESPACE} \
   --env {APP_ENV} \
   --format text \
@@ -729,5 +735,5 @@ STOP with: "Cannot proceed — `.env` is missing or does not contain IPA project
 - **CloudFormation stack exists but `.env` security block is missing**: Treat as an update scenario. Read stack outputs and re-populate `.env`.
 - **`.env` has security variables but stack doesn't exist**: Warn the builder that the stack may have been manually deleted. Offer to re-deploy or clear `.env` security variables.
 - **Builder provides the same configuration on re-run**: CloudFormation returns "No updates are to be performed" — handle as success per U5.
-- **`uv run deploy cfn` not available**: Fall back to `aws cloudformation deploy` silently. Do not display an error about the uv command.
-- **`cfn-list` unavailable**: If `uv run deploy cfn-list` fails, skip the infrastructure context display and proceed with the security-specific update flow using targeted `describe-stacks` calls. The infrastructure listing is informational, not blocking.
+- **`uv run --project utils deploy cfn` not available**: Fall back to `aws cloudformation deploy` silently. Do not display an error about the uv command.
+- **`cfn-list` unavailable**: If `uv run --project utils deploy cfn-list` fails, skip the infrastructure context display and proceed with the security-specific update flow using targeted `describe-stacks` calls. The infrastructure listing is informational, not blocking.

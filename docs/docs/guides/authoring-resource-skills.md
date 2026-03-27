@@ -846,7 +846,7 @@ Deploy the stack. If it fails, check the error and try again.
 3. If *_COMPLETE: proceed with update.
 4. If *_IN_PROGRESS: wait for completion before proceeding.
 5. Deploy:
-   uv run deploy cfn --stack-name {name} --template template.yml ...
+   uv run --project utils deploy cfn --stack-name {name} --template template.yml ...
 6. Verify: stack status is CREATE_COMPLETE or UPDATE_COMPLETE.
 ```
 
@@ -882,7 +882,7 @@ and you have the necessary permissions to create DynamoDB tables.
 # CORRECT
 - **Template**: template.yml
 - **Stack name**: {APP_NAMESPACE}-{APP_ENV}-ddb
-- **Deploy**: `uv run deploy cfn --stack-name {name} --template template.yml`
+- **Deploy**: `uv run --project utils deploy cfn --stack-name {name} --template template.yml`
 - **Verify**: Stack status is CREATE_COMPLETE or UPDATE_COMPLETE.
 ```
 

@@ -112,11 +112,11 @@ The `cfn-outputs` command enables Makefiles to wire stack outputs as parameters 
 
 ```makefile
 deploy-lambda: deploy-dynamodb deploy-cognito
-	$(eval TABLE := $(shell uv run deploy cfn-outputs \
+	$(eval TABLE := $(shell uv run --project utils deploy cfn-outputs \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-dynamodb --output-key TableName))
-	$(eval POOL_ARN := $(shell uv run deploy cfn-outputs \
+	$(eval POOL_ARN := $(shell uv run --project utils deploy cfn-outputs \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito --output-key UserPoolArn))
-	uv run deploy cfn \
+	uv run --project utils deploy cfn \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-lambda \
 		--template infra/cfn/lambda.yml \
 		--parameter-overrides TableName=$(TABLE) UserPoolArn=$(POOL_ARN)
@@ -129,7 +129,7 @@ When `--output-key` is specified, the command prints the raw value only (no key 
 The `cfn-list` command discovers all IPA-managed stacks for a namespace and environment by querying the CloudFormation `list_stacks` API and filtering by the `{namespace}-{env}-` prefix:
 
 ```bash
-uv run deploy cfn-list --namespace myproject --env dev --format json
+uv run --project utils deploy cfn-list --namespace myproject --env dev --format json
 ```
 
 Returns a JSON array of stack summaries with `StackName`, `Service`, `StackStatus`, `CreatedTime`, and `UpdatedTime`. The `Service` field is the stack name with the namespace-env prefix stripped (e.g., `myproject-dev-security` becomes `security`).
