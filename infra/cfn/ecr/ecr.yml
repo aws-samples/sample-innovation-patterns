@@ -19,6 +19,8 @@ Resources:
     Properties:
       RepositoryName: !Sub '${Namespace}-${Environment}-ecr'
       ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
       EncryptionConfiguration:
         EncryptionType: AES256
 
