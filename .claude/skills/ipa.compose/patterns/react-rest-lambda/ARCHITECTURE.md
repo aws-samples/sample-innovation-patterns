@@ -18,7 +18,7 @@ Layer 0:  [ECR]  [DynamoDB]  [Cognito]  [S3]
 |-------|-------|---------|--------|
 | ipa.stack.ecr | 0 | Container image repository | **Implemented** |
 | ipa.stack.dynamodb | 0 | Data storage with streams | Pending (Spec 2) |
-| ipa.stack.cognito | 0 | Authentication (User Pool, OAuth 2.0) | Pending (Spec 3) |
+| ipa.stack.cognito | 0 | Authentication (User Pool, OAuth 2.0) | **Implemented** |
 | ipa.stack.s3 | 0 | Static asset hosting | Pending (Spec 6) |
 | ipa.stack.lambda-fn | 1 | Buffered request handler | Pending (Spec 4) |
 | ipa.stack.lambda-fn-stream | 1 | DynamoDB stream processor | Pending (Spec 4) |
@@ -29,7 +29,7 @@ Layer 0:  [ECR]  [DynamoDB]  [Cognito]  [S3]
 
 Stacks deploy bottom-up (Layer 0 → 3). Within a layer, stacks have no mutual dependencies and can deploy in parallel. Teardown is reverse order (Layer 3 → 0).
 
-**Current state**: Only Layer 0 (ECR) is implemented. The pattern grows incrementally — each spec adds one or more stacks and the pattern remains deployable at every step.
+**Current state**: Layer 0 stacks ECR and Cognito are implemented. The pattern grows incrementally — each spec adds one or more stacks and the pattern remains deployable at every step.
 
 ## Security Model
 

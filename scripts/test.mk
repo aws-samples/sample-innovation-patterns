@@ -21,3 +21,4 @@ test-security:
 
 test-cfn-lint:
 	uv run --project utils test cfn-lint --template infra/cfn/ecr/ecr.yml
+	uv run --project utils test cfn-lint --template infra/cfn/cognito/cognito.yml

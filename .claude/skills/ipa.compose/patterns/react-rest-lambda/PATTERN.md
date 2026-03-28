@@ -8,9 +8,14 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
    - Depends on: none
    - Suffix: ecr
 
+2. ipa.stack.cognito — Cognito User Pool for authentication
+   - Depends on: none
+   - Suffix: cognito
+
 ## Teardown Sequence
 
-1. ipa.stack.ecr (suffix: ecr)
+1. ipa.stack.cognito (suffix: cognito)
+2. ipa.stack.ecr (suffix: ecr)
 
 ## Wiring
 
