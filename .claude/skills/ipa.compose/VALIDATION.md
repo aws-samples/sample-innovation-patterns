@@ -115,3 +115,57 @@ Each wiring entry must have exactly one of `target.parameter` or `target.env`.
 Verify the dependency graph (derived from wiring) has no cycles.
 
 **Error**: "Circular dependency detected: {cycle_description}. The Stack Sequence must form a directed acyclic graph."
+
+---
+
+## V5: Merge Validation
+
+After merging new stacks or patterns into an existing composition, validate the merged result before generating artifacts. These checks operate on the **combined** composition (base + additions).
+
+### V5.1 No Duplicate Suffixes Across Base + Additions
+
+Collect all service suffixes from the base composition (parsed from `deploy.mk`) and from each new stack being added. Verify no suffix appears more than once across the combined set.
+
+**Check**: For every stack in (base stacks + new stacks), extract the service suffix from its CloudFormation Contract. Confirm all suffixes are unique.
+
+**Error**: "Merge conflict: service suffix `{suffix}` is used by existing stack `ipa.stack.{existing_service}` and new stack `ipa.stack.{new_service}`. Each stack must have a unique service suffix across the entire composition."
+
+### V5.2 No Circular Dependencies in Merged Wiring Graph
+
+Build the full dependency graph from the merged wiring (base wiring + new wiring entries). Verify the graph contains no cycles.
+
+**Check**: Construct a directed graph where each edge represents a wiring dependency (source stack → target stack). Perform a topological sort. If the sort fails, a cycle exists.
+
+**Error**: "Circular dependency detected in merged composition: {cycle_description}. Adding `{new_stacks}` introduces a cycle in the deployment order. Review the wiring between base and new stacks."
+
+### V5.3 All Wired Source Outputs Exist in Stack Skills
+
+For every wiring entry in the merged wiring map, verify the source output name exists in the source stack skill's `## Outputs` table.
+
+**Check**: For each wiring entry `{source}.{output} → {target}.{parameter}`, read `ipa.stack.{source}` SKILL.md and confirm `{output}` appears in its `## Outputs` table.
+
+**Error**: "Merge wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. This wiring entry was produced during merge of `{new_stacks}` into the existing composition."
+
+### V5.4 All Wired Target Parameters Exist in Stack Skills
+
+For every wiring entry in the merged wiring map, verify the target parameter name exists in the target stack skill's `## Parameters` table.
+
+**Check**: For each wiring entry `{source}.{output} → {target}.{parameter}`, read `ipa.stack.{target}` SKILL.md and confirm `{parameter}` appears in its `## Parameters` table.
+
+**Error**: "Merge wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. This wiring entry was produced during merge of `{new_stacks}` into the existing composition."
+
+### V5.5 All Referenced Stack Skills Exist on Disk
+
+Verify that every stack referenced in the merged composition (base + additions) has a corresponding skill directory and SKILL.md on disk.
+
+**Check**: For each stack `ipa.stack.{service}` in the merged stack list, confirm `.claude/skills/ipa.stack.{service}/SKILL.md` exists.
+
+**Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced in the merged composition (base + additions). Ensure the stack skill is installed before composing."
+
+### V5.6 All Referenced CloudFormation Templates Exist on Disk
+
+Verify that every CloudFormation template referenced by stacks in the merged composition exists on disk.
+
+**Check**: For each stack `ipa.stack.{service}` in the merged stack list, extract the template path from its CloudFormation Contract section (typically `infra/cfn/{service}.yml`). Confirm the file exists.
+
+**Error**: "CloudFormation template `{path}` not found on disk. This template is referenced by stack `ipa.stack.{service}` in the merged composition. Ensure the template exists before composing."

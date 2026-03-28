@@ -32,6 +32,61 @@ Use the `.env` variable convention for stack names: `$(APP_NAMESPACE)-$(APP_ENV)
 
 ---
 
+## Section 1a: Added Stacks (Incremental Composition)
+
+> **When to use**: Always include this subsection when stacks are incrementally added to an existing composition (add-stack mode). Repeat the block below for each added stack. This subsection appears after the main architecture content from the base pattern, inside the Architecture section.
+
+```markdown
+### Added Stacks
+
+#### {Stack Name} ({suffix})
+{Auto-generated description from stack skill's first line or description section. 1-2 sentences.}
+
+*Added to {base-pattern} composition on {YYYY-MM-DD}.*
+```
+
+Repeat the `#### {Stack Name} ({suffix})` block for each stack added in the incremental composition. Order matches the deployment order of the newly added stacks.
+
+---
+
+## Section 1b: Unresolved Wiring (Action Required)
+
+> **When to use**: Only include this section when the composition has parameters that could not be auto-wired and partial wiring was accepted by the builder during the interactive confirmation step. Omit entirely when all parameters are fully wired.
+
+```markdown
+### Unresolved Wiring (Action Required)
+
+> **Warning**: The following parameters were not wired during composition and require manual resolution before deployment.
+
+| Stack | Parameter | Description | Resolution Guidance |
+|-------|-----------|-------------|---------------------|
+| {suffix} | {parameter_name} | {description from stack skill} | Wire to a source stack output or provide a static value in deploy.mk |
+```
+
+Add one row per unresolved parameter. The table helps the deploying engineer identify and resolve missing wiring before running `make deploy`.
+
+---
+
+## Section 1c: Added Pattern (Pattern-Level Composition)
+
+> **When to use**: Include this subsection when a builder adds a second (or subsequent) pattern on top of an existing composition (add-pattern mode). This is distinct from add-stack mode — a pattern brings its own architecture narrative, not just individual stacks. This section is appended after the base pattern's architecture content, inside the Architecture section.
+>
+> - The content comes from the added pattern's `patterns/{name}/ARCHITECTURE.md` and is inserted verbatim.
+> - If multiple patterns are added over time, each gets its own "Added Pattern" section, in the order they were added.
+> - This section captures the architectural intent of the added pattern as a whole; individual stack details are already covered by the Stack Summary table and any Added Stacks subsections.
+
+```markdown
+### Added Pattern: {pattern-name}
+
+*Added to {base-pattern} composition on {YYYY-MM-DD}.*
+
+{Full content from the added pattern's ARCHITECTURE.md, inserted verbatim.}
+```
+
+Repeat the `### Added Pattern: {pattern-name}` block for each pattern added to the composition. Order matches the chronological order of addition.
+
+---
+
 ## Section 2: Prerequisites
 
 ```markdown
