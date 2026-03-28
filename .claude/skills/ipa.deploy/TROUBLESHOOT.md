@@ -39,14 +39,3 @@ Reference file for `/ipa.deploy` — failure catalog for deploy-level issues not
 | `DELETE_FAILED` | Stack deletion failed (usually during teardown) | Check `cfn-events` for the blocking resource. Common cause: non-empty S3 buckets or ECR repositories. Empty the resource, then retry teardown |
 | Timeout (60 minutes) | Stack operation exceeded the wait timeout | The stack may still be in progress. Check status: `uv run --project utils deploy cfn-status --stack-name {stack}`. Wait for it to reach a terminal state, then re-run `/ipa.deploy` |
 
----
-
-## Teardown-Specific Errors
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Cannot delete export {export-name}` | Another stack imports an output from this stack | Delete the dependent stack first. Teardown targets in `deploy.mk` are ordered to prevent this, but manual stack creation outside IPA can introduce unexpected dependencies |
-| `The bucket you tried to delete is not empty` | S3 bucket contains objects | Empty the bucket before deletion: `aws s3 rm s3://{bucket-name} --recursive --profile {AWS_PROFILE}`, then retry teardown |
-| `Repository not empty` or `RepositoryNotEmptyException` | ECR repository contains images | Delete all images first: `aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)" --profile {AWS_PROFILE}`, then retry teardown |
-| Partial teardown (some stacks deleted, others remain) | A stack in the middle of the reverse-order sequence failed to delete | Fix the failing stack (see errors above), then re-run `/ipa.deploy` in teardown mode. Already-deleted stacks will be skipped (they no longer exist) |
-| `Stack [{stack}] does not exist` during teardown | Stack was already deleted (manually or in a previous attempt) | This is safe to ignore. The teardown will continue with remaining stacks |

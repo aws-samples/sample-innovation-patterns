@@ -1,22 +1,20 @@
 ---
 name: ipa.deploy
-description: "Deploy or tear down composed infrastructure patterns by executing generated
-  Makefiles. Use when the user says 'deploy', 'tear down', 'delete stacks', or invokes
-  /ipa.deploy."
+description: "Deploy composed infrastructure patterns by executing generated Makefiles.
+  Use when the user says 'deploy', 'stand up', 'create stacks', or invokes /ipa.deploy.
+  For teardown, use /ipa.destroy."
 model: opus
 ---
 
 # /ipa.deploy — Deploy Infrastructure Pattern
 
-This skill executes the deployment of a composed infrastructure pattern by running generated Makefiles. It validates prerequisites, displays a deployment plan, executes the build and deploy phases, verifies stack states, diagnoses failures, and reports results. It also supports teardown as a secondary mode.
+This skill executes the deployment of a composed infrastructure pattern by running generated Makefiles. It validates prerequisites, displays a deployment plan, executes the build and deploy phases, verifies stack states, diagnoses failures, and reports results.
 
 **Prerequisite workflow**: `/ipa.init` → `/ipa.security` → `/ipa.compose` → **`/ipa.deploy`**
 
 ---
 
 ## What This Skill Does
-
-**Deploy mode** (default):
 
 1. Validates prerequisites (.env, Makefiles, AWS credentials, required tools)
 2. Displays a deployment plan via `make -n` (Make dry-run)
@@ -25,23 +23,15 @@ This skill executes the deployment of a composed infrastructure pattern by runni
 5. Verifies deployed stacks reach `*_COMPLETE` status
 6. Reports results with stack outputs, endpoints, and next steps
 
-**Teardown mode** (when builder requests teardown):
-
-1. Validates prerequisites
-2. Displays teardown plan with data loss warnings
-3. Requires double confirmation (including typing the namespace)
-4. Runs `make -f scripts/deploy.mk teardown` (deletes stacks in reverse order)
-5. Verifies all stacks are deleted
-6. Reports results
-
 ## What This Skill Does NOT Do
 
 - Does not read pattern files, stack SKILL.md, or TROUBLESHOOT.md — Makefiles are the only deployment contract
 - Does not generate Makefiles — that's `/ipa.compose`'s job
 - Does not create IAM roles — that's `/ipa.security`'s job
+- Does not tear down infrastructure — use `/ipa.destroy`
 - Does not generate CloudFormation templates — templates are either static (`infra/cfn/`) or generated
 - Does not call AWS APIs directly — delegates to `make` which calls `uv run --project utils deploy cfn`
-- Does not support per-stack targeting — always deploys/tears down the full pattern via aggregate targets
+- Does not support per-stack targeting — always deploys the full pattern via aggregate targets
 - Does not modify `.env` — it is a read-only consumer of configuration
 
 ## Information Sources
@@ -49,7 +39,7 @@ This skill executes the deployment of a composed infrastructure pattern by runni
 | Source | What Deploy Reads | When |
 |--------|------------------|------|
 | `.env` | `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_PROFILE`, `AWS_ACCOUNT_ID`, `APP_BUILDER_ROLE_ARN` | Pre-flight validation |
-| `scripts/deploy.mk` | Target names, deployment order, stack names | Plan display + execution (deploy & teardown) |
+| `scripts/deploy.mk` | Target names, deployment order, stack names | Plan display + execution |
 | `scripts/build.mk` | Target names (may be no-op) | Build phase (always run — Make handles no-op) |
 | `make -n` | Dry-run output showing commands that would execute | Deployment plan display |
 | `uv run --project utils deploy cfn-status` | Stack status | Pre-deploy checks + post-execution verification |
@@ -147,26 +137,7 @@ If **all** checks pass: "Pre-flight validation passed. All prerequisites verifie
 
 ---
 
-## Step 2: Mode Selection
-
-Ask the builder:
-
-```
-What would you like to do?
-
-  1. Deploy — build and deploy all stacks
-  2. Teardown — delete all deployed stacks
-
-Select mode (1 or 2):
-```
-
-Route to the appropriate flow in Step 3.
-
----
-
-## Step 3: Display Plan + Confirmation
-
-### Deploy Mode
+## Step 2: Display Deployment Plan + Confirmation
 
 Run Make dry-run to show exactly what will execute:
 
@@ -188,45 +159,12 @@ Deployment Plan: {APP_NAMESPACE}-{APP_ENV}
 Proceed with deployment? (yes/no):
 ```
 
-- **If confirmed**: proceed to Step 4.
+- **If confirmed**: proceed to Step 3.
 - **If declined**: "Deployment cancelled. No changes were made."
-
-### Teardown Mode
-
-Run Make dry-run for teardown:
-
-```bash
-make -n -f scripts/deploy.mk teardown
-```
-
-Display the teardown plan with explicit data loss warnings:
-
-```
-⚠️  TEARDOWN PLAN: {APP_NAMESPACE}-{APP_ENV}
-
-  Stack                              Action
-  ─────────────────────────────────  ──────
-  {APP_NAMESPACE}-{APP_ENV}-lambda   DELETE
-  {APP_NAMESPACE}-{APP_ENV}-cognito  DELETE
-  {APP_NAMESPACE}-{APP_ENV}-ecr      DELETE
-
-WARNING: This will permanently delete all stacks listed above.
-Stateful resources (ECR repositories with images, DynamoDB tables with data)
-will be destroyed. This action cannot be undone.
-```
-
-**Double confirmation required**:
-
-1. First confirmation: "Are you sure you want to tear down all infrastructure? (yes/no):"
-2. Second confirmation: "Type the namespace `{APP_NAMESPACE}` to confirm:"
-
-Verify the typed value matches `APP_NAMESPACE` exactly. If either confirmation fails, abort: "Teardown cancelled. No stacks were deleted."
-
-If both confirmations pass: proceed to Step 5 (teardown).
 
 ---
 
-## Step 4: Execute Build Phase (Deploy Mode Only)
+## Step 3: Execute Build Phase
 
 Run:
 
@@ -242,9 +180,7 @@ Display Make output as it runs.
 
 ---
 
-## Step 5: Execute
-
-### Deploy Mode
+## Step 4: Execute Deploy
 
 Run:
 
@@ -254,7 +190,7 @@ make -f scripts/deploy.mk deploy
 
 Display Make output as it runs. Each target prints its `uv run` command, providing natural progress indication.
 
-**If deploy succeeds** (exit code = 0): proceed to Step 6.
+**If deploy succeeds** (exit code = 0): proceed to Step 5.
 
 **If deploy fails** (exit code ≠ 0): go to [Failure Diagnosis](#failure-diagnosis).
 
@@ -264,36 +200,9 @@ Display Make output as it runs. Each target prints its `uv run` command, providi
 - `*_COMPLETE` → `UpdateStack`
 - No changes → succeeds silently ("No updates are to be performed")
 
-### Teardown Mode
-
-Run:
-
-```bash
-make -f scripts/deploy.mk teardown
-```
-
-Display Make output as it runs.
-
-**If teardown succeeds** (exit code = 0): proceed to Step 6.
-
-**If teardown partially fails**: Report which stacks were successfully deleted and which remain:
-
-```
-Teardown partially completed:
-
-  ✓ {APP_NAMESPACE}-{APP_ENV}-lambda   — deleted
-  ✗ {APP_NAMESPACE}-{APP_ENV}-cognito  — DELETE_FAILED
-  · {APP_NAMESPACE}-{APP_ENV}-ecr      — not attempted
-
-Check the failed stack for cross-stack references or non-empty resources.
-See TROUBLESHOOT.md for teardown-specific recovery procedures.
-```
-
 ---
 
-## Step 6: Post-Execution Verification
-
-### Deploy Mode
+## Step 5: Post-Deploy Verification
 
 For each stack deployed by `scripts/deploy.mk`, run:
 
@@ -315,21 +224,9 @@ Optionally, run an overview of all managed stacks:
 uv run --project utils deploy cfn-list --namespace {APP_NAMESPACE} --env {APP_ENV}
 ```
 
-### Teardown Mode
-
-For each stack that was in the teardown plan, run:
-
-```bash
-uv run --project utils deploy cfn-status --stack-name {stack-name}
-```
-
-Confirm all return `DOES_NOT_EXIST` or `DELETE_COMPLETE`.
-
 ---
 
-## Step 7: Completion Report
-
-### Deploy Mode
+## Step 6: Completion Report
 
 Display a structured report:
 
@@ -350,28 +247,15 @@ Deployment Complete: {APP_NAMESPACE}-{APP_ENV}
 Next steps:
   • Review deployed resources in the AWS Console
   • Run /ipa.codepipeline to set up CI/CD (optional)
+  • Run /ipa.destroy to tear down infrastructure when no longer needed
   • Re-run /ipa.deploy at any time — it is safe to re-run (idempotent)
-```
-
-### Teardown Mode
-
-```
-Teardown Complete: {APP_NAMESPACE}-{APP_ENV}
-
-  All stacks have been deleted:
-
-  ✓ {APP_NAMESPACE}-{APP_ENV}-lambda   — deleted
-  ✓ {APP_NAMESPACE}-{APP_ENV}-cognito  — deleted
-  ✓ {APP_NAMESPACE}-{APP_ENV}-ecr      — deleted
-
-No infrastructure remains for this pattern.
 ```
 
 ---
 
 ## Failure Diagnosis
 
-When a Make target fails during deployment (Step 5), follow this procedure to diagnose and recover.
+When a Make target fails during deployment (Step 4), follow this procedure to diagnose and recover.
 
 ### 1. Detect the Failed Stack
 
@@ -442,7 +326,3 @@ If connectivity is lost mid-deployment, the current command will fail. Advise th
 1. Check stack status: `uv run --project utils deploy cfn-list --namespace {APP_NAMESPACE} --env {APP_ENV}`
 2. Wait for any `IN_PROGRESS` stacks to reach a terminal state.
 3. Re-run `/ipa.deploy` to complete the deployment.
-
-### Partial Teardown Failure
-
-If teardown fails partway through (e.g., a stack cannot be deleted due to cross-stack references or non-empty resources), report which stacks were deleted and which remain. See [TROUBLESHOOT.md](TROUBLESHOOT.md) for teardown-specific recovery procedures.
