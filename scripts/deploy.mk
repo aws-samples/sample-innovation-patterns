@@ -20,7 +20,7 @@ deploy-cognito:
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) CognitoDomainPrefix=app-dev-login \
 		--no-fail-on-empty-changeset
 
 # === TEARDOWN (reverse order) ===

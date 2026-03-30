@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  DynamoDB table for data persistence. Deploys a single table with
+  configurable partition and sort keys. Part of the react-rest-lambda pattern.
+  One stack per data model — deploy multiple instances for multiple tables.
+
+Parameters:
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace — 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Application namespace (1-12 lowercase alphanumeric + hyphens)'
+
+  Environment:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Must be 1-12 chars, lowercase letters/digits/hyphens, starts with letter'
+    Description: 'Deployment environment'
+
+  TableName:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,29}$'
+    ConstraintDescription: 'Must be 1-30 chars, lowercase letters/digits/hyphens, starts with letter'
+    Description: 'Logical table name (e.g., passengers, jobs)'
+
+  PartitionKey:
+    Type: String
+    Default: pk
+    Description: 'Hash key attribute name'
+
+  SortKey:
+    Type: String
+    Default: sk
+    Description: 'Range key attribute name'
+
+  BillingMode:
+    Type: String
+    Default: PAY_PER_REQUEST
+    AllowedValues: [PAY_PER_REQUEST, PROVISIONED]
+    Description: 'DynamoDB billing mode'
+
+Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Namespace}_${Environment}_${TableName}'
+      KeySchema:
+        - AttributeName: !Ref PartitionKey
+          KeyType: HASH
+        - AttributeName: !Ref SortKey
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: !Ref PartitionKey
+          AttributeType: S
+        - AttributeName: !Ref SortKey
+          AttributeType: S
+      BillingMode: !Ref BillingMode
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: IPA
+
+Outputs:
+  TableArn:
+    Description: 'DynamoDB table ARN for IAM policy scoping'
+    Value: !GetAtt DynamoDBTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TableArn'
+
+  TableName:
+    Description: 'Physical DynamoDB table name for runtime configuration'
+    Value: !Ref DynamoDBTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'

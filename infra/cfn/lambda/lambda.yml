@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Lambda function with container image from ECR, optional DynamoDB access,
+  Bedrock access, and Cognito JWT validation. Deployed as part of the
+  react-rest-lambda pattern — one template, multiple instances (fn, fn-stream).
+
+Parameters:
+  # --- Configuration parameters (sourced from .env or defaults) ---
+
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace - 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Project namespace prefix for resource naming'
+
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
+  FunctionName:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,23}$'
+    ConstraintDescription: 'Must be 1-24 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Logical function name — distinguishes instances (e.g., fn, fn-stream)'
+
+  InvokeMode:
+    Type: String
+    Default: 'BUFFERED'
+    AllowedValues: ['BUFFERED', 'RESPONSE_STREAM']
+    Description: 'Invocation mode — tag and env var only (API Gateway controls actual invocation)'
+
+  MemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: 'Lambda memory allocation in MB'
+
+  Timeout:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 900
+    Description: 'Lambda timeout in seconds'
+
+  LogBucketName:
+    Type: String
+    Default: ''
+    Description: 'S3 bucket for access logs (optional — reserved for future log forwarding)'
+
+  # --- Wirable parameters (required — sourced from upstream stack outputs) ---
+
+  ImageUri:
+    Type: String
+    Description: 'Full ECR image URI including tag (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/repo:latest)'
+
+  AuthIssuer:
+    Type: String
+    Description: 'OIDC issuer URL for JWT validation (from Cognito IssuerUrl output)'
+
+  AuthAudience:
+    Type: String
+    Description: 'OIDC client ID for JWT audience validation (from Cognito UserPoolClientId output)'
+
+  # --- Wirable parameters (optional — only wired when DynamoDB is composed) ---
+
+  DynamoDbTableArns:
+    Type: String
+    Default: ''
+    Description: 'Comma-separated DynamoDB table ARNs for IAM policy scoping (optional — leave empty if no DynamoDB)'
+
+  TableName:
+    Type: String
+    Default: ''
+    Description: 'DynamoDB table name for runtime data access (optional — leave empty if no DynamoDB)'
+
+Conditions:
+  HasDynamoDb: !Not [!Equals [!Ref DynamoDbTableArns, '']]
+
+Resources:
+  # IAM execution role with least-privilege policies for Lambda runtime
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-${FunctionName}-exec'
+      Description: !Sub 'Execution role for ${Namespace}-${Environment}-${FunctionName} Lambda function'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        # DynamoDB CRUD — only created when DynamoDbTableArns is provided
+        - !If
+          - HasDynamoDb
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                    - dynamodb:GetItem
+                    - dynamodb:Query
+                    - dynamodb:Scan
+                    - dynamodb:DeleteItem
+                    - dynamodb:UpdateItem
+                  Resource: !Split [',', !Ref DynamoDbTableArns]
+          - !Ref 'AWS::NoValue'
+        # ECR image pull — explicit for auditability (container-packaged Lambda)
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: '*'
+        # Bedrock model invocation — always included
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-bedrock'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Sub 'Execution role for ${FunctionName} Lambda function'
+
+  # Lambda function with container image packaging
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: LambdaLogGroup
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-${FunctionName}'
+      Description: !Sub '${Namespace} ${Environment} ${FunctionName} — InvokeMode: ${InvokeMode}'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      Environment:
+        Variables:
+          AUTH_ISSUER: !Ref AuthIssuer
+          AUTH_AUDIENCE: !Ref AuthAudience
+          TABLE_NAME: !Ref TableName
+          APP_INVOKE_MODE: !Ref InvokeMode
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: InvokeMode
+          Value: !Ref InvokeMode
+        - Key: Purpose
+          Value: !Sub '${FunctionName} Lambda function for ${Namespace}-${Environment}'
+
+  # CloudWatch log group — created before the function to control retention
+  LambdaLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Namespace}-${Environment}-${FunctionName}'
+      RetentionInDays: 30
+
+Outputs:
+  FunctionArn:
+    Description: 'Lambda function ARN — used by API Gateway integration'
+    Value: !GetAtt LambdaFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'
+
+  FunctionName:
+    Description: 'Lambda function name — used for invoke commands and monitoring'
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionName'
+
+  ExecutionRoleArn:
+    Description: 'Lambda execution role ARN — used for security auditing'
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ExecutionRoleArn'
