@@ -174,6 +174,58 @@ aws cloudformation deploy \
 
 ---
 
+## Section 5a: Prepare (One-Time Prerequisites)
+
+> **Always include** this section since prepare.mk is always generated. When no prepare stacks exist, write: "No prepare prerequisites for this pattern." and omit the table, verify, and teardown subsections.
+
+```markdown
+## Prepare (One-Time)
+
+> Run once before first deployment. Re-run when prepare targets change
+> (e.g., new stack added to the pattern).
+
+```bash
+make -f scripts/prepare.mk prepare
+```
+
+### What This Deploys
+
+| Stack | Service | Stack Name |
+|-------|---------|------------|
+```
+
+Populate the table from prepare stacks (one row per prepare stack).
+
+```markdown
+
+### Verify Prepare Stacks
+
+```bash
+uv run --project utils deploy cfn-status --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
+```
+
+Expected status: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
+
+### When to Re-Run
+
+- After adding new stacks that require prepare infrastructure
+- After changing prepare stack parameters
+- NOT needed on every deployment — prepare stacks persist across deploy/destroy cycles
+
+### Teardown (Manual Only)
+
+Prepare stacks are NOT deleted by the standard teardown process. To manually remove:
+
+```bash
+make -f scripts/prepare.mk teardown-prepare
+```
+
+> **Warning**: Tearing down prepare stacks (e.g., ECR) may require emptying
+> the resource first (e.g., deleting all container images from ECR).
+```
+
+---
+
 ## Section 6: Build
 
 ```markdown

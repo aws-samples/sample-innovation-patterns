@@ -3,7 +3,6 @@
 #
 # Usage:
 #   make -f scripts/deploy.mk deploy           # Deploy all stacks
-#   make -f scripts/deploy.mk deploy-ecr       # Deploy single stack
 #   make -f scripts/deploy.mk deploy-cognito   # Deploy single stack
 #   make -f scripts/deploy.mk teardown         # Delete all stacks (reverse order)
 #
@@ -13,15 +12,9 @@
 
 -include .env
 
-.PHONY: deploy deploy-ecr deploy-cognito teardown teardown-ecr teardown-cognito
+.PHONY: deploy deploy-cognito teardown teardown-cognito
 
-deploy: deploy-ecr deploy-cognito
-
-deploy-ecr:
-	uv run --project utils deploy cfn \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--template infra/cfn/ecr/ecr.yml \
-		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
+deploy: deploy-cognito
 
 deploy-cognito:
 	uv run --project utils deploy cfn \
@@ -31,12 +24,8 @@ deploy-cognito:
 
 # === TEARDOWN (reverse order) ===
 
-teardown: teardown-cognito teardown-ecr
+teardown: teardown-cognito
 
 teardown-cognito:
 	uv run --project utils deploy cfn-delete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito
-
-teardown-ecr:
-	uv run --project utils deploy cfn-delete \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr

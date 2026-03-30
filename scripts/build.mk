@@ -3,6 +3,7 @@
 #
 # Usage:
 #   make -f scripts/build.mk build          # Build all artifacts
+#   make -f scripts/build.mk build-{target} # Build single artifact
 
 -include .env
 

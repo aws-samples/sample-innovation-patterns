@@ -33,6 +33,7 @@ This skill tears down a composed infrastructure pattern by executing the teardow
 - Does not read stack SKILL.md files — Makefiles are the only deployment contract
 - Does not call AWS APIs directly — delegates to `make` which calls `uv run --project utils deploy cfn-delete`
 - Does not delete the security stack — security infrastructure is managed by `/ipa.security`
+- Does not delete prepare stacks (ECR, etc.) — prepare infrastructure is managed separately. To tear down prepare stacks manually: `make -f scripts/prepare.mk teardown-prepare`
 - Does not support per-stack targeting — always tears down the full pattern via the aggregate target
 - Does not modify `.env` — it is a read-only consumer of configuration
 
@@ -281,6 +282,9 @@ Destroy Complete: {APP_NAMESPACE}-{APP_ENV}
 
 Note: Security stack {APP_NAMESPACE}-{APP_ENV}-security is preserved.
 To remove security infrastructure, use /ipa.security.
+
+Note: Prepare stacks (scripts/prepare.mk) are preserved.
+To remove prepare infrastructure: make -f scripts/prepare.mk teardown-prepare
 
 Re-run /ipa.destroy at any time — it is safe to re-run (idempotent).
 ```

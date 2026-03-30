@@ -9,14 +9,14 @@ model: opus
 
 # /ipa.compose — Compose Deployment Pattern
 
-This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates five executable artifacts: three Makefiles (deploy, build, test), an infrastructure runbook, and a security disposition register.
+This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates six executable artifacts: four Makefiles (prepare, deploy, build, test), an infrastructure runbook, and a security disposition register.
 
 Supports three composition modes:
 - **Fresh compose**: Select a pattern, generate all artifacts (existing behavior)
 - **Add stacks**: Add one or more stacks to an existing composition with auto-inferred wiring
 - **Add pattern**: Layer an additional pattern onto an existing composition (expands to add-stacks)
 
-**Prerequisite workflow**: `/ipa.init` → `/ipa.security` → **`/ipa.compose`** → `/ipa.deploy`
+**Prerequisite workflow**: `/ipa.init` → `/ipa.security` → **`/ipa.compose`** → `/ipa.prepare` → `/ipa.deploy`
 
 ---
 
@@ -132,6 +132,18 @@ Read `scripts/deploy.mk` line by line and extract the current composition state:
 6. If `scripts/deploy.mk` is empty or contains no recognizable deploy targets: treat as no existing composition, set `existing_composition = false`, and return to Step 0.3.
 
 Store the parsed composition state (base pattern, stacks, deploy order, wiring, teardown order) for use in subsequent steps.
+
+#### Prepare Stack Recovery
+
+If `scripts/prepare.mk` exists and is non-empty:
+
+1. Find `prepare:` aggregate target line and extract `prepare-{suffix}` prerequisites — these are the prepare-classified stacks.
+2. For each `prepare-{suffix}:` target, extract the template path from `--template {path}`.
+3. Store the prepare stack suffixes in the parsed composition state as `prepare_stacks`.
+
+If `scripts/prepare.mk` does not exist or is empty, set `prepare_stacks = []`.
+
+**Usage**: During merge (Step 0.6), stacks already in `prepare_stacks` retain their prepare classification. New stacks get classification from their pattern's Stack Sequence annotation.
 
 ---
 
@@ -254,6 +266,8 @@ Build the merged deployment order:
    - If a new stack depends on another new stack that is not in the add list: ERROR — "Stack `ipa.stack.{name}` depends on `ipa.stack.{dep}`, which is neither in the existing composition nor being added."
 
 4. **Detect circular dependencies**: After ordering, verify no circular dependency exists among the new stacks. If found: ERROR — "Circular dependency detected: {stack-a} → {stack-b} → ... → {stack-a}."
+
+**Prepare classification for merged stacks**: If a new stack is being added from a pattern (Step 0.6.0) and that pattern's Stack Sequence marks the stack as `(prepare)`, the stack retains its prepare classification in the merged composition. The prepare classification affects which Makefile the stack's target appears in (prepare.mk vs deploy.mk) but does NOT affect the merge ordering logic — prepare stacks are ordered among themselves, deploy stacks among themselves.
 
 #### 0.6.4: Compute Merged Teardown Order
 
@@ -390,7 +404,6 @@ Read `.env` at the project root. Verify these variables exist and are non-empty:
 | `AWS_REGION` | `/ipa.init` |
 | `AWS_ACCOUNT_ID` | `/ipa.init` |
 | `AWS_PROFILE` | `/ipa.init` |
-| `APP_BUILDER_ROLE_ARN` | `/ipa.security` |
 
 Run validation procedure V1 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
@@ -432,8 +445,9 @@ Read the selected pattern's files from `patterns/{name}/`:
 
 Extract these sections:
 
-- **Stack Sequence**: Numbered list of `ipa.stack.{service}` references with dependency declarations. Extract: stack names, deployment order, dependencies.
-- **Teardown Sequence**: Reverse-order list for teardown targets.
+- **Stack Sequence**: Numbered list of `ipa.stack.{service}` references with dependency declarations. Extract: stack names, deployment order, dependencies, and **lifecycle classification**.
+  - **Parse `(prepare)` annotation**: The `(prepare)` token is optional and appears between the stack skill name and the em-dash description separator. Match pattern: `ipa.stack.{service}\s*(\(prepare\))?\s*—`. If `(prepare)` is present, set `lifecycle = "prepare"` for that stack; otherwise set `lifecycle = "deploy"`. This classification determines which Makefile receives the stack's targets (prepare.mk vs deploy.mk).
+- **Teardown Sequence**: Reverse-order list for teardown targets. Note: prepare-classified stacks are excluded from the Teardown Sequence — their teardown targets live in prepare.mk.
 - **Known Deferrals** (optional): List of security deferrals for the disposition register.
 
 #### 3.2 Wiring (from PATTERN.md)
@@ -489,10 +503,11 @@ Composition Summary: {pattern_name}
 Project: {APP_NAMESPACE} | Environment: {APP_ENV} | Region: {AWS_REGION}
 
 Stack Inventory:
-  | Stack | Suffix | Template |
-  |-------|--------|----------|
-  | ipa.stack.{svc1} | {sfx1} | infra/cfn/{svc1}.yml |
-  | ... | ... | ... |
+  | Stack | Suffix | Template | Lifecycle |
+  |-------|--------|----------|-----------|
+  | ipa.stack.{svc1} | {sfx1} | infra/cfn/{svc1}.yml | prepare |
+  | ipa.stack.{svc2} | {sfx2} | infra/cfn/{svc2}.yml | deploy |
+  | ... | ... | ... | ... |
 
 Deployment Order:
   1. {APP_NAMESPACE}-{APP_ENV}-{sfx1} — depends on: none
@@ -507,6 +522,7 @@ Parameter Wiring:
   | ... | ... | ... | ... |
 
 Artifacts to generate:
+  - scripts/prepare.mk                          (prepare Makefile — always generated)
   - scripts/deploy.mk
   - scripts/build.mk
   - scripts/test.mk
@@ -533,6 +549,8 @@ Ask: "Generate these artifacts? (yes to proceed, no to cancel):"
 
 **Input**: The full composition — either from a fresh pattern (Phase 1) or a merged composition (Phase 0). The generation logic below is identical regardless of input source.
 
+**Before generating deploy.mk**, filter the stack list: include only stacks with `lifecycle = "deploy"`. Stacks with `lifecycle = "prepare"` are excluded from deploy.mk entirely — they appear in prepare.mk (generated in Step 6a). This filtering affects the aggregate `deploy:` target, per-stack `deploy-{suffix}` targets, the aggregate `teardown:` target, per-stack `teardown-{suffix}` targets, and the `.PHONY` declaration.
+
 Create `scripts/` directory if it does not exist. Write `scripts/deploy.mk`.
 
 Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. Generate:
@@ -553,6 +571,38 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
 - All targets are `.PHONY`.
 - Teardown is in exact reverse of deployment order.
+
+---
+
+### Step 6a: Generate prepare.mk
+
+Always generate `scripts/prepare.mk`. Filter the stack list to include only stacks with `lifecycle = "prepare"`.
+
+**If zero stacks have prepare lifecycle**: Write a no-op prepare.mk with the header block and a no-op target:
+```makefile
+prepare:
+	@echo "No prepare targets for this pattern"
+```
+
+**If one or more stacks have prepare lifecycle**: Write the full prepare.mk.
+
+Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generate:
+
+1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
+2. **Aggregate prepare target**: `prepare: prepare-{sfx1} prepare-{sfx2} ...` in deployment order (filtered to prepare stacks).
+3. **Per-stack prepare targets**: For each prepare stack in deployment order:
+   - Add Make dependency prerequisites (only against other prepare stacks).
+   - For wiring entries between prepare stacks: add `$(eval)` lines.
+   - Write the `uv run --project utils deploy cfn` command.
+   - Add `--capabilities CAPABILITY_NAMED_IAM` if required.
+4. **Aggregate teardown target**: `teardown-prepare: teardown-{sfxN} ... teardown-{sfx1}` in reverse order.
+5. **Per-stack teardown targets**: `uv run --project utils deploy cfn-delete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
+
+**Critical rules**:
+- Same naming/variable conventions as deploy.mk
+- All targets are `.PHONY`
+- Teardown is in exact reverse of prepare deployment order
+- Teardown comment: `# === TEARDOWN (manual only — never auto-deleted by /ipa.destroy) ===`
 
 ---
 
@@ -657,11 +707,12 @@ Display a structured report:
 Composition Complete: {pattern_name}
 
 Generated artifacts:
-  ✓ scripts/deploy.mk                         (deployment Makefile)
-  ✓ scripts/build.mk                          (build Makefile)
-  ✓ scripts/test.mk                           (test Makefile)
-  ✓ docs/infra/runbook.md                     (customer deployment guide)
-  ✓ docs/infra/security-disposition.md         (security disposition register)
+  ✓ scripts/prepare.mk                         (prepare Makefile — run once)
+  ✓ scripts/deploy.mk                          (deployment Makefile)
+  ✓ scripts/build.mk                           (build Makefile)
+  ✓ scripts/test.mk                            (test Makefile)
+  ✓ docs/infra/runbook.md                      (customer deployment guide)
+  ✓ docs/infra/security-disposition.md          (security disposition register)
 
 Summary:
   Stacks composed: {N} ({N_existing} existing + {N_new} new)
@@ -673,6 +724,7 @@ Summary:
 Next steps:
   • Review generated artifacts
   • Run `make -f scripts/test.mk test-cfn-lint` to validate templates
+  • Run `/ipa.prepare` to deploy one-time prerequisites (ECR, etc.)
   • Run `/ipa.security` to update IAM roles for new stacks (if stacks were added)
   • Run `/ipa.deploy` to deploy the composed pattern
 ```

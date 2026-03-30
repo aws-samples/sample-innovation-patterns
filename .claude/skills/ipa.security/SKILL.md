@@ -111,11 +111,9 @@ Prompt the builder:
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
 4. **Broad-access policy warning**: If the resolved policy name (extracted from the ARN path) is `AdministratorAccess` or `PowerUserAccess`, display:
-   > **Security Warning**: `{policy name}` grants broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires before proceeding.
-   >
-   > Proceed with `{policy name}`? (yes to continue, no to enter a different policy):
-   - If the builder confirms: proceed to step 5.
-   - If the builder declines: return to the prompt in step 1 of this section.
+   > **Security Warning**: AdministratorAccess and PowerUserAccess grant broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires.
+
+   Then proceed to step 5 (no confirmation prompt).
 5. Store the resolved ARN as `ManagedPolicyArn` for template generation.
 6. Proceed to **Step 4: KMS Key Prompt**.
 

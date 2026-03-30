@@ -4,7 +4,7 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 
 ## Stack Sequence
 
-1. ipa.stack.ecr — ECR repository for container images
+1. ipa.stack.ecr (prepare) — ECR repository for container images
    - Depends on: none
    - Suffix: ecr
 
@@ -15,7 +15,6 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 ## Teardown Sequence
 
 1. ipa.stack.cognito (suffix: cognito)
-2. ipa.stack.ecr (suffix: ecr)
 
 ## Wiring
 

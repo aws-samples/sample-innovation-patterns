@@ -19,14 +19,6 @@ Read `.env` at the project root. Verify all required IPA variables are present a
 | `AWS_ACCOUNT_ID` | Runbook | "Missing `AWS_ACCOUNT_ID` in `.env`. Run `/ipa.init` first to configure project defaults." |
 | `AWS_PROFILE` | Runbook | "Missing `AWS_PROFILE` in `.env`. Run `/ipa.init` first to configure project defaults." |
 
-### Security Variables
-
-Also verify these variables written by `/ipa.security`:
-
-| Variable | Error If Missing |
-|----------|------------------|
-| `APP_BUILDER_ROLE_ARN` | "Missing `APP_BUILDER_ROLE_ARN` in `.env`. Run `/ipa.security` first to provision security infrastructure." |
-
 If `.env` does not exist at all: "`.env` not found. Run `/ipa.init` first to configure project defaults."
 
 ---

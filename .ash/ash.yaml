@@ -2,7 +2,7 @@
 project_name: innovation-patterns
 
 global_settings:
-  suppressions:
+  ignore_paths:
     # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause
     - rule_id: 'B101'
       path: 'utils/tests/*'
