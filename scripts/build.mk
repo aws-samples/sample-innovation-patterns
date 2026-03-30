@@ -6,6 +6,7 @@
 #   make -f scripts/build.mk build-{target} # Build single artifact
 
 -include .env
+include scripts/util/docker.mk
 
 .PHONY: build
 

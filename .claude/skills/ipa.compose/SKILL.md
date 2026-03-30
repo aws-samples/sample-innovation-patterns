@@ -1,7 +1,7 @@
 ---
 name: ipa.compose
 description: "Compose a deployment pattern from stack skills and generate executable artifacts
-  (Makefiles, runbook, security disposition). Supports incremental composition — adding
+  (Makefiles, security disposition). Supports incremental composition — adding
   stacks or patterns to an existing composition. Use when the user says 'compose',
   'generate deployment', 'add stack', or invokes /ipa.compose."
 model: opus
@@ -9,7 +9,7 @@ model: opus
 
 # /ipa.compose — Compose Deployment Pattern
 
-This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates six executable artifacts: four Makefiles (prepare, deploy, build, test), an infrastructure runbook, and a security disposition register.
+This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates five executable artifacts: four Makefiles (prepare, deploy, build, test) and a security disposition register.
 
 Supports three composition modes:
 - **Fresh compose**: Select a pattern, generate all artifacts (existing behavior)
@@ -110,11 +110,11 @@ Read `scripts/deploy.mk` line by line and extract the current composition state:
    - **Dependencies**: Make prerequisites listed after the colon.
      - Example: `deploy-lambda: deploy-ecr deploy-cognito` → dependencies: `["ecr", "cognito"]`
 
-   - **Template path**: Extract the `--template {path}` argument from the `uv run` command.
-     - Example: `--template infra/cfn/ecr/ecr.yml` → template: `infra/cfn/ecr/ecr.yml`
+   - **Template path**: Extract the `--template-file {path}` argument from the `aws cloudformation deploy` command.
+     - Example: `--template-file infra/cfn/ecr/ecr.yml` → template: `infra/cfn/ecr/ecr.yml`
 
-   - **Wiring ($(eval) lines)**: Extract each `$(eval {VAR} := $(shell uv run --project utils deploy cfn-outputs --stack-name ... --output-key {OutputKey}))` line.
-     - For each: extract the source stack suffix (from `--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`), the output key (from `--output-key {key}`), and the Make variable name.
+   - **Wiring ($(eval) lines)**: Extract each `$(eval {VAR} := $(shell aws cloudformation describe-stacks --stack-name ... --query 'Stacks[0].Outputs[?OutputKey==`{OutputKey}`].OutputValue' --output text))` line.
+     - For each: extract the source stack suffix (from `--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`), the output key (from the `--query` JMESPath expression), and the Make variable name.
      - The target parameter is identified from the `--parameter-overrides` line where the Make variable (`$(VAR)`) is used.
 
    - **Parameters**: Extract key-value pairs from `--parameter-overrides`.
@@ -216,9 +216,9 @@ If the composition mode is **add-pattern**, expand the new pattern into individu
 
 3. **Preserve intra-pattern wiring**: Read the `## Wiring` section from `PATTERN.md`. These wiring declarations are **authoritative** for connections between the new pattern's own stacks — they override auto-inference in Step 0.7. Store them separately as `pattern_wiring` for use in Step 0.7.2.
 
-4. **Read ARCHITECTURE.md**: Read `patterns/{pattern-name}/ARCHITECTURE.md`. This content will be added as a new architecture section in the runbook (see RUNBOOK_TEMPLATE.md "Added Pattern" template).
+4. **Read ARCHITECTURE.md**: Read `patterns/{pattern-name}/ARCHITECTURE.md`. Store for reference during artifact generation.
 
-5. **Read Known Deferrals** (optional): If the pattern defines Known Deferrals, store them for inclusion in the security disposition register (Step 10).
+5. **Read Known Deferrals** (optional): If the pattern defines Known Deferrals, store them for inclusion in the security disposition register (Step 9).
 
 6. **Merge the expanded stacks**: Replace the pattern argument with the expanded list of individual stacks. If the builder also provided extra stack names alongside the pattern (add-mixed mode), append those to the expanded list.
 
@@ -353,7 +353,7 @@ Wiring for new stacks:
 
 #### 0.7.5: Handle Builder Response
 
-- **Accept (a)**: Proceed. If unresolved parameters remain, they will be included as warnings in the runbook (per clarification Q1: partial wiring is allowed).
+- **Accept (a)**: Proceed. If unresolved parameters remain, they will require manual resolution (per clarification Q1: partial wiring is allowed).
 - **Edit (b)**: For each parameter the builder wants to re-wire:
   - Display available outputs from all stacks
   - Let the builder select a source or mark as unresolved
@@ -367,13 +367,13 @@ Combine all wiring entries into the merged composition:
 - **Existing wiring** (from Step 0.3a parse): unchanged
 - **New auto-detected wiring**: from Step 0.7.2
 - **New builder-selected wiring**: from Step 0.7.3
-- **Unresolved parameters**: stored separately for runbook warnings
+- **Unresolved parameters**: stored separately for warnings in the completion report
 
 For each new wiring entry, compute the Make variable name: convert the output key to `UPPER_SNAKE_CASE` (e.g., `RepositoryUri` → `REPOSITORY_URI`).
 
 Run validation procedure V5 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
-Proceed to Phase 2 (Confirm) — the merged composition with resolved wiring is the input for artifact generation in Steps 6-10.
+Proceed to Phase 2 (Confirm) — the merged composition with resolved wiring is the input for artifact generation in Steps 6-9.
 
 ---
 
@@ -385,7 +385,7 @@ Two execution paths converge at Phase 2 (Confirm) → Phase 3 (Generate):
 - **Add stacks / Add pattern / Idempotent refresh**: Phase 0 Steps 0.1-0.3 → Step 0.3a (parse deploy.mk) → Step 0.4 (confirm) → Step 0.6 (merge) → Step 0.7 (wiring) → skip Phase 1 → **Phase 2** (Confirm, with V5 validation) → Phase 3 (Generate) → Phase 4 (Report).
 - **Stacks without pattern** (no deploy.mk + stack args): ERROR in Step 0.3 — no further processing.
 
-Both paths feed the same artifact generation pipeline (Steps 6-10). The only difference is the input source: pattern definition vs. merged composition.
+Both paths feed the same artifact generation pipeline (Steps 6-9). The only difference is the input source: pattern definition vs. merged composition.
 
 ---
 
@@ -461,7 +461,7 @@ Store the full wiring map for validation and Makefile generation.
 
 #### 3.3 ARCHITECTURE.md
 
-Read the full content of `patterns/{name}/ARCHITECTURE.md`. This will be copied verbatim into the runbook.
+Read the full content of `patterns/{name}/ARCHITECTURE.md`. Store for reference during artifact generation.
 
 Run validation procedures V2 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
@@ -526,13 +526,12 @@ Artifacts to generate:
   - scripts/deploy.mk
   - scripts/build.mk
   - scripts/test.mk
-  - docs/infra/runbook.md
   - docs/infra/security-disposition.md
 ```
 
 **For merged compositions**, also display:
 - Which stacks are existing vs. newly added (mark new stacks with `(new)` in the inventory)
-- Unresolved wiring parameters, if any: "**Warning**: {N} parameter(s) unresolved — will appear as warnings in the runbook."
+- Unresolved wiring parameters, if any: "**Warning**: {N} parameter(s) unresolved — will require manual resolution."
 
 If existing artifacts are detected, add: "**Re-composition**: Existing artifacts will be overwritten. Custom dispositions in security-disposition.md will be preserved."
 
@@ -561,11 +560,11 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 2. **Aggregate deploy target**: `deploy: deploy-{sfx1} deploy-{sfx2} ... deploy-{sfxN}` in deployment order.
 3. **Per-stack deploy targets**: For each stack in deployment order:
    - Add Make dependency prerequisites from the Stack Sequence dependencies.
-   - For each wiring entry targeting this stack with `target.parameter`: add a `$(eval)` line to capture the source output via `uv run --project utils deploy cfn-outputs`.
-   - Write the `uv run --project utils deploy cfn` command with `--stack-name`, `--template`, and `--parameter-overrides`.
+   - For each wiring entry targeting this stack with `target.parameter`: add a `$(eval)` line to capture the source output via `aws cloudformation describe-stacks --query`.
+   - Write the `aws cloudformation deploy` command with `--stack-name`, `--template-file`, `--parameter-overrides`, and `--no-fail-on-empty-changeset`.
    - Add `--capabilities CAPABILITY_NAMED_IAM` if the stack requires it.
 4. **Aggregate teardown target**: `teardown: teardown-{sfxN} ... teardown-{sfx1}` in reverse deployment order.
-5. **Per-stack teardown targets**: `uv run --project utils deploy cfn-delete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
+5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
 
 **Critical rules**:
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
@@ -592,11 +591,11 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 2. **Aggregate prepare target**: `prepare: prepare-{sfx1} prepare-{sfx2} ...` in deployment order (filtered to prepare stacks).
 3. **Per-stack prepare targets**: For each prepare stack in deployment order:
    - Add Make dependency prerequisites (only against other prepare stacks).
-   - For wiring entries between prepare stacks: add `$(eval)` lines.
-   - Write the `uv run --project utils deploy cfn` command.
+   - For wiring entries between prepare stacks: add `$(eval)` lines to capture outputs via `aws cloudformation describe-stacks --query`.
+   - Write the `aws cloudformation deploy` command with `--stack-name`, `--template-file`, `--parameter-overrides`, and `--no-fail-on-empty-changeset`.
    - Add `--capabilities CAPABILITY_NAMED_IAM` if required.
 4. **Aggregate teardown target**: `teardown-prepare: teardown-{sfxN} ... teardown-{sfx1}` in reverse order.
-5. **Per-stack teardown targets**: `uv run --project utils deploy cfn-delete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
+5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
 
 **Critical rules**:
 - Same naming/variable conventions as deploy.mk
@@ -611,7 +610,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 Write `scripts/build.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
 Scan each stack skill's `## Build Requirements` section:
-- **Type: container** → generate `build-{function}` target with `uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function}`
+- **Type: container** → generate `build-{function}` target using `$(call ecr-login)` and `$(call docker-build-push,...)` helpers from `scripts/util/docker.mk`
 - **Type: frontend** → generate `build-frontend` target with `cd frontend && npm ci && npm run build`
 - **No Build Requirements section** → no target for this stack
 
@@ -624,40 +623,14 @@ If no stacks have build requirements, write a no-op `build` target.
 Write `scripts/test.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
 Always include:
-- `test-unit`: `uv run --project utils test unit`
-- `test-security`: `uv run --project utils test security`
-- `test-cfn-lint`: one `uv run --project utils test cfn-lint --template {path}` per CloudFormation template referenced by stacks in the pattern.
+- `test-validate`: one `aws cloudformation validate-template --template-body file://{path}` per CloudFormation template referenced by stacks in the pattern
+- `test-security`: `ash --source-dir infra/`
 
-Aggregate target: `test: test-unit test-security test-cfn-lint`.
-
----
-
-### Step 9: Generate Runbook
-
-Create `docs/infra/` directory if it does not exist. Write `docs/infra/runbook.md`.
-
-Load [RUNBOOK_TEMPLATE.md](RUNBOOK_TEMPLATE.md) for section structure. Generate all sections:
-
-1. **Title and Overview**: Pattern name, generation date, architecture from ARCHITECTURE.md, stack summary table.
-2. **Prerequisites**: AWS CLI, uv, Make. Add Docker if any stack has container builds, Node.js if frontend builds.
-3. **Configuration**: `.env.example` copy instructions, variable table.
-4. **Environment Variables**: Base rows for `APP_REGION`, `APP_ENV`, `APP_NAMESPACE` from `.env`, plus one row per wiring entry with `target.env`.
-5. **Security Setup**: Security stack verification command.
-6. **Build**: `make -f scripts/build.mk build` with per-target descriptions if applicable.
-7. **Deployment**: Per-stack deployment steps in order, with `make -f scripts/deploy.mk deploy-{suffix}` commands, descriptions, dependencies, and outputs. Include aggregate `deploy` command.
-8. **Verification**: Per-stack status check commands.
-9. **Teardown**: Reverse-order deletion with aggregate `teardown` command and individual steps.
-10. **Troubleshooting**: ROLLBACK_COMPLETE, Permission Denied, Resource Already Exists.
-
-**For merged compositions**, also generate these additional sections using the templates in [RUNBOOK_TEMPLATE.md](RUNBOOK_TEMPLATE.md):
-- **Added Stacks**: Under the architecture section, append a subsection for each incrementally added stack (stack description from skill, added-on date).
-- **Unresolved Wiring (Action Required)**: If any parameters remain unresolved from Step 0.7, insert a warning table listing each unresolved parameter with resolution guidance.
-
-**Critical rule**: The runbook MUST NOT reference IPA skills, Claude Code, or the AI agent. It is a self-contained customer deliverable.
+Aggregate target: `test: test-validate test-security`.
 
 ---
 
-### Step 10: Generate Security Disposition Register
+### Step 9: Generate Security Disposition Register
 
 Write `docs/infra/security-disposition.md`.
 
@@ -699,7 +672,7 @@ If `docs/infra/security-disposition.md` already exists:
 
 ## Phase 4: Report
 
-### Step 11: Completion Report
+### Step 10: Completion Report
 
 Display a structured report:
 
@@ -711,19 +684,18 @@ Generated artifacts:
   ✓ scripts/deploy.mk                          (deployment Makefile)
   ✓ scripts/build.mk                           (build Makefile)
   ✓ scripts/test.mk                            (test Makefile)
-  ✓ docs/infra/runbook.md                      (customer deployment guide)
   ✓ docs/infra/security-disposition.md          (security disposition register)
 
 Summary:
   Stacks composed: {N} ({N_existing} existing + {N_new} new)
   Wiring entries resolved: {N} ({N_auto} auto + {N_builder} builder-selected)
-  Unresolved parameters: {N} (see runbook warnings if > 0)
+  Unresolved parameters: {N}
   Build targets generated: {N}
   CFN templates validated: {N}
 
 Next steps:
   • Review generated artifacts
-  • Run `make -f scripts/test.mk test-cfn-lint` to validate templates
+  • Run `make -f scripts/test.mk test-validate` to validate templates
   • Run `/ipa.prepare` to deploy one-time prerequisites (ECR, etc.)
   • Run `/ipa.security` to update IAM roles for new stacks (if stacks were added)
   • Run `/ipa.deploy` to deploy the composed pattern

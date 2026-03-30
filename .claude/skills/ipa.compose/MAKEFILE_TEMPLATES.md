@@ -78,10 +78,11 @@ For stacks with "Depends on: none" in the Stack Sequence:
 
 ```makefile
 deploy-{suffix}:
-	uv run --project utils deploy cfn \
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
-		--template infra/cfn/{service}.yml \
-		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
+		--template-file infra/cfn/{service}/{service}.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
 ```
 
 Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Contract specifies `CAPABILITY_NAMED_IAM`.
@@ -92,22 +93,27 @@ For stacks that depend on outputs from other stacks (wiring entries from the pat
 
 ```makefile
 deploy-{suffix}: deploy-{dep1} deploy-{dep2}
-	$(eval OUTPUT1 := $(shell uv run --project utils deploy cfn-outputs \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} --output-key {OutputName1}))
-	$(eval OUTPUT2 := $(shell uv run --project utils deploy cfn-outputs \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} --output-key {OutputName2}))
-	uv run --project utils deploy cfn \
+	$(eval OUTPUT1 := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
+		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
+		--output text))
+	$(eval OUTPUT2 := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
+		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName2}`].OutputValue' \
+		--output text))
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
-		--template infra/cfn/{service}.yml \
-		--parameter-overrides "{TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2)"
+		--template-file infra/cfn/{service}/{service}.yml \
+		--parameter-overrides {TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2) \
+		--no-fail-on-empty-changeset
 ```
 
 **Wiring translation rules**:
-1. Each `source.output` → one `$(eval)` line capturing the output from the source stack
-2. Each `target.parameter` → one entry in `--parameter-overrides`
+1. Each `source.output` → one `$(eval)` line capturing the output via `aws cloudformation describe-stacks --query`
+2. Each `target.parameter` → one entry in `--parameter-overrides` (no quotes, space-separated Key=Value)
 3. Make dependency prerequisites come from the pattern's Stack Sequence "Depends on" declarations
 4. Variable names in `$(eval)` use UPPER_SNAKE_CASE derived from the output key name
-5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides` — they are documented in the runbook's Environment Variables section only
+5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`
 
 ### Aggregate Teardown Target
 
@@ -123,7 +129,9 @@ List all per-stack teardown targets in REVERSE deployment order (from pattern's 
 
 ```makefile
 teardown-{suffix}:
-	uv run --project utils deploy cfn-delete \
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
+	aws cloudformation wait stack-delete-complete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
 ```
 
@@ -170,10 +178,11 @@ For prepare stacks with "Depends on: none":
 
 ```makefile
 prepare-{suffix}:
-	uv run --project utils deploy cfn \
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
-		--template infra/cfn/{service}/{service}.yml \
-		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
+		--template-file infra/cfn/{service}/{service}.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
 ```
 
 Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Contract specifies it.
@@ -184,12 +193,15 @@ Same pattern as deploy.mk's wired targets, but with `prepare-` prefix:
 
 ```makefile
 prepare-{suffix}: prepare-{dep1}
-	$(eval OUTPUT1 := $(shell uv run --project utils deploy cfn-outputs \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} --output-key {OutputName1}))
-	uv run --project utils deploy cfn \
+	$(eval OUTPUT1 := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
+		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
+		--output text))
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
-		--template infra/cfn/{service}/{service}.yml \
-		--parameter-overrides "{TargetParam1}=$(OUTPUT1)"
+		--template-file infra/cfn/{service}/{service}.yml \
+		--parameter-overrides {TargetParam1}=$(OUTPUT1) \
+		--no-fail-on-empty-changeset
 ```
 
 ### Aggregate Teardown Target
@@ -206,7 +218,9 @@ Reverse order of prepare stacks.
 
 ```makefile
 teardown-{suffix}:
-	uv run --project utils deploy cfn-delete \
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
+	aws cloudformation wait stack-delete-complete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}
 ```
 
@@ -233,6 +247,7 @@ Generate `scripts/build.mk` using this structure. Build targets are determined b
 #   make -f scripts/build.mk build-{target} # Build single artifact
 
 -include .env
+include scripts/util/docker.mk
 
 .PHONY: build {all build-* targets}
 ```
@@ -249,8 +264,11 @@ When a stack skill's Build Requirements has `Type: container`:
 
 ```makefile
 build-{function-name}:
-	uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-{function-name}
+	$(call ecr-login)
+	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr)
 ```
+
+**Note**: build.mk must include `scripts/util/docker.mk` at the top (after `-include .env`) to provide `ecr-login` and `docker-build-push` functions.
 
 ### Build Target — Frontend (S3)
 
@@ -283,29 +301,27 @@ Generate `scripts/test.mk` using this structure.
 # Generated by /ipa.compose — do not edit manually
 #
 # Usage:
-#   make -f scripts/test.mk test          # Run all tests
-#   make -f scripts/test.mk test-unit     # Unit tests only
-#   make -f scripts/test.mk test-security # Security scans only
-#   make -f scripts/test.mk test-cfn-lint # CFN template validation
+#   make -f scripts/test.mk test              # Run all tests
+#   make -f scripts/test.mk test-validate     # CloudFormation template validation
+#   make -f scripts/test.mk test-security     # Security scans only
 
 -include .env
 
-.PHONY: test test-unit test-security test-cfn-lint
+.PHONY: test test-validate test-security
 
-test: test-unit test-security test-cfn-lint
+test: test-validate test-security
 
-test-unit:
-	uv run --project utils test unit
+test-validate:
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/{service1}/{service1}.yml
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/{service2}/{service2}.yml
 
 test-security:
-	uv run --project utils test security
-
-test-cfn-lint:
-	uv run --project utils test cfn-lint --template infra/cfn/{service1}.yml
-	uv run --project utils test cfn-lint --template infra/cfn/{service2}.yml
+	ash --source-dir infra/
 ```
 
 **Rules**:
-- `test-unit` and `test-security` are always included regardless of pattern
-- `test-cfn-lint` includes one `uv run --project utils test cfn-lint` command per CloudFormation template referenced by stacks in the pattern
+- `test-validate` includes one `aws cloudformation validate-template` command per CloudFormation template referenced by stacks in the pattern
+- `test-security` calls `ash` directly for security scanning
 - All targets are `.PHONY`

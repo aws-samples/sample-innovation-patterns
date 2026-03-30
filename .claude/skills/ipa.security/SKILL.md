@@ -107,15 +107,14 @@ Prompt the builder:
 
 ## Step 3a: Managed Policy Input
 
-1. Prompt: "Enter the managed policy name or ARN to attach to both execution roles:"
+1. Display the prompt with the security warning inline:
+   > Enter the managed policy name or ARN to attach to both execution roles.
+   >
+   > **Warning**: `AdministratorAccess` and `PowerUserAccess` grant broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires.
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
-4. **Broad-access policy warning**: If the resolved policy name (extracted from the ARN path) is `AdministratorAccess` or `PowerUserAccess`, display:
-   > **Security Warning**: AdministratorAccess and PowerUserAccess grant broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires.
-
-   Then proceed to step 5 (no confirmation prompt).
-5. Store the resolved ARN as `ManagedPolicyArn` for template generation.
-6. Proceed to **Step 4: KMS Key Prompt**.
+4. Store the resolved ARN as `ManagedPolicyArn` for template generation.
+5. Proceed to **Step 4: KMS Key Prompt**.
 
 ---
 
@@ -465,26 +464,8 @@ Outputs:
 
 ### 7.1 Deployment Command
 
-Try `uv run --project utils deploy cfn` first. If it fails (command not found), fall back to AWS CLI.
+Deploy using AWS CLI:
 
-**Primary** (uv run):
-```bash
-uv run --project utils deploy cfn \
-  --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
-  --template infra/cfn/generated/security.yml \
-  --parameter-overrides \
-    Namespace={APP_NAMESPACE} \
-    Environment={APP_ENV} \
-    AccountId={AWS_ACCOUNT_ID} \
-    Region={AWS_REGION} \
-    ManagedPolicyArn={resolved_arn} \
-    KmsKeyArn={kms_arn_or_empty} \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region {AWS_REGION} \
-  --profile {AWS_PROFILE}
-```
-
-**Fallback** (AWS CLI):
 ```bash
 aws cloudformation deploy \
   --template-file infra/cfn/generated/security.yml \
@@ -497,6 +478,7 @@ aws cloudformation deploy \
     ManagedPolicyArn={resolved_arn} \
     KmsKeyArn={kms_arn_or_empty} \
   --capabilities CAPABILITY_NAMED_IAM \
+  --no-fail-on-empty-changeset \
   --region {AWS_REGION} \
   --profile {AWS_PROFILE}
 ```
@@ -606,10 +588,10 @@ This flow runs when pre-flight checks detect existing security configuration (St
 
 Run:
 ```bash
-uv run --project utils deploy cfn-list \
-  --namespace {APP_NAMESPACE} \
-  --env {APP_ENV} \
-  --format text \
+aws cloudformation list-stacks \
+  --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+  --query "StackSummaries[?starts_with(StackName, '{APP_NAMESPACE}-{APP_ENV}')].{Name:StackName,Status:StackStatus,Updated:LastUpdatedTime}" \
+  --output table \
   --region {AWS_REGION} \
   --profile {AWS_PROFILE}
 ```
@@ -617,7 +599,7 @@ uv run --project utils deploy cfn-list \
 If successful, display the output prefixed with:
 ```
 Current Infrastructure ({APP_NAMESPACE}-{APP_ENV}):
-{cfn-list output}
+{list-stacks output}
 ```
 
 If the command fails, skip silently.
@@ -733,5 +715,4 @@ STOP with: "Cannot proceed — `.env` is missing or does not contain IPA project
 - **CloudFormation stack exists but `.env` security block is missing**: Treat as an update scenario. Read stack outputs and re-populate `.env`.
 - **`.env` has security variables but stack doesn't exist**: Warn the builder that the stack may have been manually deleted. Offer to re-deploy or clear `.env` security variables.
 - **Builder provides the same configuration on re-run**: CloudFormation returns "No updates are to be performed" — handle as success per U5.
-- **`uv run --project utils deploy cfn` not available**: Fall back to `aws cloudformation deploy` silently. Do not display an error about the uv command.
-- **`cfn-list` unavailable**: If `uv run --project utils deploy cfn-list` fails, skip the infrastructure context display and proceed with the security-specific update flow using targeted `describe-stacks` calls. The infrastructure listing is informational, not blocking.
+- **`aws cloudformation list-stacks` fails**: Skip the infrastructure context display and proceed with the security-specific update flow using targeted `describe-stacks` calls. The infrastructure listing is informational, not blocking.

@@ -19,8 +19,8 @@ The `.env` file contains up to seven IPA-managed variables. `AWS_PROFILE` is opt
 | `AWS_PROFILE` | Yes | _(none)_ | AWS CLI profile name (optional — omit to use default credential chain) |
 | `AWS_REGION` | Yes | `us-east-1` | AWS region for deployments |
 | `AWS_ACCOUNT_ID` | Auto-detect, confirm | _(none)_ | 12-digit AWS account ID |
-| `APP_NAMESPACE` | Yes | _(none)_ | Project name prefix for stack naming (max 12 chars) |
-| `APP_ENV` | Yes | `dev` | Environment: `dev`, `staging`, or `prod` |
+| `APP_NAMESPACE` | Yes | `app` | Project name prefix for stack naming (max 12 chars) |
+| `APP_ENV` | Yes | `dev` | Environment label (e.g., `dev`, `stage`, `prod`) |
 | `APP_CODE_AGENT` | No (auto-set) | `claude-code` | AI agent platform — set automatically, do not prompt |
 | `APP_IAC` | No (auto-set) | `cloudformation` | Infrastructure-as-code tool — set automatically, do not prompt |
 
@@ -80,7 +80,7 @@ You MUST validate every value before writing `.env`. If a value fails validation
 | `AWS_REGION` | `/^[a-z]{2}-[a-z]+-\d+$/` | "Invalid region format — expected format like us-east-1" |
 | `AWS_ACCOUNT_ID` | `/^\d{12}$/` | "Invalid account ID — must be exactly 12 digits" |
 | `APP_NAMESPACE` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid namespace — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
-| `APP_ENV` | One of: `dev`, `staging`, `prod` | "Invalid environment — must be one of: dev, staging, prod" |
+| `APP_ENV` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid environment — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
 
 ### Validation Behavior
 
@@ -133,18 +133,27 @@ Prompt the builder for values in this order. For each prompt, validate the input
    - If auto-detection failed: "Enter your 12-digit AWS Account ID:"
    - Validation: matches `/^\d{12}$/`
 
-4. **APP_NAMESPACE** _(no default)_
+4. **APP_NAMESPACE** _(default: `app`)_
    - Before prompting, explain:
      > **What is a namespace?** The namespace is a short name for your project. IPA uses it to group all your CloudFormation stacks together — every stack name starts with `{namespace}-{env}-`, for example `myapp-dev-cognito`, `myapp-dev-dynamodb`. Choose a short, meaningful name that identifies your application. It must be unique within your AWS account and environment.
-   - Prompt: "Enter a project namespace (max 12 chars, lowercase letters/digits/hyphens, must start with a letter):"
-   - Validation: matches `/^[a-z][a-z0-9-]{0,11}$/`
+   - Use AskUserQuestion with these options:
+     - **"app" (Recommended)** — Use the default namespace
+     - _(Other is built-in — allows typing a custom value)_
+   - If the builder selects "app", use `app`.
+   - If the builder types a custom value via "Other", validate it against `/^[a-z][a-z0-9-]{0,11}$/`.
+   - On validation failure, reject with the error message and re-prompt.
 
 5. **APP_ENV** _(default: `dev`)_
    - Before prompting, explain:
-     > **What is the environment?** The environment tag (`dev`, `staging`, `prod`) is the second segment of every stack name — `{namespace}-{env}-{service}`. It allows multiple copies of the same application to coexist in one AWS account. For example, `myapp-dev-cognito` and `myapp-staging-cognito` are separate, independent stacks. For getting started, `dev` is recommended.
-   - Prompt: "Enter the environment (dev, staging, or prod; default: dev):"
-   - If the builder presses enter or provides empty input, use `dev`.
-   - Validation: one of `dev`, `staging`, `prod`
+     > **What is the environment?** The environment tag is the second segment of every stack name — `{namespace}-{env}-{service}`. It allows multiple copies of the same application to coexist in one AWS account. For example, `myapp-dev-cognito` and `myapp-stage-cognito` are separate, independent stacks.
+   - Use AskUserQuestion with these options:
+     - **"dev" (Recommended)** — Development environment
+     - **"stage"** — Staging environment
+     - **"prod"** — Production environment
+     - _(Other is built-in — allows typing a custom value)_
+   - If the builder selects a preset, use that value.
+   - If the builder types a custom value via "Other", validate it against `/^[a-z][a-z0-9-]{0,11}$/`.
+   - On validation failure, reject with the error message and re-prompt.
 
 6. **Auto-set** (do not prompt):
    - `APP_CODE_AGENT=claude-code`
@@ -296,7 +305,7 @@ Use this exact template:
 # AWS_ACCOUNT_ID   — 12-digit AWS account ID (auto-detected if AWS CLI available)
 # APP_NAMESPACE    — Project name prefix for stack naming (max 12 chars,
 #                    lowercase alphanumeric + hyphens, starts with letter)
-# APP_ENV          — Environment: dev, staging, or prod
+# APP_ENV          — Environment label (e.g., dev, stage, prod)
 # APP_CODE_AGENT   — AI agent platform (auto-set, do not change)
 # APP_IAC          — Infrastructure-as-code tool (auto-set, do not change)
 

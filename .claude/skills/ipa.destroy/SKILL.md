@@ -31,7 +31,7 @@ This skill tears down a composed infrastructure pattern by executing the teardow
 - Does not generate Makefiles — that's `/ipa.compose`'s job
 - Does not create or modify IAM roles — that's `/ipa.security`'s job
 - Does not read stack SKILL.md files — Makefiles are the only deployment contract
-- Does not call AWS APIs directly — delegates to `make` which calls `uv run --project utils deploy cfn-delete`
+- Does not call AWS APIs directly — delegates to `make` which calls `aws cloudformation delete-stack`
 - Does not delete the security stack — security infrastructure is managed by `/ipa.security`
 - Does not delete prepare stacks (ECR, etc.) — prepare infrastructure is managed separately. To tear down prepare stacks manually: `make -f scripts/prepare.mk teardown-prepare`
 - Does not support per-stack targeting — always tears down the full pattern via the aggregate target
@@ -44,9 +44,9 @@ This skill tears down a composed infrastructure pattern by executing the teardow
 | `.env` | `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_PROFILE`, `AWS_ACCOUNT_ID`, `APP_BUILDER_ROLE_ARN` | Pre-flight validation |
 | `scripts/deploy.mk` | Teardown target names, stack names, reverse dependency order | Pre-teardown status check + execution |
 | `make -n` | Dry-run output showing teardown commands that would execute | Teardown plan display |
-| `uv run --project utils deploy cfn-status` | Stack status | Pre-teardown status check + post-teardown verification |
-| `uv run --project utils deploy cfn-events` | Stack events | Failure diagnosis |
-| `uv run --project utils deploy cfn-list` | All managed stacks | Optional status overview |
+| `aws cloudformation describe-stacks --query 'Stacks[0].StackStatus' --output text` | Stack status | Pre-teardown status check + post-teardown verification |
+| `aws cloudformation describe-stack-events` | Stack events | Failure diagnosis |
+| `aws cloudformation list-stacks` | All managed stacks | Optional status overview |
 
 ---
 
@@ -88,7 +88,7 @@ Check that `scripts/deploy.mk` exists and contains a `teardown` target.
 Run:
 
 ```bash
-uv run --project utils deploy cfn-status --stack-name {APP_NAMESPACE}-{APP_ENV}-security
+aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-security --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
 ```
 
 Expected: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
@@ -110,12 +110,6 @@ aws sts get-caller-identity --profile {AWS_PROFILE} --region {AWS_REGION}
 Run `which make`.
 
 **If missing**: "GNU Make is not installed. On macOS it is pre-installed. On Linux: `sudo apt install make`."
-
-### 1.7 Verify uv Is Installed
-
-Run `which uv`.
-
-**If missing**: "`uv` is not installed. Install via: `curl -LsSf https://astral.sh/uv/install.sh | sh`"
 
 ### Validation Summary
 
@@ -147,7 +141,7 @@ Run `make -n -f scripts/deploy.mk teardown` and extract the `--stack-name` value
 For each stack name extracted above, run:
 
 ```bash
-uv run --project utils deploy cfn-status --stack-name {stack-name}
+aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
 ```
 
 Categorize each stack:
@@ -229,7 +223,7 @@ Run:
 make -f scripts/deploy.mk teardown
 ```
 
-Display Make output as it runs. Each target prints its `uv run` command, providing natural progress indication.
+Display Make output as it runs. Each target prints its AWS CLI command, providing natural progress indication.
 
 **If teardown succeeds** (exit code = 0): proceed to Step 6.
 
@@ -258,10 +252,10 @@ After fixing the issue, re-run /ipa.destroy — already-deleted stacks will be s
 For each stack in the teardown plan, run:
 
 ```bash
-uv run --project utils deploy cfn-status --stack-name {stack-name}
+aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
 ```
 
-Confirm all return `DOES_NOT_EXIST` or `DELETE_COMPLETE`.
+Confirm all return `DOES_NOT_EXIST` (i.e., the command returns an error indicating the stack does not exist) or `DELETE_COMPLETE`.
 
 If any stack still exists with a non-deleted status, report it as part of the completion report.
 
@@ -302,7 +296,7 @@ Re-run /ipa.destroy at any time — it is safe to re-run (idempotent).
 | `RepositoryNotEmptyException` or `Repository not empty` | ECR repository contains images | Delete all images first: `aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)" --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
 | Partial teardown (some stacks deleted, others remain) | A stack in the middle of the reverse-order sequence failed to delete | Fix the failing stack (see specific errors above), then re-run `/ipa.destroy`. Already-deleted stacks will be skipped (they no longer exist) |
 | `Stack [{stack}] does not exist` during teardown | Stack was already deleted (manually or in a previous attempt) | This is safe to ignore. The teardown will continue with remaining stacks |
-| `DELETE_FAILED` | A resource within the stack cannot be deleted | Run `uv run --project utils deploy cfn-events --stack-name {stack-name}` to identify the blocking resource. Fix the issue manually (empty the resource, remove dependencies), then re-run `/ipa.destroy` |
+| `DELETE_FAILED` | A resource within the stack cannot be deleted | Run `aws cloudformation describe-stack-events --stack-name {stack-name} --profile {AWS_PROFILE} --region {AWS_REGION}` to identify the blocking resource. Fix the issue manually (empty the resource, remove dependencies), then re-run `/ipa.destroy` |
 
 ### Credential Errors
 
@@ -316,5 +310,4 @@ Re-run /ipa.destroy at any time — it is safe to re-run (idempotent).
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `make: command not found` | GNU Make is not installed | macOS: pre-installed. Linux: `sudo apt install make` |
-| `uv: command not found` | uv is not installed | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | `make: *** No rule to make target 'teardown'` | `scripts/deploy.mk` is missing or malformed | Run `/ipa.compose` to regenerate deployment artifacts |

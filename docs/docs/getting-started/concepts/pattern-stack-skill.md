@@ -141,7 +141,7 @@ Two build types are supported:
 
 | Type | Name | Command |
 |------|------|---------|
-| container | api-handler | `uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-api-handler` |
+| container | api-handler | `$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-api-handler,Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr)` |
 ```
 
 **Frontend builds** generate a `build-frontend` target that compiles a frontend application:
@@ -656,7 +656,7 @@ Deploy a Lambda function using a container image stored in ECR. Provides functio
 
 | Type | Name | Command |
 |------|------|---------|
-| container | api-handler | `uv run --project utils build docker --tag $(APP_NAMESPACE)-$(APP_ENV)-api-handler` |
+| container | api-handler | `$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-api-handler,Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr)` |
 
 ## Security Summary
 
@@ -832,13 +832,16 @@ Compose translates this wiring entry into a `$(eval)` line in deploy.mk [7]:
 
 ```makefile
 deploy-lambda-fn: deploy-ecr
-	$(eval REPOSITORY_URI := $(shell uv run --project utils deploy cfn-outputs \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr --output-key RepositoryUri))
-	uv run --project utils deploy cfn \
+	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text))
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-lambda-fn \
-		--template infra/cfn/lambda-fn/lambda-fn.yml \
-		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) RepositoryUri=$(REPOSITORY_URI)" \
-		--capabilities CAPABILITY_NAMED_IAM
+		--template-file infra/cfn/lambda-fn/lambda-fn.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) RepositoryUri=$(REPOSITORY_URI) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--no-fail-on-empty-changeset
 ```
 
 The Make target `deploy-lambda-fn` depends on `deploy-ecr` (from the Stack Sequence's `Depends on` declaration), ensuring ECR deploys first. The `$(eval)` line retrieves ECR's `RepositoryUri` output at deploy time and passes it as a parameter override to the Lambda stack.

@@ -10,12 +10,12 @@ When a Make target fails during deployment (exit code ≠ 0):
 
 ### 1. Detect the Failed Stack
 
-Read the Make output. The failed stack name is the `--stack-name` value in the `uv run` command that errored:
+Read the Make output. The failed stack name is the `--stack-name` value in the `aws cloudformation` command that errored:
 
 ```
-uv run --project utils deploy cfn \
+aws cloudformation deploy \
     --stack-name ipatest-dev-lambda \    ← this is the failed stack
-    --template infra/cfn/lambda/lambda.yml \
+    --template-file infra/cfn/lambda/lambda.yml \
     ...
 Error: Stack ipatest-dev-lambda failed...
 ```
@@ -23,7 +23,7 @@ Error: Stack ipatest-dev-lambda failed...
 ### 2. Read Stack Events
 
 ```bash
-uv run --project utils deploy cfn-events --stack-name {failed-stack-name}
+aws cloudformation describe-stack-events --stack-name {failed-stack-name}
 ```
 
 Output shows events in chronological order:
@@ -65,7 +65,8 @@ For categories marked **Auto** (stuck rollback, transient):
 3. If confirmed:
 
    ```bash
-   uv run --project utils deploy cfn-delete --stack-name {failed-stack-name}
+   aws cloudformation delete-stack --stack-name {failed-stack-name}
+   aws cloudformation wait stack-delete-complete --stack-name {failed-stack-name}
    ```
 
 4. Wait for deletion to complete (status becomes `DELETE_COMPLETE` or stack no longer exists).

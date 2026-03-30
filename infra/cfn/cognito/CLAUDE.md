@@ -9,14 +9,15 @@ The `cognito.yml` template creates a Cognito User Pool with OAuth 2.0 Hosted UI,
 ## Deployment
 
 ```bash
-uv run --project utils deploy cfn \
+aws cloudformation deploy \
   --stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-  --template infra/cfn/cognito/cognito.yml \
+  --template-file infra/cfn/cognito/cognito.yml \
   --parameter-overrides \
     Namespace=$(APP_NAMESPACE) \
     Environment=$(APP_ENV) \
     CallbackURL=http://localhost:8080/authentication/callback \
-    CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(AWS_ACCOUNT_ID)
+    CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(AWS_ACCOUNT_ID) \
+  --no-fail-on-empty-changeset
 ```
 
 No `--capabilities` flag needed — this template does not create IAM roles.
@@ -26,7 +27,7 @@ No `--capabilities` flag needed — this template does not create IAM roles.
 | Parameter | Type | Default | Required | Notes |
 |-----------|------|---------|----------|-------|
 | `Namespace` | String | `app` | Yes | 1-12 lowercase alphanumeric + hyphens |
-| `Environment` | String | — | Yes | `dev`, `staging`, or `prod` |
+| `Environment` | String | — | Yes | 1-12 lowercase chars, starts with letter (e.g., `dev`, `stage`, `prod`) |
 | `MinPasswordLength` | Number | `8` | No | Range: 8–99 |
 | `DeletionProtection` | String | `INACTIVE` | No | `ACTIVE` or `INACTIVE` |
 | `CallbackURL` | String | `http://localhost:8080/authentication/callback` | No | OAuth callback URL |

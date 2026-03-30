@@ -46,7 +46,7 @@ before build and deploy scripts can run.
 | `.env` | `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_PROFILE` | Pre-flight validation |
 | `scripts/prepare.mk` | Target names, stack names | Plan display + execution |
 | `make -n` | Dry-run output | Plan display |
-| `uv run --project utils deploy cfn-status` | Stack status | Post-execution verification |
+| `aws cloudformation describe-stacks` | Stack status | Post-execution verification |
 
 ---
 
@@ -83,9 +83,9 @@ Run: `aws sts get-caller-identity --profile {AWS_PROFILE} --region {AWS_REGION}`
 
 **If fails**: "AWS credentials are invalid or expired for profile `{AWS_PROFILE}`."
 
-### 1.5 Verify Make and uv Installed
+### 1.5 Verify Make Is Installed
 
-Check `which make` and `which uv`.
+Check `which make`.
 
 ### Validation Summary
 
@@ -122,7 +122,7 @@ Run: `make -f scripts/prepare.mk prepare`
 
 Display Make output as it runs.
 
-**If fails**: Read stack events via `uv run --project utils deploy cfn-events --stack-name {failed-stack}`, diagnose, and propose fix. Same error classification as `/ipa.deploy`.
+**If fails**: Read stack events via `aws cloudformation describe-stack-events --stack-name {failed-stack}`, diagnose, and propose fix. Same error classification as `/ipa.deploy`.
 
 ---
 
@@ -131,7 +131,7 @@ Display Make output as it runs.
 For each prepare stack, run:
 
 ```bash
-uv run --project utils deploy cfn-status --stack-name {stack-name}
+aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
 ```
 
 Confirm all report `CREATE_COMPLETE` or `UPDATE_COMPLETE`.

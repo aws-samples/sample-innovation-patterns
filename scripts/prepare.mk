@@ -7,7 +7,7 @@
 # Usage:
 #   make -f scripts/prepare.mk prepare           # Deploy all prepare stacks
 #   make -f scripts/prepare.mk prepare-ecr       # Deploy single prepare stack
-#   make -f scripts/prepare.mk teardown-prepare  # Delete all prepare stacks (manual only)
+#   make -f scripts/prepare.mk teardown-prepare   # Delete all prepare stacks (manual only)
 #
 # Variable resolution:
 #   Local:  -include .env loads values from file
@@ -20,15 +20,18 @@
 prepare: prepare-ecr
 
 prepare-ecr:
-	uv run --project utils deploy cfn \
+	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--template infra/cfn/ecr/ecr.yml \
-		--parameter-overrides "Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV)"
+		--template-file infra/cfn/ecr/ecr.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
 
 # === TEARDOWN (manual only — never auto-deleted by /ipa.destroy) ===
 
 teardown-prepare: teardown-ecr
 
 teardown-ecr:
-	uv run --project utils deploy cfn-delete \
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr
+	aws cloudformation wait stack-delete-complete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr

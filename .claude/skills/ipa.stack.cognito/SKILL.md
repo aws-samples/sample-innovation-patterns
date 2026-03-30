@@ -18,7 +18,7 @@ Deploy a Cognito User Pool with App Client, Custom Domain (Hosted UI), and Manag
 | Parameter | Type | Default | Validation | Error Message |
 |-----------|------|---------|------------|---------------|
 | Namespace | String | — | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid namespace — 1-12 chars, lowercase alphanumeric + hyphens, starts with letter" |
-| Environment | String | — | `dev \| staging \| prod` | "Must be dev, staging, or prod" |
+| Environment | String | — | `/^[a-z][a-z0-9-]{0,11}$/` | "Must be 1-12 chars, lowercase letters/digits/hyphens, starts with letter" |
 | CallbackURL | String | `http://localhost:8080/authentication/callback` | `/^https?:\/\/.+$/` | "Must be a valid HTTP(S) URL" |
 | CognitoDomainPrefix | String | — | `/^[a-z][a-z0-9-]{0,62}$/` | "Must be 1-63 lowercase chars, starts with letter, no reserved words (cognito, aws, amazon)" |
 | MinPasswordLength | Number | 8 | `8-99` | "Must be between 8 and 99" |
