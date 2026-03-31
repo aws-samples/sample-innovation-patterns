@@ -25,6 +25,10 @@ Parameters:
     Type: String
     Description: 'S3 bucket regional domain name for origin'
 
+  LogBucketDomainName:
+    Type: String
+    Description: 'S3 bucket domain name for CloudFront access logs (e.g., {bucket}.s3.amazonaws.com)'
+
 Resources:
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
@@ -72,6 +76,10 @@ Resources:
             ErrorCachingMinTTL: 0
         HttpVersion: http2and3
         PriceClass: PriceClass_100
+        Logging:
+          Bucket: !Ref LogBucketDomainName
+          IncludeCookies: false
+          Prefix: 'cloudfront-logs/'
         ViewerCertificate:
           CloudFrontDefaultCertificate: true
           MinimumProtocolVersion: TLSv1.2_2021

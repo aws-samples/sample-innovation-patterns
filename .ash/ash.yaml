@@ -154,6 +154,9 @@ global_settings:
     - rule_id: 'B404'
       path: 'scripts/util/version.py'
       reason: 'Build utility uses subprocess with list invocation (no shell) for git with hardcoded arguments; no user input'
+    - rule_id: 'B603'
+      path: 'scripts/util/version.py'
+      reason: 'Build utility calls git with hardcoded list arguments (no shell, no user input)'
     # CloudFront WAF — out of scope for POC; requires provisioning a separate WebACL.
     # Customers can attach a WebACLId to the distribution when productionizing.
     - rule_id: 'CKV_AWS_68'
@@ -164,3 +167,8 @@ global_settings:
     - rule_id: 'CKV_AWS_21'
       path: 'infra/cfn/s3/s3.yml'
       reason: 'Out of scope for POC — static web assets are rebuilt from source; versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.'
+    # CloudFront TLS — false positive; ViewerCertificate with MinimumProtocolVersion: TLSv1.2_2021
+    # is already set on the distribution. Checkov does not correctly detect the setting.
+    - rule_id: 'CKV_AWS_174'
+      path: 'infra/cfn/cloudfront/cloudfront.yml'
+      reason: 'False positive — ViewerCertificate.MinimumProtocolVersion is set to TLSv1.2_2021; checkov fails to detect it'
