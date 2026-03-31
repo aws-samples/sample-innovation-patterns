@@ -530,14 +530,14 @@ Artifacts to generate:
   - scripts/build.mk
   - scripts/post-deploy.mk                      (post-deploy Makefile — always generated)
   - scripts/test.mk
-  - docs/infra/security-disposition.md
+  - scripts/SECURITY-DISPOSITION.md
 ```
 
 **For merged compositions**, also display:
 - Which stacks are existing vs. newly added (mark new stacks with `(new)` in the inventory)
 - Unresolved wiring parameters, if any: "**Warning**: {N} parameter(s) unresolved — will require manual resolution."
 
-If existing artifacts are detected, add: "**Re-composition**: Existing artifacts will be overwritten. Custom dispositions in security-disposition.md will be preserved."
+If existing artifacts are detected, add: "**Re-composition**: Existing artifacts will be overwritten. Custom dispositions in SECURITY-DISPOSITION.md will be preserved."
 
 Ask: "Generate these artifacts? (yes to proceed, no to cancel):"
 
@@ -663,7 +663,7 @@ Aggregate target: `test: test-validate test-security`.
 
 ### Step 9: Generate Security Disposition Register
 
-Write `docs/infra/security-disposition.md`.
+Write `scripts/SECURITY-DISPOSITION.md`.
 
 #### First-Time Composition
 
@@ -690,7 +690,7 @@ Write `docs/infra/security-disposition.md`.
 
 #### Re-Composition (Custom Dispositions Preservation)
 
-If `docs/infra/security-disposition.md` already exists:
+If `scripts/SECURITY-DISPOSITION.md` already exists:
 
 1. Read the existing file.
 2. Find the `## Custom Dispositions` section.
@@ -716,7 +716,7 @@ Generated artifacts:
   ✓ scripts/build.mk                           (build Makefile)
   ✓ scripts/post-deploy.mk                     (post-deploy Makefile)
   ✓ scripts/test.mk                            (test Makefile)
-  ✓ docs/infra/security-disposition.md          (security disposition register)
+  ✓ scripts/SECURITY-DISPOSITION.md              (security disposition register)
 
 Summary:
   Stacks composed: {N} ({N_existing} existing + {N_new} new)
