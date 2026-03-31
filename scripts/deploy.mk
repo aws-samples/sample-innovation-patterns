@@ -16,7 +16,7 @@ export
 # Resolve version from app-lib/pyproject.toml + git SHA
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
-.PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw teardown teardown-apigw teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
+.PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw teardown teardown-cognito teardown-ddb teardown-fn teardown-fn-stream teardown-apigw
 
 deploy: deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw
 
@@ -24,41 +24,41 @@ deploy-cognito:
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-369530 \
 		--no-fail-on-empty-changeset
 
 deploy-ddb:
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--template-file infra/cfn/dynamodb/dynamodb.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) TableName=$(APP_DDB_TABLE) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) TableName=data \
 		--no-fail-on-empty-changeset
 
 deploy-fn: deploy-cognito deploy-ddb
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn \
 		--template-file infra/cfn/lambda/lambda.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn InvokeMode=BUFFERED ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn InvokeMode=BUFFERED ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--no-fail-on-empty-changeset
 
@@ -66,47 +66,47 @@ deploy-fn-stream: deploy-cognito deploy-ddb
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream \
 		--template-file infra/cfn/lambda/lambda.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn-stream InvokeMode=RESPONSE_STREAM ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn-stream InvokeMode=RESPONSE_STREAM ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--no-fail-on-empty-changeset
 
 deploy-apigw: deploy-fn deploy-fn-stream deploy-cognito
-	$(eval FN_FUNCTION_ARN := $(shell aws cloudformation describe-stacks \
+	$(eval LAMBDA_FUNCTION_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn \
 		--query 'Stacks[0].Outputs[?OutputKey==`FunctionArn`].OutputValue' \
-		--output text))
-	$(eval FN_STREAM_FUNCTION_ARN := $(shell aws cloudformation describe-stacks \
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
+	$(eval STREAMING_LAMBDA_FUNCTION_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream \
 		--query 'Stacks[0].Outputs[?OutputKey==`FunctionArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval USER_POOL_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigw \
 		--template-file infra/cfn/apigateway/apigateway.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) ApiName=$(APP_NAMESPACE)-$(APP_ENV)-api LambdaFunctionArn=$(FN_FUNCTION_ARN) StreamingLambdaFunctionArn=$(FN_STREAM_FUNCTION_ARN) UserPoolArn=$(USER_POOL_ARN) DeploymentHash=$(shell date +%s) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) ApiName=$(APP_NAMESPACE)-$(APP_ENV)-api LambdaFunctionArn=$(LAMBDA_FUNCTION_ARN) StreamingLambdaFunctionArn=$(STREAMING_LAMBDA_FUNCTION_ARN) UserPoolArn=$(USER_POOL_ARN) DeploymentHash=$(shell date +%s) \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--no-fail-on-empty-changeset
 

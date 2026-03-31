@@ -107,10 +107,9 @@ Prompt the builder:
 
 ## Step 3a: Managed Policy Input
 
-1. Display the prompt with the security warning inline:
-   > Enter the managed policy name or ARN to attach to both execution roles.
-   >
-   > **Warning**: `AdministratorAccess` and `PowerUserAccess` grant broad permissions that carry significant security risks, even in a development environment. Consider using a least-privilege policy scoped to only the permissions your pattern requires.
+1. Ask the builder to type the managed policy name or ARN. **Do NOT present predefined options or multiple-choice selections** — this must be a free-text input only:
+   > Enter the managed policy name or ARN to attach to both execution roles
+   > (e.g. `ReadOnlyAccess`, `MyCustomPolicy`, or a full ARN):
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
 4. Store the resolved ARN as `ManagedPolicyArn` for template generation.

@@ -9,7 +9,7 @@ model: opus
 
 # /ipa.compose — Compose Deployment Pattern
 
-This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates five executable artifacts: four Makefiles (prepare, deploy, build, test) and a security disposition register.
+This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register.
 
 Supports three composition modes:
 - **Fresh compose**: Select a pattern, generate all artifacts (existing behavior)
@@ -449,6 +449,9 @@ Extract these sections:
   - **Parse `(prepare)` annotation**: The `(prepare)` token is optional and appears between the stack skill name and the em-dash description separator. Match pattern: `ipa.stack.{service}\s*(\(prepare\))?\s*—`. If `(prepare)` is present, set `lifecycle = "prepare"` for that stack; otherwise set `lifecycle = "deploy"`. This classification determines which Makefile receives the stack's targets (prepare.mk vs deploy.mk).
 - **Teardown Sequence**: Reverse-order list for teardown targets. Note: prepare-classified stacks are excluded from the Teardown Sequence — their teardown targets live in prepare.mk.
 - **Known Deferrals** (optional): List of security deferrals for the disposition register.
+- **Post-Deploy** (optional): Ordered list of operational steps that run after all stacks deploy.
+  Extract: step names, dependencies (within post-deploy), stack output references, commands.
+  If absent, post-deploy.mk will be a no-op.
 
 #### 3.2 Wiring (from PATTERN.md)
 
@@ -525,6 +528,7 @@ Artifacts to generate:
   - scripts/prepare.mk                          (prepare Makefile — always generated)
   - scripts/deploy.mk
   - scripts/build.mk
+  - scripts/post-deploy.mk                      (post-deploy Makefile — always generated)
   - scripts/test.mk
   - docs/infra/security-disposition.md
 ```
@@ -602,6 +606,33 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 - All targets are `.PHONY`
 - Teardown is in exact reverse of prepare deployment order
 - Teardown comment: `# === TEARDOWN (manual only — never auto-deleted by /ipa.destroy) ===`
+
+---
+
+### Step 6b: Generate post-deploy.mk
+
+Always generate `scripts/post-deploy.mk`. Read the pattern's `## Post-Deploy` section.
+
+**If no `## Post-Deploy` section exists**: Write a no-op post-deploy.mk.
+
+**If post-deploy steps exist**: Write the full post-deploy.mk.
+
+Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) post-deploy.mk template. Generate:
+
+1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
+2. **Aggregate post-deploy target**: `post-deploy: {step1} {step2} ... {stepN}` in dependency order.
+3. **Per-step targets**: For each post-deploy step:
+   - Add Make dependency prerequisites from the step's "Depends on" declaration.
+   - For each stack output reference: add a `$(eval)` line via `aws cloudformation describe-stacks --query`.
+   - Write the operational command (Python script call, aws s3 sync, aws cloudfront, aws cloudformation deploy).
+4. No teardown targets — post-deploy steps are operational, not infrastructure.
+
+**Critical rules**:
+- All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
+- All targets are `.PHONY`.
+- Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{suffix}`.
+- The `update-cognito-callback` target must pass ALL parameters that `deploy-cognito` passes,
+  plus the updated `CallbackURL`. Copy the parameter list from `deploy-cognito` in deploy.mk.
 
 ---
 
@@ -683,6 +714,7 @@ Generated artifacts:
   ✓ scripts/prepare.mk                         (prepare Makefile — run once)
   ✓ scripts/deploy.mk                          (deployment Makefile)
   ✓ scripts/build.mk                           (build Makefile)
+  ✓ scripts/post-deploy.mk                     (post-deploy Makefile)
   ✓ scripts/test.mk                            (test Makefile)
   ✓ docs/infra/security-disposition.md          (security disposition register)
 

@@ -292,7 +292,7 @@ Re-run /ipa.destroy at any time — it is safe to re-run (idempotent).
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `Cannot delete export {name}` | Another stack imports an output from this stack (cross-stack reference) | Delete the dependent stack first. Teardown targets in `deploy.mk` are ordered to prevent this — check for manually-created stacks outside IPA that may reference this stack's exports |
-| `The bucket you tried to delete is not empty` | S3 bucket contains objects | Empty the bucket first: `aws s3 rm s3://{bucket-name} --recursive --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
+| `The bucket you tried to delete is not empty` | S3 bucket contains uploaded frontend files from post-deploy | Empty the bucket first: `aws s3 rm s3://{bucket-name} --recursive --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
 | `RepositoryNotEmptyException` or `Repository not empty` | ECR repository contains images | Delete all images first: `aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)" --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
 | Partial teardown (some stacks deleted, others remain) | A stack in the middle of the reverse-order sequence failed to delete | Fix the failing stack (see specific errors above), then re-run `/ipa.destroy`. Already-deleted stacks will be skipped (they no longer exist) |
 | `Stack [{stack}] does not exist` during teardown | Stack was already deleted (manually or in a previous attempt) | This is safe to ignore. The teardown will continue with remaining stacks |

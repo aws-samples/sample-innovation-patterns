@@ -166,3 +166,40 @@ wiring:
 |----|---------|-----------|
 | APIGW-1 | CORS Access-Control-Allow-Origin: * | POC scope — production should scope to CloudFront domain |
 | APIGW-2 | REST API 29s integration timeout | REST API limitation — HTTP API (v2) needed for production long-polling SSE |
+
+## Post-Deploy
+
+Steps that run after all stacks are successfully deployed. These are operational
+steps (not CloudFormation stacks) that wire deployed infrastructure together.
+Post-deploy runs automatically within /ipa.deploy — no separate invocation needed.
+
+### configure-frontend
+- Action: Generate web-client/dist/config.js with runtime configuration
+- Script: scripts/util/configure_frontend.py
+- Depends on: (none within post-deploy)
+- Stack outputs:
+  - apigw → ApiUrl
+  - cf → AppUrl
+  - cognito → IssuerUrl, UserPoolClientId, EndSessionEndpoint
+
+### upload-frontend
+- Action: Sync web-client/dist/ to S3 bucket
+- Depends on: configure-frontend
+- Stack outputs:
+  - s3 → BucketName
+- Command: aws s3 sync web-client/dist/ s3://{BucketName}/ --delete
+
+### invalidate-cf
+- Action: Create CloudFront cache invalidation and wait for completion
+- Depends on: upload-frontend
+- Stack outputs:
+  - cf → DistributionId
+- Command: aws cloudfront create-invalidation + aws cloudfront wait invalidation-completed
+
+### update-cognito-callback
+- Action: Update Cognito callback/logout URLs with CloudFront domain
+- Depends on: invalidate-cf
+- Stack outputs:
+  - cf → AppUrl
+- Command: aws cloudformation deploy (Cognito stack with updated CallbackURL parameter)
+- Notes: Must pass ALL original deploy-cognito parameters plus CallbackURL={AppUrl}/authentication/callback
