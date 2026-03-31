@@ -26,12 +26,17 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
    - Suffix: fn-stream
    - Config: FunctionName=fn-stream InvokeMode=RESPONSE_STREAM
 
+6. ipa.stack.apigw — API Gateway REST API with Cognito authorizer
+   - Depends on: ipa.stack.lambda (fn), ipa.stack.lambda (fn-stream), ipa.stack.cognito
+   - Suffix: apigw
+
 ## Teardown Sequence
 
-1. ipa.stack.lambda fn-stream (suffix: fn-stream)
-2. ipa.stack.lambda fn (suffix: fn)
-3. ipa.stack.dynamodb (suffix: ddb)
-4. ipa.stack.cognito (suffix: cognito)
+1. ipa.stack.apigw (suffix: apigw)
+2. ipa.stack.lambda fn-stream (suffix: fn-stream)
+3. ipa.stack.lambda fn (suffix: fn)
+4. ipa.stack.dynamodb (suffix: ddb)
+5. ipa.stack.cognito (suffix: cognito)
 
 ## Wiring
 
@@ -126,10 +131,38 @@ wiring:
       stack: fn-stream
       parameter: AuthAudience
     notes: "Cognito app client ID → AUTH_AUDIENCE env var for JWT audience validation"
+
+  # Lambda (fn) → API Gateway — buffered Lambda ARN
+  - source:
+      stack: fn
+      output: FunctionArn
+    target:
+      stack: apigw
+      parameter: LambdaFunctionArn
+    notes: "Buffered Lambda function ARN for /{proxy+} routes"
+
+  # Lambda (fn-stream) → API Gateway — streaming Lambda ARN
+  - source:
+      stack: fn-stream
+      output: FunctionArn
+    target:
+      stack: apigw
+      parameter: StreamingLambdaFunctionArn
+    notes: "Streaming Lambda function ARN for /api/v1/sse/{proxy+} routes"
+
+  # Cognito → API Gateway — User Pool ARN for authorizer
+  - source:
+      stack: cognito
+      output: UserPoolArn
+    target:
+      stack: apigw
+      parameter: UserPoolArn
+    notes: "Cognito User Pool ARN for COGNITO_USER_POOLS authorizer"
 ```
 
 ## Known Deferrals
 
 | ID | Finding | Rationale |
 |----|---------|-----------|
-| (none yet) | | |
+| APIGW-1 | CORS Access-Control-Allow-Origin: * | POC scope — production should scope to CloudFront domain |
+| APIGW-2 | REST API 29s integration timeout | REST API limitation — HTTP API (v2) needed for production long-polling SSE |

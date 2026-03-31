@@ -1,0 +1,307 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'API Gateway REST API fronting a Lambda function with Cognito authorizer, buffered and SSE streaming routes'
+
+Parameters:
+  ApiName:
+    Type: String
+    Description: Name for the REST API
+
+  StageName:
+    Type: String
+    Default: prod
+    Description: API Gateway stage name
+
+  LambdaFunctionArn:
+    Type: String
+    Description: >-
+      ARN of the buffered Lambda function (BUFFERED invoke mode).
+      Used for root + {proxy+} catch-all routes.
+
+  StreamingLambdaFunctionArn:
+    Type: String
+    Default: ''
+    Description: >-
+      ARN of the streaming Lambda function (RESPONSE_STREAM invoke mode).
+      Used for /api/v1/sse/{proxy+} routes. If empty, SSE routes are not created.
+      Must be a separate Lambda with AWS_LWA_INVOKE_MODE=response_stream.
+
+  UserPoolArn:
+    Type: String
+    Description: Cognito User Pool ARN for gateway-level ID token validation.
+
+  ThrottlingRateLimit:
+    Type: Number
+    Default: 1000
+    Description: Steady-state request rate limit per second
+
+  ThrottlingBurstLimit:
+    Type: Number
+    Default: 500
+    Description: Burst request rate limit
+
+  DeploymentHash:
+    Type: String
+    Default: initial
+    Description: Change this value to force a new API deployment
+
+Conditions:
+  HasStreamingLambda: !Not [!Equals [!Ref StreamingLambdaFunctionArn, '']]
+  NoStreamingLambda: !Equals [!Ref StreamingLambdaFunctionArn, '']
+
+Resources:
+  # --- REST API ---
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref ApiName
+      Description: !Sub 'REST API fronting Lambda ${LambdaFunctionArn}'
+      EndpointConfiguration:
+        Types: [REGIONAL]
+
+  # --- Cognito Authorizer ---
+  CognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: CognitoUserPoolAuthorizer
+      RestApiId: !Ref RestApi
+      Type: COGNITO_USER_POOLS
+      IdentitySource: method.request.header.Authorization
+      ProviderARNs:
+        - !Ref UserPoolArn
+
+  # --- Buffered routes: root + {proxy+} catch-all ---
+  RootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !GetAtt RestApi.RootResourceId
+      HttpMethod: ANY
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+
+  RootOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !GetAtt RestApi.RootResourceId
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: '{proxy+}'
+      RestApiId: !Ref RestApi
+
+  ProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref ProxyResource
+      HttpMethod: ANY
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+
+  ProxyOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref ProxyResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # --- SSE streaming routes: /api/v1/sse/{proxy+} ---
+  # Only created when a separate streaming Lambda is provided.
+  ApiResource:
+    Type: AWS::ApiGateway::Resource
+    Condition: HasStreamingLambda
+    Properties:
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: api
+      RestApiId: !Ref RestApi
+
+  V1Resource:
+    Type: AWS::ApiGateway::Resource
+    Condition: HasStreamingLambda
+    Properties:
+      ParentId: !Ref ApiResource
+      PathPart: v1
+      RestApiId: !Ref RestApi
+
+  SseResource:
+    Type: AWS::ApiGateway::Resource
+    Condition: HasStreamingLambda
+    Properties:
+      ParentId: !Ref V1Resource
+      PathPart: sse
+      RestApiId: !Ref RestApi
+
+  SseProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Condition: HasStreamingLambda
+    Properties:
+      ParentId: !Ref SseResource
+      PathPart: '{proxy+}'
+      RestApiId: !Ref RestApi
+
+  SseProxyOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Condition: HasStreamingLambda
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SseProxyResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  SseProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Condition: HasStreamingLambda
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SseProxyResource
+      HttpMethod: ANY
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        ResponseTransferMode: STREAM
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2021-11-15/functions/${StreamingLambdaFunctionArn}/response-streaming-invocations
+
+  StreamingLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasStreamingLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref StreamingLambdaFunctionArn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+
+  # --- Deployment + Stage ---
+  # Two deployment resources: one with SSE DependsOn, one without.
+  # Only one is created based on condition.
+  DeploymentWithStreaming:
+    Type: AWS::ApiGateway::Deployment
+    Condition: HasStreamingLambda
+    DependsOn:
+      - RootMethod
+      - RootOptionsMethod
+      - ProxyMethod
+      - ProxyOptionsMethod
+      - SseProxyOptionsMethod
+      - SseProxyMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: !Sub 'Deployment ${DeploymentHash}'
+
+  DeploymentWithoutStreaming:
+    Type: AWS::ApiGateway::Deployment
+    Condition: NoStreamingLambda
+    DependsOn:
+      - RootMethod
+      - RootOptionsMethod
+      - ProxyMethod
+      - ProxyOptionsMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: !Sub 'Deployment ${DeploymentHash}'
+
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: !Ref StageName
+      RestApiId: !Ref RestApi
+      DeploymentId: !If
+        - HasStreamingLambda
+        - !Ref DeploymentWithStreaming
+        - !Ref DeploymentWithoutStreaming
+      MethodSettings:
+        - HttpMethod: '*'
+          ResourcePath: '/*'
+          ThrottlingRateLimit: !Ref ThrottlingRateLimit
+          ThrottlingBurstLimit: !Ref ThrottlingBurstLimit
+
+  # --- Lambda permission (buffered) ---
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunctionArn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway invoke URL
+    Value: !Sub https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  RestApiId:
+    Description: REST API ID
+    Value: !Ref RestApi
+    Export:
+      Name: !Sub '${AWS::StackName}-RestApiId'
+
+  StageName:
+    Description: Stage name
+    Value: !Ref StageName
+    Export:
+      Name: !Sub '${AWS::StackName}-StageName'
