@@ -16,9 +16,9 @@ export
 # Resolve version from app-lib/pyproject.toml + git SHA
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
-.PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw teardown teardown-cognito teardown-ddb teardown-fn teardown-fn-stream teardown-apigw
+.PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw deploy-s3 deploy-cf teardown teardown-cf teardown-s3 teardown-apigw teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
 
-deploy: deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw
+deploy: deploy-cognito deploy-ddb deploy-fn deploy-fn-stream deploy-apigw deploy-s3 deploy-cf
 
 deploy-cognito:
 	aws cloudformation deploy \
@@ -110,9 +110,47 @@ deploy-apigw: deploy-fn deploy-fn-stream deploy-cognito
 		--capabilities CAPABILITY_NAMED_IAM \
 		--no-fail-on-empty-changeset
 
+deploy-s3:
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
+		--template-file infra/cfn/s3/s3.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
+
+deploy-cf: deploy-s3
+	$(eval S3_BUCKET_DOMAIN_NAME := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
+		--query 'Stacks[0].Outputs[?OutputKey==`BucketDomainName`].OutputValue' \
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
+	$(eval S3_BUCKET_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
+		--query 'Stacks[0].Outputs[?OutputKey==`BucketArn`].OutputValue' \
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
+	$(eval S3_BUCKET_NAME := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
+		--query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
+		--template-file infra/cfn/cloudfront/cloudfront.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) S3BucketDomainName=$(S3_BUCKET_DOMAIN_NAME) S3BucketArn=$(S3_BUCKET_ARN) S3BucketName=$(S3_BUCKET_NAME) \
+		--no-fail-on-empty-changeset
+
 # === TEARDOWN (reverse order) ===
 
-teardown: teardown-apigw teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
+teardown: teardown-cf teardown-s3 teardown-apigw teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
+
+teardown-cf:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf
+
+teardown-s3:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3
 
 teardown-apigw:
 	aws cloudformation delete-stack \

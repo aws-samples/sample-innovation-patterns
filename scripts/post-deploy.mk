@@ -18,23 +18,23 @@ configure-frontend:
 	$(eval API_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigw \
 		--query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval END_SESSION := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	python3 scripts/util/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
 		--oidc-authority "$(ISSUER_URL)" \
@@ -47,19 +47,19 @@ upload-frontend: configure-frontend
 	$(eval BUCKET_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
 		--query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws s3 sync web-client/dist/ s3://$(BUCKET_NAME)/ --delete
 
 invalidate-cf: upload-frontend
 	$(eval DISTRIBUTION_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`DistributionId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval INVALIDATION_ID := $(shell aws cloudfront create-invalidation \
 		--distribution-id $(DISTRIBUTION_ID) \
 		--paths "/*" \
 		--query 'Invalidation.Id' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudfront wait invalidation-completed \
 		--distribution-id $(DISTRIBUTION_ID) \
 		--id $(INVALIDATION_ID)
@@ -68,7 +68,7 @@ update-cognito-callback: invalidate-cf
 	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \

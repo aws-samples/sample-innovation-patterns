@@ -23,6 +23,10 @@ test-validate:
 		--template-body file://infra/cfn/lambda/lambda.yml
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/apigateway/apigateway.yml
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/s3/s3.yml
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/cloudfront/cloudfront.yml
 
 test-security:
 	ash --source-dir infra/

@@ -141,3 +141,16 @@ global_settings:
     - rule_id: 'CKV_DOCKER_3'
       path: 'infra/containers/rest-lambda/Dockerfile'
       reason: 'Not applicable — Lambda container images run inside Lambda execution sandbox; container user has no security impact'
+    # child_process in vite.config.ts — build-time only, called with hardcoded string literals ('version', 'sha').
+    # No user input reaches execSync; no injection vector.
+    - rule_id: 'javascript.lang.security.detect-child-process.detect-child-process'
+      path: 'web-client/vite.config.ts'
+      reason: 'False positive — build-time config only; execSync is called with hardcoded string literals, no user input'
+    # Bandit B607: partial executable path for git — build utility script with hardcoded args, no user input.
+    - rule_id: 'B607'
+      path: 'scripts/util/version.py'
+      reason: 'Build utility calls git with hardcoded arguments (rev-parse --short=7 HEAD); no user input, FileNotFoundError already handled'
+    # Bandit B404: subprocess import in build utility — calls git with hardcoded list args (no shell), no user input.
+    - rule_id: 'B404'
+      path: 'scripts/util/version.py'
+      reason: 'Build utility uses subprocess with list invocation (no shell) for git with hardcoded arguments; no user input'

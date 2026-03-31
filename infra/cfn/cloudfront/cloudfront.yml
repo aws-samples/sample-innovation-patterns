@@ -72,6 +72,9 @@ Resources:
             ErrorCachingMinTTL: 0
         HttpVersion: http2and3
         PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2021
       Tags:
         - Key: Namespace
           Value: !Ref Namespace

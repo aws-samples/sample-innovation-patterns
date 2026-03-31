@@ -18,6 +18,10 @@ Parameters:
     Default: web
     Description: 'Suffix for bucket name (bucket = {ns}-{env}-{suffix}-{account_id})'
 
+  LogBucketName:
+    Type: String
+    Description: 'S3 log bucket name for access logging (from security stack LogBucketName output)'
+
 Resources:
   WebBucket:
     Type: AWS::S3::Bucket
@@ -28,6 +32,9 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogBucketName
+        LogFilePrefix: !Sub 's3-access-logs/${Namespace}-${Environment}-${BucketNameSuffix}/'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
