@@ -25,10 +25,14 @@ Deploy an API Gateway REST API with Cognito User Pool authorizer. Routes buffere
 | ThrottlingRateLimit | Number | `1000` | — | — |
 | ThrottlingBurstLimit | Number | `500` | — | — |
 | DeploymentHash | String | `initial` | — | — |
+| Namespace | String | — | `^[a-z][a-z0-9-]{0,11}$` | Invalid namespace |
+| Environment | String | — | `dev`, `staging`, `prod` | — |
 
 ### Parameter Classification
 
-**Configuration** (4) — sourced from `.env`, defaults, or auto-generated:
+**Configuration** (6) — sourced from `.env`, defaults, or auto-generated:
+- Namespace — from `APP_NAMESPACE` in `.env`
+- Environment — from `APP_ENV` in `.env`
 - ApiName — passed from Makefile as `$(APP_NAMESPACE)-$(APP_ENV)-api`
 - StageName — hardcoded default `prod`
 - ThrottlingRateLimit, ThrottlingBurstLimit — hardcoded defaults `1000`/`500`

@@ -44,6 +44,17 @@ Parameters:
     Default: initial
     Description: Change this value to force a new API deployment
 
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace - 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Project namespace prefix for resource naming'
+
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
 Conditions:
   HasStreamingLambda: !Not [!Equals [!Ref StreamingLambdaFunctionArn, '']]
   NoStreamingLambda: !Equals [!Ref StreamingLambdaFunctionArn, '']
@@ -263,8 +274,35 @@ Resources:
       RestApiId: !Ref RestApi
       Description: !Sub 'Deployment ${DeploymentHash}'
 
+  # --- Access logging ---
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${Namespace}-${Environment}-${ApiName}'
+      RetentionInDays: 30
+
+  ApiGatewayLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-apigw-logs'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayLoggingRole.Arn
+
   Stage:
     Type: AWS::ApiGateway::Stage
+    DependsOn: ApiGatewayAccount
     Properties:
       StageName: !Ref StageName
       RestApiId: !Ref RestApi
@@ -272,6 +310,9 @@ Resources:
         - HasStreamingLambda
         - !Ref DeploymentWithStreaming
         - !Ref DeploymentWithoutStreaming
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
       MethodSettings:
         - HttpMethod: '*'
           ResourcePath: '/*'
