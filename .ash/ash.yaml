@@ -104,3 +104,19 @@ global_settings:
     - rule_id: 'CKV_AWS_117'
       path: 'infra/cfn/lambda/lambda.yml'
       reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
+    # Dockerfile USER directive — not applicable for Lambda container images.
+    # Lambda runs inside its own execution sandbox; the container USER has no security impact.
+    - rule_id: 'dockerfile.security.missing-user.missing-user'
+      path: 'infra/containers/rest-lambda/Dockerfile'
+      reason: 'Not applicable — Lambda container images run inside Lambda execution sandbox; USER directive has no security impact'
+    # path-to-regexp 0.1.12 — transitive dep pinned by express (used by Docusaurus dev server).
+    # No fix available; express has not updated this dependency. Docs site only, not production-facing.
+    - rule_id: 'GHSA-37ch-88jc-xwx2-path-to-regexp'
+      path: 'docs/package-lock.json'
+      reason: 'No fix available — pinned by express in Docusaurus; docs site only, not production-facing'
+      expiration: '2026-06-30'
+    # Dockerfile HEALTHCHECK — not applicable for Lambda container images.
+    # Lambda manages function health internally; Docker HEALTHCHECK is ignored by the Lambda runtime.
+    - rule_id: 'CKV_DOCKER_2'
+      path: 'infra/containers/rest-lambda/Dockerfile'
+      reason: 'Not applicable — Lambda container images; Docker HEALTHCHECK is ignored by the Lambda runtime'
