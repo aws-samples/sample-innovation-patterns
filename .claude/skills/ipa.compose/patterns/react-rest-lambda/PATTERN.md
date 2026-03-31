@@ -30,13 +30,23 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
    - Depends on: ipa.stack.lambda (fn), ipa.stack.lambda (fn-stream), ipa.stack.cognito
    - Suffix: apigw
 
+7. ipa.stack.s3 — S3 bucket for static web hosting
+   - Depends on: none
+   - Suffix: s3
+
+8. ipa.stack.cloudfront — CloudFront distribution fronting S3
+   - Depends on: ipa.stack.s3
+   - Suffix: cf
+
 ## Teardown Sequence
 
-1. ipa.stack.apigw (suffix: apigw)
-2. ipa.stack.lambda fn-stream (suffix: fn-stream)
-3. ipa.stack.lambda fn (suffix: fn)
-4. ipa.stack.dynamodb (suffix: ddb)
-5. ipa.stack.cognito (suffix: cognito)
+1. ipa.stack.cloudfront (suffix: cf)
+2. ipa.stack.s3 (suffix: s3)
+3. ipa.stack.apigw (suffix: apigw)
+4. ipa.stack.lambda fn-stream (suffix: fn-stream)
+5. ipa.stack.lambda fn (suffix: fn)
+6. ipa.stack.dynamodb (suffix: ddb)
+7. ipa.stack.cognito (suffix: cognito)
 
 ## Wiring
 
@@ -158,6 +168,33 @@ wiring:
       stack: apigw
       parameter: UserPoolArn
     notes: "Cognito User Pool ARN for COGNITO_USER_POOLS authorizer"
+
+  # S3 → CloudFront — bucket domain name for origin
+  - source:
+      stack: s3
+      output: BucketDomainName
+    target:
+      stack: cf
+      parameter: S3BucketDomainName
+    notes: "S3 regional domain name for CloudFront origin configuration"
+
+  # S3 → CloudFront — bucket ARN for OAC policy
+  - source:
+      stack: s3
+      output: BucketArn
+    target:
+      stack: cf
+      parameter: S3BucketArn
+    notes: "S3 bucket ARN for CloudFront OAC bucket policy condition"
+
+  # S3 → CloudFront — bucket name for bucket policy
+  - source:
+      stack: s3
+      output: BucketName
+    target:
+      stack: cf
+      parameter: S3BucketName
+    notes: "S3 bucket name for CloudFront OAC bucket policy resource"
 ```
 
 ## Known Deferrals
@@ -166,6 +203,11 @@ wiring:
 |----|---------|-----------|
 | APIGW-1 | CORS Access-Control-Allow-Origin: * | POC scope — production should scope to CloudFront domain |
 | APIGW-2 | REST API 29s integration timeout | REST API limitation — HTTP API (v2) needed for production long-polling SSE |
+| S3-1 | No bucket versioning | POC scope — production should enable versioning |
+| CF-1 | No custom domain / ACM certificate | POC uses *.cloudfront.net |
+| CF-2 | No WAF | POC scope — production should add WAF |
+| CF-3 | PriceClass_100 only | POC — US/Canada/Europe edge locations only |
+| CF-4 | Short DefaultTTL (300s) | POC — production should tune per content type |
 
 ## Post-Deploy
 
