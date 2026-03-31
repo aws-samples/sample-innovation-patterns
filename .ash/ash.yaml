@@ -128,3 +128,12 @@ global_settings:
     - rule_id: 'CKV_AWS_120'
       path: 'infra/cfn/apigateway/apigateway.yml'
       reason: 'Not applicable — all routes return user-specific responses behind Cognito auth and include SSE streaming; caching would serve stale/wrong data. Customers can enable per-route caching when productionizing.'
+    # API Gateway X-Ray tracing — out of scope for POC; customers can enable TracingEnabled when productionizing.
+    - rule_id: 'CKV_AWS_73'
+      path: 'infra/cfn/apigateway/apigateway.yml'
+      reason: 'Out of scope for POC — customers can add TracingEnabled: true to the Stage when productionizing'
+    # Dockerfile container user — not applicable for Lambda container images.
+    # Lambda runs inside its own execution sandbox; the container user has no security impact.
+    - rule_id: 'CKV_DOCKER_3'
+      path: 'infra/containers/rest-lambda/Dockerfile'
+      reason: 'Not applicable — Lambda container images run inside Lambda execution sandbox; container user has no security impact'

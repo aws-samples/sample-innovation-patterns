@@ -44,6 +44,13 @@ Parameters:
     MaxValue: 900
     Description: 'Lambda timeout in seconds'
 
+  ReservedConcurrentExecutions:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 1000
+    Description: 'Maximum concurrent executions for this function (prevents runaway scaling and protects downstream services)'
+
   LogBucketName:
     Type: String
     Default: ''
@@ -153,6 +160,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       MemorySize: !Ref MemorySize
       Timeout: !Ref Timeout
+      ReservedConcurrentExecutions: !Ref ReservedConcurrentExecutions
       Environment:
         Variables:
           AUTH_ISSUER: !Ref AuthIssuer
