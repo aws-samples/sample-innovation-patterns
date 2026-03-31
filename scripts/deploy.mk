@@ -11,6 +11,7 @@
 #   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
 
 -include .env
+export AWS_PROFILE AWS_REGION
 
 .PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream teardown teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
 
@@ -27,7 +28,7 @@ deploy-ddb:
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--template-file infra/cfn/dynamodb/dynamodb.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) TableName=$(APP_DDB_TABLE) \
 		--no-fail-on-empty-changeset
 
 deploy-fn: deploy-cognito deploy-ddb

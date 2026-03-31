@@ -90,3 +90,17 @@ global_settings:
     - rule_id: 'CKV_AWS_116'
       path: 'infra/cfn/lambda/lambda.yml'
       reason: 'Not applicable — Lambda is invoked synchronously via API Gateway; DLQ only triggers on async invocations'
+    # DynamoDB PITR — out of scope for POC; customers can enable PointInTimeRecoverySpecification when productionizing.
+    - rule_id: 'CKV_AWS_28'
+      path: 'infra/cfn/dynamodb/dynamodb.yml'
+      reason: 'Out of scope for POC — customers can enable PointInTimeRecoverySpecification when productionizing'
+    # Lambda env var KMS encryption — out of scope for POC; uses default AWS-managed encryption.
+    # Customers can add a KmsKeyArn on the Lambda function when productionizing.
+    - rule_id: 'CKV_AWS_173'
+      path: 'infra/cfn/lambda/lambda.yml'
+      reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
+    # Lambda VPC configuration — out of scope for POC; requires VPC, subnets, and security groups.
+    # Customers can add VpcConfig when productionizing.
+    - rule_id: 'CKV_AWS_117'
+      path: 'infra/cfn/lambda/lambda.yml'
+      reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
