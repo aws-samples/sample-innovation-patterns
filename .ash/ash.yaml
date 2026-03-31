@@ -128,7 +128,7 @@ global_settings:
     - rule_id: 'CKV_AWS_120'
       path: 'infra/cfn/apigateway/apigateway.yml'
       reason: 'Not applicable — all routes return user-specific responses behind Cognito auth and include SSE streaming; caching would serve stale/wrong data. Customers can enable per-route caching when productionizing.'
-    # API Gateway X-Ray tracing — out of scope for POC; customers can enable TracingEnabled when productionizing.
+    # API Gateway X-Ray tracing — out of scope for POC; customers can enable TracingEnabled: true when productionizing.
     - rule_id: 'CKV_AWS_73'
       path: 'infra/cfn/apigateway/apigateway.yml'
       reason: 'Out of scope for POC — customers can add TracingEnabled: true to the Stage when productionizing'
