@@ -2,6 +2,10 @@
 project_name: innovation-patterns
 
 global_settings:
+  ignore_paths:
+    # pytest.ini is not infrastructure-as-code — KICS misparses it as a config file
+    - path: 'app-lib/pytest.ini'
+      reason: 'Not IaC — pytest configuration file; KICS cannot parse INI format and emits false errors'
   suppressions:
     # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause
     - rule_id: 'B101'
