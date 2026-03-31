@@ -27,6 +27,10 @@ Used when composing a pattern from scratch (no existing `scripts/deploy.mk`):
 #   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
 
 -include .env
+export
+
+# Resolve version from app-lib/pyproject.toml + git SHA
+IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
 .PHONY: deploy {all deploy-* targets} teardown {all teardown-* targets}
 ```
@@ -50,6 +54,10 @@ Used when adding stacks or patterns to an existing composition (deploy.mk alread
 #   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
 
 -include .env
+export
+
+# Resolve version from app-lib/pyproject.toml + git SHA
+IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
 .PHONY: deploy {all deploy-* targets} teardown {all teardown-* targets}
 ```
@@ -247,7 +255,13 @@ Generate `scripts/build.mk` using this structure. Build targets are determined b
 #   make -f scripts/build.mk build-{target} # Build single artifact
 
 -include .env
+export
 include scripts/util/docker.mk
+
+# Resolve version from app-lib/pyproject.toml + git SHA
+IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
+APP_VERSION := $(shell python3 scripts/util/version.py version)
+BUILD_VERSION := $(shell python3 scripts/util/version.py sha)
 
 .PHONY: build {all build-* targets}
 ```
@@ -260,12 +274,12 @@ build: build-{target1} build-{target2}
 
 ### Build Target — Container (Lambda/ECS)
 
-When a stack skill's Build Requirements has `Type: container`:
+When a stack skill's Build Requirements has `Type: container`. The Dockerfile path uses the actual location (`infra/containers/{container}/Dockerfile`), while the build context remains `.` (repo root) so `COPY app-lib/` and similar paths resolve:
 
 ```makefile
 build-{function-name}:
 	$(call ecr-login)
-	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr)
+	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},{dockerfile-path},.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr,$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
 ```
 
 **Note**: build.mk must include `scripts/util/docker.mk` at the top (after `-include .env`) to provide `ecr-login` and `docker-build-push` functions.

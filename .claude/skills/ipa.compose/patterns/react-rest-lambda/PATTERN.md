@@ -49,7 +49,7 @@ wiring:
     target:
       stack: fn
       parameter: ImageUri
-    notes: "Container image URI for buffered Lambda function (compose appends :$(IMAGE_TAG))"
+    notes: "Container image URI — compose appends :$(IMAGE_TAG) (resolved from scripts/util/version.py at build/deploy time)"
 
   # ECR → Lambda (fn-stream) — container image
   - source:

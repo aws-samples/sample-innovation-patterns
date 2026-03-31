@@ -4,21 +4,21 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react-swc'
 import { defineConfig } from 'vite'
 
-function getBuildVersion(): string {
-  const cbHash = process.env.CODEBUILD_RESOLVED_SOURCE_VERSION
-  if (cbHash) return cbHash.slice(0, 7)
+function getVersion(subcommand: string): string {
   try {
-    return execSync('git rev-parse --short=7 HEAD').toString().trim()
+    return execSync(`python3 scripts/util/version.py ${subcommand}`)
+      .toString()
+      .trim()
   } catch {
-    return new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14)
+    return subcommand === 'sha' ? 'unknown' : '0.0.0'
   }
 }
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
-    __BUILD_VERSION__: JSON.stringify(getBuildVersion()),
+    __APP_VERSION__: JSON.stringify(getVersion('version')),
+    __BUILD_VERSION__: JSON.stringify(getVersion('sha')),
   },
   resolve: {
     alias: {

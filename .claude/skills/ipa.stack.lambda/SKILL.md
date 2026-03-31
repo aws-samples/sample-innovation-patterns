@@ -36,7 +36,7 @@ Deploy a Lambda function with container image packaging. One template deployed a
 - Namespace, Environment, FunctionName, InvokeMode, MemorySize, Timeout, LogBucketName
 
 **Wirable — Required** (3) — sourced from upstream stack outputs:
-- ImageUri ← ipa.stack.ecr `RepositoryUri` (compose appends `:$(IMAGE_TAG)`)
+- ImageUri ← ipa.stack.ecr `RepositoryUri` (compose appends `:$(IMAGE_TAG)`, resolved from `scripts/util/version.py`)
 - AuthIssuer ← ipa.stack.cognito `IssuerUrl`
 - AuthAudience ← ipa.stack.cognito `UserPoolClientId`
 
