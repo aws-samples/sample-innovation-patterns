@@ -154,3 +154,13 @@ global_settings:
     - rule_id: 'B404'
       path: 'scripts/util/version.py'
       reason: 'Build utility uses subprocess with list invocation (no shell) for git with hardcoded arguments; no user input'
+    # CloudFront WAF — out of scope for POC; requires provisioning a separate WebACL.
+    # Customers can attach a WebACLId to the distribution when productionizing.
+    - rule_id: 'CKV_AWS_68'
+      path: 'infra/cfn/cloudfront/cloudfront.yml'
+      reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach WebACLId when productionizing'
+    # S3 versioning — static web assets bucket; content is rebuilt from source, not user-uploaded.
+    # Versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.
+    - rule_id: 'CKV_AWS_21'
+      path: 'infra/cfn/s3/s3.yml'
+      reason: 'Out of scope for POC — static web assets are rebuilt from source; versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.'

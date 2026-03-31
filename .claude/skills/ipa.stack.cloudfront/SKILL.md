@@ -22,6 +22,7 @@ Deploy a CloudFront distribution fronting an S3 bucket via Origin Access Control
 | S3BucketName | String | — | — | — |
 | S3BucketArn | String | — | — | — |
 | S3BucketDomainName | String | — | — | — |
+| LogBucketName | String | — | — | — |
 
 ### Parameter Classification
 
@@ -29,10 +30,11 @@ Deploy a CloudFront distribution fronting an S3 bucket via Origin Access Control
 - Namespace — from `APP_NAMESPACE` in `.env`
 - Environment — from `APP_ENV` in `.env`
 
-**Wirable — Required** (3) — sourced from upstream stack outputs:
+**Wirable — Required** (4) — sourced from upstream stack outputs:
 - S3BucketName <- ipa.stack.s3 `BucketName`
 - S3BucketArn <- ipa.stack.s3 `BucketArn`
 - S3BucketDomainName <- ipa.stack.s3 `BucketDomainName`
+- LogBucketName <- ipa.security `LogBucketName`
 
 ## Outputs
 

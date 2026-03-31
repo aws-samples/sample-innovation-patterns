@@ -9,6 +9,7 @@
 #   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
 
 -include .env
+export
 
 .PHONY: post-deploy configure-frontend upload-frontend invalidate-cf update-cognito-callback
 

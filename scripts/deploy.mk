@@ -111,10 +111,14 @@ deploy-apigw: deploy-fn deploy-fn-stream deploy-cognito
 		--no-fail-on-empty-changeset
 
 deploy-s3:
+	$(eval LOG_BUCKET_NAME := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-security \
+		--query 'Stacks[0].Outputs[?OutputKey==`LogBucketName`].OutputValue' \
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
 		--template-file infra/cfn/s3/s3.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) LogBucketName=$(LOG_BUCKET_NAME) \
 		--no-fail-on-empty-changeset
 
 deploy-cf: deploy-s3

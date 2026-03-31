@@ -20,6 +20,7 @@ Deploy a private S3 bucket for static web hosting. The bucket is not publicly ac
 | Namespace | String | — | `^[a-z][a-z0-9-]{0,11}$` | Invalid namespace |
 | Environment | String | — | `dev`, `staging`, `prod` | — |
 | BucketNameSuffix | String | `web` | — | — |
+| LogBucketName | String | — | — | — |
 
 ### Parameter Classification
 
@@ -28,7 +29,8 @@ Deploy a private S3 bucket for static web hosting. The bucket is not publicly ac
 - Environment — from `APP_ENV` in `.env`
 - BucketNameSuffix — hardcoded default `web`
 
-**Wirable** (0) — no upstream stack dependencies.
+**Wirable — Required** (1) — sourced from upstream stack outputs:
+- LogBucketName <- ipa.security `LogBucketName`
 
 ## Outputs
 
