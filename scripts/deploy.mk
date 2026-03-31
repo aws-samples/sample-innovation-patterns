@@ -3,7 +3,7 @@
 #
 # Usage:
 #   make -f scripts/deploy.mk deploy        # Deploy all stacks
-#   make -f scripts/deploy.mk deploy-cognito # Deploy single stack
+#   make -f scripts/deploy.mk deploy-{svc}  # Deploy single stack
 #   make -f scripts/deploy.mk teardown      # Delete all stacks (reverse order)
 #
 # Variable resolution:
@@ -12,20 +12,101 @@
 
 -include .env
 
-.PHONY: deploy deploy-cognito teardown teardown-cognito
+.PHONY: deploy deploy-cognito deploy-ddb deploy-fn deploy-fn-stream teardown teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
 
-deploy: deploy-cognito
+deploy: deploy-cognito deploy-ddb deploy-fn deploy-fn-stream
 
 deploy-cognito:
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \
-		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) CognitoDomainPrefix=app-dev-login \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-auth \
+		--no-fail-on-empty-changeset
+
+deploy-ddb:
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
+		--template-file infra/cfn/dynamodb/dynamodb.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
+
+deploy-fn: deploy-cognito deploy-ddb
+	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text))
+	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
+		--output text))
+	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
+		--output text))
+	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
+		--output text))
+	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+		--output text))
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn \
+		--template-file infra/cfn/lambda/lambda.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn InvokeMode=BUFFERED ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--no-fail-on-empty-changeset
+
+deploy-fn-stream: deploy-cognito deploy-ddb
+	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text))
+	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
+		--output text))
+	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
+		--output text))
+	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
+		--output text))
+	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+		--output text))
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream \
+		--template-file infra/cfn/lambda/lambda.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) FunctionName=fn-stream InvokeMode=RESPONSE_STREAM ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) DynamoDbTableArns=$(TABLE_ARN) TableName=$(TABLE_NAME) AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
+		--capabilities CAPABILITY_NAMED_IAM \
 		--no-fail-on-empty-changeset
 
 # === TEARDOWN (reverse order) ===
 
-teardown: teardown-cognito
+teardown: teardown-fn-stream teardown-fn teardown-ddb teardown-cognito
+
+teardown-fn-stream:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream
+
+teardown-fn:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn
+
+teardown-ddb:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb
 
 teardown-cognito:
 	aws cloudformation delete-stack \

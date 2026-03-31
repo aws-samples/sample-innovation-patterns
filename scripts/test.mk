@@ -17,6 +17,10 @@ test-validate:
 		--template-body file://infra/cfn/ecr/ecr.yml
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/cognito/cognito.yml
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/dynamodb/dynamodb.yml
+	aws cloudformation validate-template \
+		--template-body file://infra/cfn/lambda/lambda.yml
 
 test-security:
 	ash --source-dir infra/

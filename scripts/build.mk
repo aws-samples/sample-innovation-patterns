@@ -3,12 +3,15 @@
 #
 # Usage:
 #   make -f scripts/build.mk build          # Build all artifacts
-#   make -f scripts/build.mk build-{target} # Build single artifact
+#   make -f scripts/build.mk build-fn       # Build single artifact
 
 -include .env
 include scripts/util/docker.mk
 
-.PHONY: build
+.PHONY: build build-fn
 
-build:
-	@echo "No build targets for this pattern"
+build: build-fn
+
+build-fn:
+	$(call ecr-login)
+	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-fn,infra/containers/rest-lambda/Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr)
