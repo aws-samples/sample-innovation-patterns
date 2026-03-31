@@ -22,6 +22,7 @@ define docker-build-push
 		-t $(1) \
 		-f $(or $(2),Dockerfile) \
 		--platform linux/amd64 \
+		--provenance=false \
 		$(or $(3),.)
 	docker tag $(1) $(4):$(1)
 	docker push $(4):$(1)

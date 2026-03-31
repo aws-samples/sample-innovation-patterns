@@ -35,23 +35,23 @@ deploy-fn: deploy-cognito deploy-ddb
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn \
 		--template-file infra/cfn/lambda/lambda.yml \
@@ -63,23 +63,23 @@ deploy-fn-stream: deploy-cognito deploy-ddb
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval TABLE_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	$(eval USER_POOL_CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text --profile $(AWS_PROFILE) --region $(AWS_REGION)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn-stream \
 		--template-file infra/cfn/lambda/lambda.yml \
