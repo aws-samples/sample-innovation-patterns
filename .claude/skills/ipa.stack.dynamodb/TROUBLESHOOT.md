@@ -36,7 +36,7 @@
 1. Check if deletion protection is enabled: `aws dynamodb describe-table --table-name {table_name} --query 'Table.DeletionProtectionEnabled'`.
 2. If deletion protection is on: `aws dynamodb update-table --table-name {table_name} --no-deletion-protection-enabled`.
 3. Check for CloudFormation export consumers: `aws cloudformation list-imports --export-name {stack-name}-TableArn`. If other stacks import this export, delete those stacks first.
-4. Re-run teardown: `make -f scripts/deploy.mk teardown-ddb`.
+4. Re-run teardown: `make -f scripts/deploy.mk teardown-ddb-{model}` (e.g., `teardown-ddb-passengers`).
 
 ## Scenario 4: "No Updates Are to Be Performed"
 

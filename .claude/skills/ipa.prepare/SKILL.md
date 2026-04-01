@@ -33,6 +33,21 @@ before build and deploy scripts can run.
 - Does not modify `.env`
 - Does not support per-stack targeting — always runs the aggregate `prepare` target
 
+## Invocation Modes
+
+This skill supports two invocation modes:
+
+### Manual Invocation (builder runs `/ipa.prepare`)
+Full flow: pre-flight → plan display → confirmation → execute → verify → report.
+
+### Auto-Triggered Invocation (called by `/ipa.deploy`)
+Abbreviated flow: pre-flight → plan display → **skip confirmation** → execute → verify → report.
+When invoked from `/ipa.deploy`'s Step 1.3a, the builder has already confirmed the
+deployment plan. An additional prepare confirmation is redundant.
+
+The invocation mode is determined by context: if `/ipa.prepare` is running because
+`/ipa.deploy` detected undeployed prepare stacks, it is auto-triggered.
+
 ## When to Run
 
 - After first `/ipa.compose` on a new project
@@ -93,7 +108,7 @@ If any fail, display all failures and STOP. If all pass: "Pre-flight validation 
 
 ---
 
-## Step 2: Display Prepare Plan + Confirmation
+## Step 2: Display Prepare Plan + Conditional Confirmation
 
 Run: `make -n -f scripts/prepare.mk prepare`
 
@@ -108,11 +123,15 @@ Prepare Plan: {APP_NAMESPACE}-{APP_ENV}
 
 These are one-time prerequisite stacks. They must exist before
 build and deploy can run.
-
-Proceed? (yes/no):
 ```
 
-If declined: "Prepare cancelled. No changes were made."
+**If manually invoked** (builder ran `/ipa.prepare`):
+  Ask: "Proceed? (yes/no):"
+  If declined: "Prepare cancelled. No changes were made."
+
+**If auto-triggered** (invoked by `/ipa.deploy` Step 1.3a):
+  Display: "Auto-preparing prerequisite stacks..."
+  Proceed directly to Step 3 (Execute). Do NOT ask for confirmation.
 
 ---
 

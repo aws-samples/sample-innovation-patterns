@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  HTTP API (API Gateway v2) fronting a Lambda function with JWT authorizer
+  and SSE streaming support. Resolves DEF-002 (REST API 29s timeout) by
+  providing a 5-minute integration timeout for streaming routes.
+
+Parameters:
+  ApiName:
+    Type: String
+    Description: Name for the HTTP API
+  StageName:
+    Type: String
+    Default: prod
+    Description: API Gateway stage name
+  LambdaFunctionArn:
+    Type: String
+    Description: ARN of the Lambda function (handles both buffered and streaming routes)
+  IssuerUrl:
+    Type: String
+    Description: Cognito OIDC issuer URL for JWT validation
+  UserPoolClientId:
+    Type: String
+    Description: Cognito App Client ID for JWT audience validation
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+    Description: >-
+      CORS allowed origin. Defaults to * for initial deploy.
+      Updated to CloudFront domain via post-deploy step.
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace'
+    Description: 'Project namespace prefix for resource naming'
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
+Resources:
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Ref ApiName
+      Description: !Sub 'HTTP API fronting Lambda ${LambdaFunctionArn}'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowOrigins:
+          - !Ref AllowedOrigin
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      IdentitySource: $request.header.Authorization
+      Name: CognitoJwtAuthorizer
+      JwtConfiguration:
+        Issuer: !Ref IssuerUrl
+        Audience:
+          - !Ref UserPoolClientId
+
+  BufferedIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      Description: Buffered Lambda integration (standard routes)
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub >-
+        arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+      IntegrationMethod: POST
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 30000
+
+  StreamingIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      Description: Streaming Lambda integration (SSE routes, 5-min timeout)
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub >-
+        arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+      IntegrationMethod: POST
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 300000
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: $default
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  SseRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: ANY /api/v1/sse/{proxy+}
+      Target: !Sub integrations/${StreamingIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: !Ref StageName
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp",
+          "requestTime":"$context.requestTime","httpMethod":"$context.httpMethod",
+          "routeKey":"$context.routeKey","status":"$context.status",
+          "protocol":"$context.protocol","responseLength":"$context.responseLength",
+          "integrationError":"$context.integrationErrorMessage"}
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunctionArn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${Namespace}-${Environment}-apigwv2'
+      RetentionInDays: 30
+
+Outputs:
+  ApiUrl:
+    Description: HTTP API invoke URL
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+  HttpApiId:
+    Description: HTTP API ID
+    Value: !Ref HttpApi
+    Export:
+      Name: !Sub '${AWS::StackName}-HttpApiId'
+  StageName:
+    Description: Stage name
+    Value: !Ref StageName
+    Export:
+      Name: !Sub '${AWS::StackName}-StageName'

@@ -27,7 +27,7 @@ The `.env` file contains up to seven IPA-managed variables. `AWS_PROFILE` is opt
 ### Variable Categories
 
 - **Prompted (4)**: `AWS_PROFILE` (optional — can be skipped), `AWS_REGION`, `APP_NAMESPACE`, `APP_ENV` — ask the builder for a value, offer default if one exists.
-- **Auto-detected (1)**: `AWS_ACCOUNT_ID` — detect via AWS CLI, present for confirmation, fall back to manual prompt on failure.
+- **Auto-detected (1)**: `AWS_ACCOUNT_ID` — detect via AWS CLI and auto-accept, fall back to manual prompt on failure.
 - **Auto-set (2)**: `APP_CODE_AGENT`, `APP_IAC` — set silently without prompting. These are fixed for this iteration.
 
 ### .env File Format
@@ -84,9 +84,9 @@ You MUST validate every value before writing `.env`. If a value fails validation
 
 ### Validation Behavior
 
-- Validate each value immediately after the builder provides it.
-- On failure: display the error message, explain the constraint, and re-prompt.
-- Do NOT proceed to the next variable until the current value passes validation.
+- Validate all prompted values together after the batched prompt returns.
+- If any value fails: display error messages for ALL failing values at once, then re-prompt ONLY the failing value(s). Do NOT re-ask values that passed.
+- Use a simple text prompt (not AskUserQuestion) for re-prompts of failing values.
 - Do NOT write `.env` if any value is invalid.
 - `APP_CODE_AGENT` and `APP_IAC` are auto-set to fixed values and do not require validation.
 
@@ -101,67 +101,75 @@ Check if `.env` exists at the project root:
 - **If `.env` is missing or empty** (zero bytes or only whitespace/comments): enter the **First-Time Initialization** flow below.
 - **If `.env` exists and contains at least one KEY=VALUE pair**: enter the **Re-Initialization** flow (see next section).
 
-### Step 2: Auto-Detect AWS Account ID
+### Step 2: Batched Configuration Prompt
 
-Before prompting the builder, attempt to auto-detect `AWS_ACCOUNT_ID`:
+Use a SINGLE `AskUserQuestion` call with all 4 questions. Do NOT ask them one at a time.
 
-1. Ask the builder for `AWS_PROFILE` first (needed for the detection command).
-2. If the builder provided a profile name: run `aws sts get-caller-identity --profile <AWS_PROFILE> --query Account --output text`
-   If the builder skipped AWS_PROFILE (no profile): run `aws sts get-caller-identity --query Account --output text`
-3. **If the command succeeds**: store the detected account ID and present it for confirmation during the prompt sequence.
-4. **If the command fails** (AWS CLI not installed, invalid credentials, expired session, or any error): silently skip auto-detection. You will prompt the builder for `AWS_ACCOUNT_ID` manually during the prompt sequence. Do NOT display the error or treat this as a failure.
+Before the prompt, display:
 
-### Step 3: Interactive Prompt Sequence
+> **Let's configure your project.** Answer the four questions below. Sensible defaults are pre-selected — accept them all for the fastest setup.
 
-Prompt the builder for values in this order. For each prompt, validate the input immediately per the Validation Rules section. If validation fails, show the error message and re-prompt.
+Questions (all in one `AskUserQuestion` call):
 
-1. **AWS_PROFILE** _(optional)_
-   - Prompt: "Enter your AWS_PROFILE name, or press Enter to skip (uses default credential chain):"
-   - **Do NOT suggest, recommend, or infer a profile name.** Present the prompt exactly as written and wait for the builder's input. Do not offer examples or guess a profile name based on the project, directory, or any other context.
-   - If the builder types a profile name: use that value. Validation: non-empty string.
-   - If the builder presses Enter or provides empty input: **omit `AWS_PROFILE` from `.env` entirely** (do not write the line). The AWS CLI will use its default credential chain.
-   - After receiving a profile name (not skipped), attempt AWS_ACCOUNT_ID auto-detection (Step 2) if not already done.
-   - If skipped (no profile): attempt AWS_ACCOUNT_ID auto-detection without `--profile` flag: `aws sts get-caller-identity --query Account --output text`.
+1. **AWS_PROFILE** (header: "Profile", multiSelect: false)
+   - Question: "Which AWS CLI profile should IPA use?"
+   - Options:
+     - **"Skip" (Recommended)** — "Use default AWS credential chain (env vars, SSO, instance profile)"
+     - **"default"** — "Use the AWS CLI profile named 'default'"
+   - Other (built-in): builder types a custom profile name
+   - **Do NOT suggest, recommend, or infer a profile name.** Do not offer examples or guess a profile name based on the project, directory, or any other context.
+   - If the builder selects "Skip": **omit `AWS_PROFILE` from `.env` entirely** (do not write the line).
+   - If the builder selects "default" or types a custom name via "Other": use that value.
 
-2. **AWS_REGION** _(default: `us-east-1`)_
-   - Prompt: "Enter the AWS region for deployments (default: us-east-1):"
-   - If the builder presses enter or provides empty input, use `us-east-1`.
-   - Validation: matches `/^[a-z]{2}-[a-z]+-\d+$/`
+2. **AWS_REGION** (header: "Region", multiSelect: false)
+   - Question: "Which AWS region for deployments?"
+   - Options:
+     - **"us-east-1" (Recommended)** — "N. Virginia — default region for most AWS services"
+     - **"us-west-2"** — "Oregon"
+     - **"eu-west-1"** — "Ireland"
+   - Other (built-in): builder types a custom region
 
-3. **AWS_ACCOUNT_ID** _(auto-detected or manual)_
-   - If auto-detection succeeded: "Detected AWS Account ID: `<detected_value>`. Is this correct? (yes to confirm, or enter a different account ID):"
-   - If auto-detection failed: "Enter your 12-digit AWS Account ID:"
-   - Validation: matches `/^\d{12}$/`
+3. **APP_NAMESPACE** (header: "Namespace", multiSelect: false)
+   - Question: "Choose a project namespace. All CloudFormation stacks start with `{namespace}-{env}-`. Must be unique per account+environment. (1-12 chars, lowercase letters/digits/hyphens, starts with letter)"
+   - Options:
+     - **"app" (Recommended)** — "Default namespace — good for single-project accounts"
+   - Other (built-in): builder types a custom namespace
 
-4. **APP_NAMESPACE** _(default: `app`)_
-   - Before prompting, explain:
-     > **What is a namespace?** The namespace is a short name for your project. IPA uses it to group all your CloudFormation stacks together — every stack name starts with `{namespace}-{env}-`, for example `myapp-dev-cognito`, `myapp-dev-dynamodb`. Choose a short, meaningful name that identifies your application. It must be unique within your AWS account and environment.
-   - Use AskUserQuestion with these options:
-     - **"app" (Recommended)** — Use the default namespace
-     - _(Other is built-in — allows typing a custom value)_
-   - If the builder selects "app", use `app`.
-   - If the builder types a custom value via "Other", validate it against `/^[a-z][a-z0-9-]{0,11}$/`.
-   - On validation failure, reject with the error message and re-prompt.
+4. **APP_ENV** (header: "Env", multiSelect: false)
+   - Question: "Which environment?"
+   - Options:
+     - **"dev" (Recommended)** — "Development environment"
+     - **"stage"** — "Staging environment"
+     - **"prod"** — "Production environment"
+   - Other (built-in): builder types a custom environment
 
-5. **APP_ENV** _(default: `dev`)_
-   - Before prompting, explain:
-     > **What is the environment?** The environment tag is the second segment of every stack name — `{namespace}-{env}-{service}`. It allows multiple copies of the same application to coexist in one AWS account. For example, `myapp-dev-cognito` and `myapp-stage-cognito` are separate, independent stacks.
-   - Use AskUserQuestion with these options:
-     - **"dev" (Recommended)** — Development environment
-     - **"stage"** — Staging environment
-     - **"prod"** — Production environment
-     - _(Other is built-in — allows typing a custom value)_
-   - If the builder selects a preset, use that value.
-   - If the builder types a custom value via "Other", validate it against `/^[a-z][a-z0-9-]{0,11}$/`.
-   - On validation failure, reject with the error message and re-prompt.
+### Step 3: Post-Batch Validation and Account Detection
 
-6. **Auto-set** (do not prompt):
+After receiving all 4 answers from the batched prompt:
+
+1. **Validate all values** per the Validation Rules section. Check every value, then:
+   - If ALL values pass: continue to account detection.
+   - If any value from "Other" fails validation: display error messages for ALL failing values at once, then re-prompt ONLY the failing value(s) using a simple text prompt (not AskUserQuestion). Do NOT re-ask values that passed. Example:
+     ```
+     Validation failed:
+       APP_NAMESPACE: "my--project" — Invalid: cannot contain consecutive hyphens
+
+     Re-enter APP_NAMESPACE (1-12 chars, lowercase letters/digits/hyphens, starts with letter):
+     ```
+
+2. **Auto-detect AWS_ACCOUNT_ID** using the profile from Question 1:
+   - If profile was skipped: run `aws sts get-caller-identity --query Account --output text`
+   - If profile provided: run `aws sts get-caller-identity --profile <profile> --query Account --output text`
+   - **If the command succeeds**: auto-accept the 12-digit result. Do NOT ask the builder to confirm. Display: "Detected AWS Account ID: `<detected_value>`"
+   - **If the command fails** (AWS CLI not installed, invalid credentials, expired session, or any error): silently skip auto-detection. Prompt the builder manually: "AWS account ID could not be auto-detected. Enter your 12-digit AWS Account ID:" — Validate: `/^\d{12}$/`. This is the ONLY scenario that adds an extra interaction.
+
+3. **Auto-set** (do not prompt):
    - `APP_CODE_AGENT=claude-code`
    - `APP_IAC=cloudformation`
 
-### Step 4: Confirmation and Write
+### Step 4: Summary and Write
 
-Display a summary table of all 7 values before writing:
+Display a summary table of all values:
 
 ```
 ┌─────────────────┬──────────────────┬───────────────┐
@@ -181,7 +189,7 @@ The **Source** column MUST indicate how each value was determined:
 - `prompted` — builder typed the value
 - `default` — builder accepted the default
 - `skipped` — builder chose to omit this variable (AWS_PROFILE only)
-- `auto-detected` — detected from AWS CLI and confirmed by builder
+- `auto-detected` — detected from AWS CLI (auto-accepted, no confirmation)
 - `auto-set` — set automatically, not prompted
 
 If `AWS_PROFILE` was skipped, show it as:
@@ -190,10 +198,11 @@ If `AWS_PROFILE` was skipped, show it as:
 ```
 and do NOT write the `AWS_PROFILE=` line to `.env`.
 
-Ask the builder: "Does this look correct? (yes to write, no to start over):"
+**Immediately write `.env`** in KEY=VALUE format with the header comment block. Do NOT ask "Does this look correct?" — the builder confirmed their choices in the batched prompt.
 
-- **If confirmed**: write `.env` in KEY=VALUE format with the header comment block, then proceed to `.env.example` generation.
-- **If rejected**: restart the prompt sequence from Step 3.
+After writing, display: "Configuration written to `.env`. Re-run `/ipa.init` to change any values."
+
+Proceed to `.env.example` generation.
 
 ---
 

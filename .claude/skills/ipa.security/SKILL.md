@@ -18,7 +18,7 @@ The skill manages these variables in the `.env` file's `# IPA Security Configura
 |----------|--------|-----------|-------------|
 | `APP_BUILDER_ROLE_ARN` | Stack output or builder input | Always | Builder execution role ARN |
 | `APP_CODEBUILD_ROLE_ARN` | Stack output or builder input | Always (managed policy) / Optional (existing role) | CodeBuild execution role ARN |
-| `APP_KMS_KEY_ARN` | Builder input | Optional | KMS key ARN for encryption at rest |
+| `APP_KMS_KEY_ARN` | _(removed — no longer prompted)_ | _(legacy)_ | KMS key ARN — skill always uses SSE-S3 (AES-256); this variable is not written to `.env` |
 
 > **Derived at runtime (not stored in `.env`)**:
 > - Security stack name: `{APP_NAMESPACE}-{APP_ENV}-security` (convention)
@@ -94,14 +94,17 @@ aws cloudformation describe-stacks \
 
 ## Step 2: Path Selection (First-Time Flow)
 
-Prompt the builder:
+Use AskUserQuestion with 1 question:
 
-> Choose your security configuration path:
-> (a) **Provide a managed policy name** — IPA creates Builder and CodeBuild execution roles with that policy attached
-> (b) **Provide existing IAM role ARNs** — skip role creation, use your pre-provisioned roles
+**Security configuration** (header: "IAM Roles", multiSelect: false)
+- Question: "How should IPA configure IAM execution roles?"
+- Options:
+  - **"Managed policy" (Recommended)** — "IPA creates Builder and CodeBuild roles; you provide the policy name"
+  - **"Existing role ARNs"** — "Skip role creation; provide pre-provisioned role ARNs"
+- The managed policy option description must NOT name any specific policy (no AdministratorAccess, PowerUserAccess, etc.).
 
-- If the builder chooses **(a)** → proceed to **Step 3a: Managed Policy Input**.
-- If the builder chooses **(b)** → proceed to **Step 3b: Existing Role ARN Input**.
+- If the builder selects **"Managed policy"** → proceed to **Step 3a: Managed Policy Input**.
+- If the builder selects **"Existing role ARNs"** → proceed to **Step 3b: Existing Role ARN Input**.
 
 ---
 
@@ -113,7 +116,7 @@ Prompt the builder:
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
 4. Store the resolved ARN as `ManagedPolicyArn` for template generation.
-5. Proceed to **Step 4: KMS Key Prompt**.
+5. Proceed to **Step 5: Confirmation Summary**.
 
 ---
 
@@ -147,22 +150,13 @@ After role validation, display:
 
 > **Note**: IPA cannot validate that these roles have sufficient permissions for your composed pattern. If deployments fail with permission errors, re-run `/ipa.security` with a managed policy instead.
 
-4. Proceed to **Step 4: KMS Key Prompt**.
-
----
-
-## Step 4: KMS Key Prompt (Both Paths)
-
-Prompt: "Enter a KMS key ARN for encryption at rest, or press Enter to skip (default: AWS-managed encryption):"
-
-- **If provided**: validate format (see Validation Rules), store as `KmsKeyArn` for template generation.
-- **If skipped** (empty input): log bucket will use SSE-S3 (AES-256). Set `KmsKeyArn` to empty string.
-
-Proceed to **Step 5: Confirmation Summary**.
+4. Proceed to **Step 5: Confirmation Summary**.
 
 ---
 
 ## Step 5: Confirmation Summary
+
+> **Note**: KMS encryption is not prompted. The log bucket always uses SSE-S3 (AES-256) encryption. The CloudFormation template retains the `KmsKeyArn` parameter with its default empty string for backwards compatibility — always pass `KmsKeyArn=""` during deployment.
 
 Display a confirmation table before deployment. Adapt the content based on the chosen path.
 
@@ -178,7 +172,7 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ CodeBuild Role       │ (will be created)                               │ generated     │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
 │ Log Bucket           │ myproject-dev-logs-123456789012-us-east-1       │ computed      │
-│ KMS Key              │ (AWS-managed, default)                          │ default       │
+│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
@@ -193,7 +187,7 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ CodeBuild Role ARN   │ (skipped — deferred to /ipa.codepipeline)      │ skipped       │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
 │ Log Bucket           │ myproject-dev-logs-123456789012-us-east-1       │ computed      │
-│ KMS Key              │ arn:aws:kms:us-east-1:123456789012:key/abc-123  │ prompted      │
+│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
@@ -475,7 +469,7 @@ aws cloudformation deploy \
     AccountId={AWS_ACCOUNT_ID} \
     Region={AWS_REGION} \
     ManagedPolicyArn={resolved_arn} \
-    KmsKeyArn={kms_arn_or_empty} \
+    KmsKeyArn="" \
   --capabilities CAPABILITY_NAMED_IAM \
   --no-fail-on-empty-changeset \
   --region {AWS_REGION} \
@@ -530,13 +524,6 @@ APP_BUILDER_ROLE_ARN={builder-provided ARN}
 
 Include `APP_CODEBUILD_ROLE_ARN={builder-provided ARN}` only if the builder provided a CodeBuild role ARN (not skipped).
 
-#### KMS Key (Both Paths):
-
-If the builder provided a KMS key ARN, add to the security block:
-```
-APP_KMS_KEY_ARN={builder-provided KMS key ARN}
-```
-
 ### 8.3 .env Update Strategy
 
 1. Read the existing `.env` file.
@@ -556,8 +543,6 @@ Written to .env:
   APP_CODEBUILD_ROLE_ARN={value}
 ```
 
-Plus `APP_KMS_KEY_ARN` if provided.
-
 ---
 
 ## Re-Run / Update Flow
@@ -566,7 +551,7 @@ This flow runs when pre-flight checks detect existing security configuration (St
 
 ### U1: Read Current Configuration
 
-1. Read from `.env`: `APP_BUILDER_ROLE_ARN`, `APP_CODEBUILD_ROLE_ARN` (may be absent), `APP_KMS_KEY_ARN` (may be absent)
+1. Read from `.env`: `APP_BUILDER_ROLE_ARN`, `APP_CODEBUILD_ROLE_ARN` (may be absent)
 2. Compute security stack name: `{APP_NAMESPACE}-{APP_ENV}-security`
 3. Query the stack:
    ```bash
@@ -618,7 +603,7 @@ Current Security Configuration:
 │ CodeBuild Role ARN   │ {from .env APP_CODEBUILD_ROLE_ARN}             │
 │ Security Stack       │ {APP_NAMESPACE}-{APP_ENV}-security (computed)   │
 │ Log Bucket           │ {from stack output or computed}                 │
-│ KMS Key              │ {from .env APP_KMS_KEY_ARN or "(default)"}     │
+│ Encryption           │ SSE-S3 (AES-256)                                │
 └──────────────────────┴─────────────────────────────────────────────────┘
 ```
 

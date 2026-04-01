@@ -1,6 +1,6 @@
 # Pattern: react-rest-lambda
 
-Full-stack serverless web application pattern. Deploys a React frontend served via CloudFront, REST API through API Gateway, Lambda compute with container images from ECR, DynamoDB for data storage, and Cognito for authentication.
+Full-stack serverless web application pattern. Deploys a React frontend served via CloudFront, HTTP API (v2) through API Gateway with JWT authorizer, Lambda compute with container images from ECR, DynamoDB for data storage, and Cognito for authentication. SSE streaming routes support a 5-minute integration timeout via HTTP API v2.
 
 ## Stack Sequence
 
@@ -14,27 +14,22 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 
 3. ipa.stack.dynamodb — DynamoDB table for data persistence
    - Depends on: none
-   - Suffix: ddb
+   - Suffix: ddb-passengers
 
-4. ipa.stack.lambda — Buffered Lambda function for REST requests
+4. ipa.stack.lambda — Lambda function for all routes (buffered + streaming)
    - Depends on: ipa.stack.ecr, ipa.stack.cognito, ipa.stack.dynamodb
    - Suffix: fn
-   - Config: FunctionName=fn InvokeMode=BUFFERED
+   - Config: FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300
 
-5. ipa.stack.lambda — Streaming Lambda function for real-time responses
-   - Depends on: ipa.stack.ecr, ipa.stack.cognito, ipa.stack.dynamodb
-   - Suffix: fn-stream
-   - Config: FunctionName=fn-stream InvokeMode=RESPONSE_STREAM
+5. ipa.stack.apigwv2 — HTTP API (v2) with JWT authorizer and SSE streaming
+   - Depends on: ipa.stack.lambda (fn), ipa.stack.cognito
+   - Suffix: apigwv2
 
-6. ipa.stack.apigw — API Gateway REST API with Cognito authorizer
-   - Depends on: ipa.stack.lambda (fn), ipa.stack.lambda (fn-stream), ipa.stack.cognito
-   - Suffix: apigw
-
-7. ipa.stack.s3 — S3 bucket for static web hosting
+6. ipa.stack.s3 — S3 bucket for static web hosting
    - Depends on: none
    - Suffix: s3
 
-8. ipa.stack.cloudfront — CloudFront distribution fronting S3
+7. ipa.stack.cloudfront — CloudFront distribution fronting S3
    - Depends on: ipa.stack.s3
    - Suffix: cf
 
@@ -42,11 +37,10 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 
 1. ipa.stack.cloudfront (suffix: cf)
 2. ipa.stack.s3 (suffix: s3)
-3. ipa.stack.apigw (suffix: apigw)
-4. ipa.stack.lambda fn-stream (suffix: fn-stream)
-5. ipa.stack.lambda fn (suffix: fn)
-6. ipa.stack.dynamodb (suffix: ddb)
-7. ipa.stack.cognito (suffix: cognito)
+3. ipa.stack.apigwv2 (suffix: apigwv2)
+4. ipa.stack.lambda fn (suffix: fn)
+5. ipa.stack.dynamodb (suffix: ddb-passengers)
+6. ipa.stack.cognito (suffix: cognito)
 
 ## Wiring
 
@@ -61,48 +55,21 @@ wiring:
       parameter: ImageUri
     notes: "Container image URI — compose appends :$(IMAGE_TAG) (resolved from scripts/util/version.py at build/deploy time)"
 
-  # ECR → Lambda (fn-stream) — container image
-  - source:
-      stack: ecr
-      output: RepositoryUri
-    target:
-      stack: fn-stream
-      parameter: ImageUri
-    notes: "Container image URI for streaming Lambda function (compose appends :$(IMAGE_TAG))"
-
   # DynamoDB → Lambda (fn) — table ARN for IAM policy
   - source:
-      stack: ddb
+      stack: ddb-passengers
       output: TableArn
     target:
       stack: fn
-      parameter: DynamoDbTableArns
-    notes: "DynamoDB table ARN for Lambda execution role IAM policy"
-
-  # DynamoDB → Lambda (fn-stream) — table ARN for IAM policy
-  - source:
-      stack: ddb
-      output: TableArn
-    target:
-      stack: fn-stream
       parameter: DynamoDbTableArns
     notes: "DynamoDB table ARN for Lambda execution role IAM policy"
 
   # DynamoDB → Lambda (fn) — table name for runtime env var
   - source:
-      stack: ddb
+      stack: ddb-passengers
       output: TableName
     target:
       stack: fn
-      parameter: TableName
-    notes: "DynamoDB table name → TABLE_NAME env var for runtime data access"
-
-  # DynamoDB → Lambda (fn-stream) — table name for runtime env var
-  - source:
-      stack: ddb
-      output: TableName
-    target:
-      stack: fn-stream
       parameter: TableName
     notes: "DynamoDB table name → TABLE_NAME env var for runtime data access"
 
@@ -115,15 +82,6 @@ wiring:
       parameter: AuthIssuer
     notes: "Cognito OIDC issuer URL → AUTH_ISSUER env var for JWT validation"
 
-  # Cognito → Lambda (fn-stream) — OIDC issuer for JWT validation
-  - source:
-      stack: cognito
-      output: IssuerUrl
-    target:
-      stack: fn-stream
-      parameter: AuthIssuer
-    notes: "Cognito OIDC issuer URL → AUTH_ISSUER env var for JWT validation"
-
   # Cognito → Lambda (fn) — client ID for JWT audience
   - source:
       stack: cognito
@@ -133,41 +91,32 @@ wiring:
       parameter: AuthAudience
     notes: "Cognito app client ID → AUTH_AUDIENCE env var for JWT audience validation"
 
-  # Cognito → Lambda (fn-stream) — client ID for JWT audience
-  - source:
-      stack: cognito
-      output: UserPoolClientId
-    target:
-      stack: fn-stream
-      parameter: AuthAudience
-    notes: "Cognito app client ID → AUTH_AUDIENCE env var for JWT audience validation"
-
-  # Lambda (fn) → API Gateway — buffered Lambda ARN
+  # Lambda (fn) → API Gateway v2 — function ARN for all routes
   - source:
       stack: fn
       output: FunctionArn
     target:
-      stack: apigw
+      stack: apigwv2
       parameter: LambdaFunctionArn
-    notes: "Buffered Lambda function ARN for /{proxy+} routes"
+    notes: "Single Lambda handles buffered + streaming routes"
 
-  # Lambda (fn-stream) → API Gateway — streaming Lambda ARN
-  - source:
-      stack: fn-stream
-      output: FunctionArn
-    target:
-      stack: apigw
-      parameter: StreamingLambdaFunctionArn
-    notes: "Streaming Lambda function ARN for /api/v1/sse/{proxy+} routes"
-
-  # Cognito → API Gateway — User Pool ARN for authorizer
+  # Cognito → API Gateway v2 — issuer URL for JWT authorizer
   - source:
       stack: cognito
-      output: UserPoolArn
+      output: IssuerUrl
     target:
-      stack: apigw
-      parameter: UserPoolArn
-    notes: "Cognito User Pool ARN for COGNITO_USER_POOLS authorizer"
+      stack: apigwv2
+      parameter: IssuerUrl
+    notes: "Cognito OIDC issuer URL for JWT authorizer validation"
+
+  # Cognito → API Gateway v2 — client ID for JWT audience
+  - source:
+      stack: cognito
+      output: UserPoolClientId
+    target:
+      stack: apigwv2
+      parameter: UserPoolClientId
+    notes: "Cognito app client ID for JWT audience validation"
 
   # S3 → CloudFront — bucket domain name for origin
   - source:
@@ -201,12 +150,11 @@ wiring:
 
 | ID | Finding | Rationale |
 |----|---------|-----------|
-| APIGW-1 | CORS Access-Control-Allow-Origin: * | POC scope — production should scope to CloudFront domain |
-| APIGW-2 | REST API 29s integration timeout | REST API limitation — HTTP API (v2) needed for production long-polling SSE |
-| S3-1 | No bucket versioning | POC scope — production should enable versioning |
+| APIGW-1 | CORS origin `*` during initial deploy window | CloudFront domain unknown at API deploy time; auto-wired in post-deploy |
+| S3-1 | No bucket versioning | POC scope |
 | CF-1 | No custom domain / ACM certificate | POC uses *.cloudfront.net |
-| CF-2 | No WAF | POC scope — production should add WAF |
-| CF-3 | PriceClass_100 only | POC — US/Canada/Europe edge locations only |
+| CF-2 | No WAF | POC scope + HTTP API v2 does not support WAF |
+| CF-3 | PriceClass_100 only | POC — US/Canada/Europe only |
 | CF-4 | Short DefaultTTL (300s) | POC — production should tune per content type |
 
 ## Post-Deploy
@@ -215,12 +163,18 @@ Steps that run after all stacks are successfully deployed. These are operational
 steps (not CloudFormation stacks) that wire deployed infrastructure together.
 Post-deploy runs automatically within /ipa.deploy — no separate invocation needed.
 
+### load-data
+- Action: Load sample Titanic passenger data from CSV into DynamoDB table
+- Script: `cd app-lib && uv run python -m app_lib.util.load_dynamodb_util`
+- Depends on: (none within post-deploy)
+- Notes: Uses PutItem (upsert) — safe to re-run. Reads from app-lib/src/app_lib/assets/datasets/titanic/walkthrough_titanic.csv
+
 ### configure-frontend
 - Action: Generate web-client/dist/config.js with runtime configuration
 - Script: scripts/util/configure_frontend.py
 - Depends on: (none within post-deploy)
 - Stack outputs:
-  - apigw → ApiUrl
+  - apigwv2 → ApiUrl
   - cf → AppUrl
   - cognito → IssuerUrl, UserPoolClientId, EndSessionEndpoint
 
@@ -245,3 +199,13 @@ Post-deploy runs automatically within /ipa.deploy — no separate invocation nee
   - cf → AppUrl
 - Command: aws cloudformation deploy (Cognito stack with updated CallbackURL parameter)
 - Notes: Must pass ALL original deploy-cognito parameters plus CallbackURL={AppUrl}/authentication/callback
+
+### update-apigwv2-cors
+- Action: Update API Gateway v2 CORS origin with CloudFront domain
+- Depends on: update-cognito-callback
+- Stack outputs:
+  - cf → AppUrl
+  - fn → FunctionArn
+  - cognito → IssuerUrl, UserPoolClientId
+- Command: aws cloudformation deploy (apigwv2 stack with updated AllowedOrigin parameter)
+- Notes: Must pass ALL original deploy-apigwv2 parameters plus AllowedOrigin={AppUrl}

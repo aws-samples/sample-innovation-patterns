@@ -21,6 +21,8 @@ Deploy a Cognito User Pool with App Client, Custom Domain (Hosted UI), and Manag
 | Environment | String | — | `/^[a-z][a-z0-9-]{0,11}$/` | "Must be 1-12 chars, lowercase letters/digits/hyphens, starts with letter" |
 | CallbackURL | String | `http://localhost:8080/authentication/callback` | `/^https?:\/\/.+$/` | "Must be a valid HTTP(S) URL" |
 | CognitoDomainPrefix | String | — | `/^[a-z][a-z0-9-]{0,62}$/` | "Must be 1-63 lowercase chars, starts with letter, no reserved words (cognito, aws, amazon)" |
+
+**CognitoDomainPrefix convention**: Set to `$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH)` in `--parameter-overrides`. `APP_ACCOUNT_HASH` is a Make variable derived in the Makefile header via `$(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)`. This produces a globally-unique, account-safe domain prefix without exposing the AWS account ID.
 | MinPasswordLength | Number | 8 | `8-99` | "Must be between 8 and 99" |
 | DeletionProtection | String | INACTIVE | `ACTIVE \| INACTIVE` | "Must be ACTIVE or INACTIVE" |
 

@@ -539,10 +539,9 @@ Artifacts to generate:
 
 If existing artifacts are detected, add: "**Re-composition**: Existing artifacts will be overwritten. Custom dispositions in SECURITY-DISPOSITION.md will be preserved."
 
-Ask: "Generate these artifacts? (yes to proceed, no to cancel):"
+Display: **"Generating artifacts..."** and proceed directly to artifact generation (Phase 3). Do NOT ask for confirmation — composition is a local, idempotent operation that can be safely re-run via `/ipa.compose` at any time.
 
-- **If confirmed**: proceed to artifact generation.
-- **If declined**: exit — "Composition cancelled. No files were written."
+Note at the bottom of the summary: "Re-run `/ipa.compose` at any time to regenerate. All artifacts are idempotent."
 
 ---
 

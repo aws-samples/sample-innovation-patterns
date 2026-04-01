@@ -39,7 +39,7 @@ IAM actions needed by consuming stacks (e.g., Lambda) to interact with the table
 | Deferral | Rationale |
 |----------|-----------|
 | No Point-In-Time Recovery (PITR) | POC scope — data is ephemeral |
-| No Global Secondary Indexes (GSI) | POC scope — single pk/sk covers initial access patterns |
+| No Global Secondary Indexes (GSI) | POC scope — partition key covers initial access patterns |
 | No DynamoDB Streams | Streaming is a Lambda concern, not a table concern |
 | No backup configuration | POC scope — production backup is customer responsibility |
 | No DeletionPolicy: Retain | Clean teardown preferred for POC; data loss prevention is not critical |

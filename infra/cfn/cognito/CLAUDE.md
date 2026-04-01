@@ -16,7 +16,7 @@ aws cloudformation deploy \
     Namespace=$(APP_NAMESPACE) \
     Environment=$(APP_ENV) \
     CallbackURL=http://localhost:8080/authentication/callback \
-    CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(AWS_ACCOUNT_ID) \
+    CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH) \
   --no-fail-on-empty-changeset
 ```
 

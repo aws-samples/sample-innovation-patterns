@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  DynamoDB table for data persistence. Deploys a single table with
-  configurable partition and sort keys. Part of the react-rest-lambda pattern.
+  DynamoDB table for data persistence. Deploys a single table with a
+  configurable partition key. Part of the react-rest-lambda pattern.
   One stack per data model — deploy multiple instances for multiple tables.
 
 Parameters:
@@ -25,13 +25,8 @@ Parameters:
 
   PartitionKey:
     Type: String
-    Default: pk
-    Description: 'Hash key attribute name'
-
-  SortKey:
-    Type: String
-    Default: sk
-    Description: 'Range key attribute name'
+    Default: id
+    Description: 'Partition key attribute name'
 
   BillingMode:
     Type: String
@@ -47,12 +42,8 @@ Resources:
       KeySchema:
         - AttributeName: !Ref PartitionKey
           KeyType: HASH
-        - AttributeName: !Ref SortKey
-          KeyType: RANGE
       AttributeDefinitions:
         - AttributeName: !Ref PartitionKey
-          AttributeType: S
-        - AttributeName: !Ref SortKey
           AttributeType: S
       BillingMode: !Ref BillingMode
       SSESpecification:

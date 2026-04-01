@@ -32,6 +32,9 @@ export
 # Resolve version from app-lib/pyproject.toml + git SHA
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
+# Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
+APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
+
 .PHONY: deploy {all deploy-* targets} teardown {all teardown-* targets}
 ```
 
@@ -58,6 +61,9 @@ export
 
 # Resolve version from app-lib/pyproject.toml + git SHA
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
+
+# Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
+APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
 .PHONY: deploy {all deploy-* targets} teardown {all teardown-* targets}
 ```
@@ -260,6 +266,9 @@ their targets here. If no `## Post-Deploy` section exists, generate a no-op post
 
 -include .env
 
+# Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
+APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
+
 .PHONY: post-deploy {all step targets}
 ```
 
@@ -345,7 +354,7 @@ update-cognito-callback: invalidate-cf
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV) \
+			CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH) \
 			CallbackURL=$(APP_URL)/authentication/callback \
 		--no-fail-on-empty-changeset
 ```

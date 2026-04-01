@@ -9,7 +9,7 @@ Layer 3:  [CloudFront] ──▶ S3 (static), API Gateway (dynamic)
 Layer 2:  [API Gateway] ──▶ Lambda (fn), Lambda (fn-stream), Cognito (authorizer)
 Layer 1:  [Lambda fn]   ──▶ ECR (image), DynamoDB (data), Cognito (JWT validation)
           [Lambda fn-stream] ──▶ ECR (image), DynamoDB (streams)
-Layer 0:  [ECR]  [DynamoDB]  [Cognito]  [S3]
+Layer 0:  [ECR]  [DynamoDB (ddb-passengers)]  [Cognito]  [S3]
 ```
 
 ## Stack Inventory

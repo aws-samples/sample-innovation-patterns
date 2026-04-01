@@ -12,7 +12,7 @@ class TitanicPassengerTable(Model):
     class Meta:
         """PynamoDB table configuration for Titanic passenger records."""
 
-        table_name = PynamodbUtil.env_table_name("titanic_passengers")
+        table_name = PynamodbUtil.env_table_name("passengers")
 
     ticket = UnicodeAttribute(hash_key=True)
     name = UnicodeAttribute()
