@@ -56,9 +56,9 @@ Deploy a Lambda function with container image packaging. One template deployed a
 
 This stack requires a container image in ECR before deployment.
 
-| Type | Suffix | Description |
-|------|--------|-------------|
-| container | fn | Docker image built and pushed to ECR via `build.mk` target using `scripts/util/docker.mk` helpers |
+| Type | Suffix | Dockerfile | Description |
+|------|--------|------------|-------------|
+| container | fn | infra/containers/rest-lambda/Dockerfile | Docker image built and pushed to ECR via `build.mk` target using `scripts/util/docker.mk` helpers |
 
 Both `fn` and `fn-stream` instances use the same container image — one `build-fn` target suffices.
 

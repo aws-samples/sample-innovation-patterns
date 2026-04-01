@@ -249,7 +249,7 @@ For each validated new stack, read `.claude/skills/ipa.stack.{name}/SKILL.md` an
 | CloudFormation Contract | Service suffix, template path, capabilities | Stack naming, deploy target |
 | Parameters | Parameter name, type, description, required flag | Wiring targets |
 | Outputs | Output name, description | Wiring sources |
-| Build Requirements (optional) | Type, command | build.mk targets |
+| Build Requirements (optional) | Type, Suffix, Dockerfile path | build.mk targets |
 | Known Deferrals (optional) | Deferral entries | Security disposition |
 
 Store the extracted metadata alongside the existing composition's stack data.
@@ -479,7 +479,7 @@ For each `ipa.stack.{service}` referenced in the Stack Sequence, read `.claude/s
 | CloudFormation Contract | Template path, service suffix, capabilities | deploy.mk targets, stack naming |
 | Parameters | Parameter name list | Wiring validation |
 | Outputs | Output name list | Wiring validation, `cfn-outputs` calls |
-| Build Requirements (optional) | Type, command | build.mk targets |
+| Build Requirements (optional) | Type, Suffix, Dockerfile path | build.mk targets |
 
 Run validation procedures V3 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
@@ -639,8 +639,8 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) post-deploy.mk template. Gen
 
 Write `scripts/build.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
-Scan each stack skill's `## Build Requirements` section:
-- **Type: container** → generate `build-{function}` target using `$(call ecr-login)` and `$(call docker-build-push,...)` helpers from `scripts/util/docker.mk`
+Scan each stack skill's `## Build Requirements` section. Extract every column from the table (Type, Suffix, Dockerfile, Description):
+- **Type: container** → generate `build-{suffix}` target using `$(call ecr-login)` and `$(call docker-build-push,...)` helpers from `scripts/util/docker.mk`. Use the **Dockerfile** column value as the `{dockerfile-path}` argument — do NOT infer or construct the path from the suffix.
 - **Type: frontend** → generate `build-frontend` target with `cd frontend && npm ci && npm run build`
 - **No Build Requirements section** → no target for this stack
 

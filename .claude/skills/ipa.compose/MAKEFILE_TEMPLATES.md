@@ -402,7 +402,7 @@ build: build-{target1} build-{target2}
 
 ### Build Target — Container (Lambda/ECS)
 
-When a stack skill's Build Requirements has `Type: container`. The Dockerfile path uses the actual location (`infra/containers/{container}/Dockerfile`), while the build context remains `.` (repo root) so `COPY app-lib/` and similar paths resolve:
+When a stack skill's Build Requirements has `Type: container`. The `{dockerfile-path}` comes from the **Dockerfile** column in the Build Requirements table — use that value exactly. Do NOT infer the path from the suffix. The build context remains `.` (repo root) so `COPY app-lib/` and similar paths resolve:
 
 ```makefile
 build-{function-name}:

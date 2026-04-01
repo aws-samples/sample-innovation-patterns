@@ -172,3 +172,6 @@ global_settings:
     - rule_id: 'CKV_AWS_174'
       path: 'infra/cfn/cloudfront/cloudfront.yml'
       reason: 'False positive — ViewerCertificate.MinimumProtocolVersion is set to TLSv1.2_2021; checkov fails to detect it'
+    - rule_id: 'CKV_AWS_158'
+      path: 'infra/cfn/apigateway-v2/apigateway-v2.yml'
+      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
