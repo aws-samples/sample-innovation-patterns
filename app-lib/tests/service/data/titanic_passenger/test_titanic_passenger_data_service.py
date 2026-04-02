@@ -23,7 +23,7 @@ def repository():
 def mock_passenger():
     """Create mock passenger."""
     passenger = MagicMock(spec=TitanicPassengerTable)
-    passenger.ticket = "24160"
+    passenger.id = "24160"
     passenger.name = "Allen, Miss. Elisabeth Walton"
     passenger.pclass = 1
     passenger.survived = 1

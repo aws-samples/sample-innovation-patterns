@@ -573,6 +573,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
 - All targets are `.PHONY`.
 - Teardown is in exact reverse of deployment order.
+- `$(eval ... $(shell ...))` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables — these conditionals pass credentials when set (local dev) and omit them when empty (CI/CD IAM role).
 
 ---
 
@@ -605,6 +606,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 - All targets are `.PHONY`
 - Teardown is in exact reverse of prepare deployment order
 - Teardown comment: `# === TEARDOWN (manual only — never auto-deleted by /ipa.destroy) ===`
+- `$(eval ... $(shell ...))` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables.
 
 ---
 
@@ -632,6 +634,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) post-deploy.mk template. Gen
 - Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{suffix}`.
 - The `update-cognito-callback` target must pass ALL parameters that `deploy-cognito` passes,
   plus the updated `CallbackURL`. Copy the parameter list from `deploy-cognito` in deploy.mk.
+- `$(eval ... $(shell ...))` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables.
 
 ---
 

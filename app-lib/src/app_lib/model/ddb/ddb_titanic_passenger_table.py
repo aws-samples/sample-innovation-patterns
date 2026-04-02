@@ -14,7 +14,7 @@ class TitanicPassengerTable(Model):
 
         table_name = PynamodbUtil.env_table_name("passengers")
 
-    ticket = UnicodeAttribute(hash_key=True)
+    id = UnicodeAttribute(hash_key=True)
     name = UnicodeAttribute()
     pclass = NumberAttribute()
     survived = NumberAttribute()

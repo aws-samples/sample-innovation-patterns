@@ -8,6 +8,8 @@ model: opus
 
 This skill provisions or updates centralized security infrastructure for an IPA project: IAM execution roles (Builder and CodeBuild) and a centralized S3 log bucket. It supports two configuration paths — managed policy (skill creates roles) or existing role ARNs (builder provides pre-provisioned roles). All resources are deployed as a single CloudFormation stack, and the resulting identifiers are written to `.env` for consumption by downstream IPA skills (`/ipa.compose`, `/ipa.deploy`, `/ipa.codepipeline`).
 
+> **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
+
 ---
 
 ## Variable Schema
@@ -78,10 +80,8 @@ Compute the stack name: `{APP_NAMESPACE}-{APP_ENV}-security`
 
 Run:
 ```bash
-aws cloudformation describe-stacks \
+source .env 2>/dev/null; aws cloudformation describe-stacks \
   --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
-  --region {AWS_REGION} \
-  --profile {AWS_PROFILE} \
   --query 'Stacks[0].StackStatus' \
   --output text
 ```
@@ -128,10 +128,8 @@ Use AskUserQuestion with 1 question:
 2. Validate ARN format (see Validation Rules).
 3. Verify the role exists:
    ```bash
-   aws iam get-role \
-     --role-name {role_name_extracted_from_arn} \
-     --profile {AWS_PROFILE} \
-     --region {AWS_REGION}
+   source .env 2>/dev/null; aws iam get-role \
+     --role-name {role_name_extracted_from_arn}
    ```
 4. If the role is not found: display "Role not found: `{arn}`. Check the ARN and try again." and re-prompt.
 
@@ -460,7 +458,7 @@ Outputs:
 Deploy using AWS CLI:
 
 ```bash
-aws cloudformation deploy \
+source .env 2>/dev/null; aws cloudformation deploy \
   --template-file infra/cfn/generated/security.yml \
   --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
   --parameter-overrides \
@@ -471,9 +469,7 @@ aws cloudformation deploy \
     ManagedPolicyArn={resolved_arn} \
     KmsKeyArn="" \
   --capabilities CAPABILITY_NAMED_IAM \
-  --no-fail-on-empty-changeset \
-  --region {AWS_REGION} \
-  --profile {AWS_PROFILE}
+  --no-fail-on-empty-changeset
 ```
 
 **For the existing-role-ARN path**: omit the `ManagedPolicyArn` parameter override (it is not in the template).
@@ -491,12 +487,10 @@ If deployment succeeds, proceed to **Step 8: Write .env**.
 ### 8.1 Retrieve Stack Outputs (Managed Policy Path)
 
 ```bash
-aws cloudformation describe-stacks \
+source .env 2>/dev/null; aws cloudformation describe-stacks \
   --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
   --query 'Stacks[0].Outputs' \
-  --output json \
-  --region {AWS_REGION} \
-  --profile {AWS_PROFILE}
+  --output json
 ```
 
 Extract:
@@ -555,10 +549,8 @@ This flow runs when pre-flight checks detect existing security configuration (St
 2. Compute security stack name: `{APP_NAMESPACE}-{APP_ENV}-security`
 3. Query the stack:
    ```bash
-   aws cloudformation describe-stacks \
+   source .env 2>/dev/null; aws cloudformation describe-stacks \
      --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
-     --region {AWS_REGION} \
-     --profile {AWS_PROFILE} \
      --output json
    ```
 4. Extract from the response:
@@ -572,12 +564,10 @@ This flow runs when pre-flight checks detect existing security configuration (St
 
 Run:
 ```bash
-aws cloudformation list-stacks \
+source .env 2>/dev/null; aws cloudformation list-stacks \
   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
   --query "StackSummaries[?starts_with(StackName, '{APP_NAMESPACE}-{APP_ENV}')].{Name:StackName,Status:StackStatus,Updated:LastUpdatedTime}" \
-  --output table \
-  --region {AWS_REGION} \
-  --profile {AWS_PROFILE}
+  --output table
 ```
 
 If successful, display the output prefixed with:
@@ -642,17 +632,13 @@ If the security stack is in `ROLLBACK_COMPLETE` state:
 2. Ask: "Delete the failed stack and retry? (yes to delete and recreate, no to abort):"
 3. **If yes**:
    ```bash
-   aws cloudformation delete-stack \
-     --stack-name {stack_name} \
-     --region {AWS_REGION} \
-     --profile {AWS_PROFILE}
+   source .env 2>/dev/null; aws cloudformation delete-stack \
+     --stack-name {stack_name}
    ```
    Wait for deletion to complete:
    ```bash
-   aws cloudformation wait stack-delete-complete \
-     --stack-name {stack_name} \
-     --region {AWS_REGION} \
-     --profile {AWS_PROFILE}
+   source .env 2>/dev/null; aws cloudformation wait stack-delete-complete \
+     --stack-name {stack_name}
    ```
    Then proceed with the First-Time Flow (Step 2).
 4. **If no**: abort with "Aborting. You can manually delete the stack via AWS Console or CLI and re-run `/ipa.security`."
@@ -663,10 +649,8 @@ If CloudFormation deployment fails with an IAM permission error:
 
 1. Read stack events to identify the failure:
    ```bash
-   aws cloudformation describe-stack-events \
+   source .env 2>/dev/null; aws cloudformation describe-stack-events \
      --stack-name {stack_name} \
-     --region {AWS_REGION} \
-     --profile {AWS_PROFILE} \
      --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
      --output table
    ```

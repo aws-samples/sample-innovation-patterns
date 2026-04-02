@@ -62,9 +62,3 @@ Outputs:
     Value: !GetAtt DynamoDBTable.Arn
     Export:
       Name: !Sub '${AWS::StackName}-TableArn'
-
-  TableName:
-    Description: 'Physical DynamoDB table name for runtime configuration'
-    Value: !Ref DynamoDBTable
-    Export:
-      Name: !Sub '${AWS::StackName}-TableName'

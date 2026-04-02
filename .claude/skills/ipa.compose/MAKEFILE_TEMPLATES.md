@@ -110,11 +110,13 @@ deploy-{suffix}: deploy-{dep1} deploy-{dep2}
 	$(eval OUTPUT1 := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
 		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval OUTPUT2 := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
 		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName2}`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template-file infra/cfn/{service}/{service}.yml \
@@ -128,6 +130,7 @@ deploy-{suffix}: deploy-{dep1} deploy-{dep2}
 3. Make dependency prerequisites come from the pattern's Stack Sequence "Depends on" declarations
 4. Variable names in `$(eval)` use UPPER_SNAKE_CASE derived from the output key name
 5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`
+6. `$(eval)` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables, so explicit substitution is needed. The `$(if ...)` conditional ensures CI/CD compatibility when `AWS_PROFILE` is empty (credentials come from IAM role via default chain). Do NOT use unconditional `--profile $(AWS_PROFILE)` — it breaks when the variable is empty.
 
 ### Aggregate Teardown Target
 
@@ -210,7 +213,8 @@ prepare-{suffix}: prepare-{dep1}
 	$(eval OUTPUT1 := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
 		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template-file infra/cfn/{service}/{service}.yml \
@@ -287,23 +291,28 @@ configure-frontend:
 	$(eval API_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigw \
 		--query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval CLIENT_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval END_SESSION := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	python3 scripts/util/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
 		--oidc-authority "$(ISSUER_URL)" \
@@ -320,7 +329,8 @@ upload-frontend: configure-frontend
 	$(eval BUCKET_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3 \
 		--query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws s3 sync web-client/dist/ s3://$(BUCKET_NAME)/ --delete
 ```
 
@@ -331,12 +341,14 @@ invalidate-cf: upload-frontend
 	$(eval DISTRIBUTION_ID := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`DistributionId`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval INVALIDATION_ID := $(shell aws cloudfront create-invalidation \
 		--distribution-id $(DISTRIBUTION_ID) \
 		--paths "/*" \
 		--query 'Invalidation.Id' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudfront wait invalidation-completed \
 		--distribution-id $(DISTRIBUTION_ID) \
 		--id $(INVALIDATION_ID)
@@ -349,7 +361,8 @@ update-cognito-callback: invalidate-cf
 	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text))
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \

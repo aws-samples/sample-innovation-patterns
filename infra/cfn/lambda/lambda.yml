@@ -77,11 +77,6 @@ Parameters:
     Default: ''
     Description: 'Comma-separated DynamoDB table ARNs for IAM policy scoping (optional — leave empty if no DynamoDB)'
 
-  TableName:
-    Type: String
-    Default: ''
-    Description: 'DynamoDB table name for runtime data access (optional — leave empty if no DynamoDB)'
-
 Conditions:
   HasDynamoDb: !Not [!Equals [!Ref DynamoDbTableArns, '']]
 
@@ -165,8 +160,10 @@ Resources:
         Variables:
           AUTH_ISSUER: !Ref AuthIssuer
           AUTH_AUDIENCE: !Ref AuthAudience
-          TABLE_NAME: !Ref TableName
           APP_INVOKE_MODE: !Ref InvokeMode
+          APP_NAMESPACE: !Ref Namespace
+          APP_ENV: !Ref Environment
+          AWS_LWA_REMOVE_BASE_PATH: '/prod'
       Tags:
         - Key: Namespace
           Value: !Ref Namespace

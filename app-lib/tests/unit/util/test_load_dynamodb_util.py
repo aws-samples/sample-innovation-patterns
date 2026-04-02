@@ -32,7 +32,7 @@ class TestLoadDynamoDbUtil:
 
         record = loader._parse_row(row)
 
-        assert record.ticket == "12345"
+        assert record.id == "12345"
         assert record.name == "Smith, Mr. John"
         assert record.age == 30.0
         assert record.fare == 50.0

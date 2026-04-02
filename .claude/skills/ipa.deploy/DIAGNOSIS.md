@@ -23,7 +23,7 @@ Error: Stack ipatest-dev-lambda failed...
 ### 2. Read Stack Events
 
 ```bash
-aws cloudformation describe-stack-events --stack-name {failed-stack-name}
+source .env 2>/dev/null; aws cloudformation describe-stack-events --stack-name {failed-stack-name}
 ```
 
 Output shows events in chronological order:
@@ -65,8 +65,8 @@ For categories marked **Auto** (stuck rollback, transient):
 3. If confirmed:
 
    ```bash
-   aws cloudformation delete-stack --stack-name {failed-stack-name}
-   aws cloudformation wait stack-delete-complete --stack-name {failed-stack-name}
+   source .env 2>/dev/null; aws cloudformation delete-stack --stack-name {failed-stack-name}
+   source .env 2>/dev/null; aws cloudformation wait stack-delete-complete --stack-name {failed-stack-name}
    ```
 
 4. Wait for deletion to complete (status becomes `DELETE_COMPLETE` or stack no longer exists).

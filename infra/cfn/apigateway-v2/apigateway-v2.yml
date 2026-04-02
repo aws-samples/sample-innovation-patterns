@@ -62,7 +62,8 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       AuthorizerType: JWT
-      IdentitySource: $request.header.Authorization
+      IdentitySource:
+        - $request.header.Authorization
       Name: CognitoJwtAuthorizer
       JwtConfiguration:
         Issuer: !Ref IssuerUrl
@@ -91,13 +92,40 @@ Resources:
         arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
       IntegrationMethod: POST
       PayloadFormatVersion: '2.0'
-      TimeoutInMillis: 300000
+      TimeoutInMillis: 30000
 
-  DefaultRoute:
+  GetRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: $default
+      RouteKey: GET /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  PostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  PutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  DeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: DELETE /{proxy+}
       Target: !Sub integrations/${BufferedIntegration}
       AuthorizationType: JWT
       AuthorizerId: !Ref JwtAuthorizer
@@ -106,7 +134,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: ANY /api/v1/sse/{proxy+}
+      RouteKey: GET /api/v1/sse/{proxy+}
       Target: !Sub integrations/${StreamingIntegration}
       AuthorizationType: JWT
       AuthorizerId: !Ref JwtAuthorizer

@@ -123,7 +123,7 @@ class LoadDynamoDbUtil:
             return val if val and val != "?" else None
 
         return TitanicPassengerTable(
-            ticket=row["ticket"],
+            id=row["ticket"],
             name=row["name"],
             pclass=int(row["pclass"]),
             survived=int(row["survived"]),

@@ -12,6 +12,8 @@ This skill tears down a composed infrastructure pattern by executing the teardow
 
 **Prerequisite workflow**: `/ipa.init` → `/ipa.security` → `/ipa.compose` → `/ipa.deploy` → **`/ipa.destroy`**
 
+> **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
+
 ---
 
 ## What This Skill Does
@@ -88,7 +90,7 @@ Check that `scripts/deploy.mk` exists and contains a `teardown` target.
 Run:
 
 ```bash
-aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-security --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-security --query 'Stacks[0].StackStatus' --output text
 ```
 
 Expected: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
@@ -100,7 +102,7 @@ Expected: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
 Run:
 
 ```bash
-aws sts get-caller-identity --profile {AWS_PROFILE} --region {AWS_REGION}
+source .env 2>/dev/null; aws sts get-caller-identity
 ```
 
 **If fails**: "AWS credentials are invalid or expired for profile `{AWS_PROFILE}`. Refresh your credentials and try again."
@@ -141,7 +143,7 @@ Run `make -n -f scripts/deploy.mk teardown` and extract the `--stack-name` value
 For each stack name extracted above, run:
 
 ```bash
-aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
 ```
 
 Categorize each stack:
@@ -252,7 +254,7 @@ After fixing the issue, re-run /ipa.destroy — already-deleted stacks will be s
 For each stack in the teardown plan, run:
 
 ```bash
-aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text --profile {AWS_PROFILE} --region {AWS_REGION}
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
 ```
 
 Confirm all return `DOES_NOT_EXIST` (i.e., the command returns an error indicating the stack does not exist) or `DELETE_COMPLETE`.
@@ -292,11 +294,11 @@ Re-run /ipa.destroy at any time — it is safe to re-run (idempotent).
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `Cannot delete export {name}` | Another stack imports an output from this stack (cross-stack reference) | Delete the dependent stack first. Teardown targets in `deploy.mk` are ordered to prevent this — check for manually-created stacks outside IPA that may reference this stack's exports |
-| `The bucket you tried to delete is not empty` | S3 bucket contains uploaded frontend files from post-deploy | Empty the bucket first: `aws s3 rm s3://{bucket-name} --recursive --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
-| `RepositoryNotEmptyException` or `Repository not empty` | ECR repository contains images | Delete all images first: `aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)" --profile {AWS_PROFILE}`, then re-run `/ipa.destroy` |
+| `The bucket you tried to delete is not empty` | S3 bucket contains uploaded frontend files from post-deploy | Empty the bucket first: `source .env 2>/dev/null; aws s3 rm s3://{bucket-name} --recursive`, then re-run `/ipa.destroy` |
+| `RepositoryNotEmptyException` or `Repository not empty` | ECR repository contains images | Delete all images first: `source .env 2>/dev/null; aws ecr batch-delete-image --repository-name {repo} --image-ids "$(aws ecr list-images --repository-name {repo} --query 'imageIds[*]' --output json)"`, then re-run `/ipa.destroy` |
 | Partial teardown (some stacks deleted, others remain) | A stack in the middle of the reverse-order sequence failed to delete | Fix the failing stack (see specific errors above), then re-run `/ipa.destroy`. Already-deleted stacks will be skipped (they no longer exist) |
 | `Stack [{stack}] does not exist` during teardown | Stack was already deleted (manually or in a previous attempt) | This is safe to ignore. The teardown will continue with remaining stacks |
-| `DELETE_FAILED` | A resource within the stack cannot be deleted | Run `aws cloudformation describe-stack-events --stack-name {stack-name} --profile {AWS_PROFILE} --region {AWS_REGION}` to identify the blocking resource. Fix the issue manually (empty the resource, remove dependencies), then re-run `/ipa.destroy` |
+| `DELETE_FAILED` | A resource within the stack cannot be deleted | Run `source .env 2>/dev/null; aws cloudformation describe-stack-events --stack-name {stack-name}` to identify the blocking resource. Fix the issue manually (empty the resource, remove dependencies), then re-run `/ipa.destroy` |
 
 ### Credential Errors
 

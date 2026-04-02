@@ -9,7 +9,7 @@ from app_lib.model.ddb.ddb_titanic_passenger_table import TitanicPassengerTable
 def passenger_data():
     """Sample passenger data."""
     return {
-        "ticket": "24160",
+        "id": "24160",
         "name": "Allen, Miss. Elisabeth Walton",
         "pclass": 1,
         "survived": 1,
@@ -29,7 +29,7 @@ def passenger_data():
 def test_passenger_model_attributes(passenger_data):
     """Test passenger model has correct attributes."""
     passenger = TitanicPassengerTable(**passenger_data)
-    assert passenger.ticket == "24160"
+    assert passenger.id == "24160"
     assert passenger.name == "Allen, Miss. Elisabeth Walton"
     assert passenger.pclass == 1
     assert passenger.survived == 1
@@ -40,7 +40,7 @@ def test_passenger_model_attributes(passenger_data):
 def test_passenger_model_nullable_fields():
     """Test passenger model handles nullable fields."""
     passenger = TitanicPassengerTable(
-        ticket="TEST123",
+        id="TEST123",
         name="Test Passenger",
         pclass=3,
         survived=0,

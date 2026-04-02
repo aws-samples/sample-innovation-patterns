@@ -50,7 +50,7 @@ class TitanicPassengerResponse(BaseModel):
     def from_model(cls, model) -> "TitanicPassengerResponse":
         """Convert PynamoDB model to response, handling Decimal → int/float."""
         return cls(
-            ticket=model.ticket,
+            ticket=model.id,
             name=model.name,
             pclass=int(model.pclass),
             survived=int(model.survived),

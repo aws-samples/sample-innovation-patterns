@@ -41,7 +41,20 @@ This ensures all tables in an account are scoped to their namespace and environm
 | Output | Description | Export Convention | Used By |
 |--------|-------------|------------------|---------|
 | TableArn | DynamoDB table ARN for IAM policy scoping | `{StackName}-TableArn` | ipa.stack.lambda (fn + fn-stream) — DynamoDbTableArns parameter |
-| TableName | Physical DynamoDB table name for runtime configuration | `{StackName}-TableName` | ipa.stack.lambda (fn + fn-stream) — TABLE_NAME env var |
+
+## Naming Convention
+
+Physical DynamoDB table names follow a strict convention enforced by the CloudFormation template:
+
+```
+{Namespace}_{Environment}_{TableName}
+```
+
+Examples:
+- `app_dev_passengers` (Namespace=app, Environment=dev, TableName=passengers)
+- `myapp_stage_jobs` (Namespace=myapp, Environment=stage, TableName=jobs)
+
+App-lib resolves table names by the same convention at runtime via `PynamodbUtil.env_table_name()`. No table name is passed as an environment variable to Lambda — the convention is the contract. The `TableArn` output is still exported for IAM policy scoping by downstream Lambda stacks.
 
 ## Security Summary
 

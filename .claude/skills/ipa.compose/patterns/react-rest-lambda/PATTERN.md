@@ -64,15 +64,6 @@ wiring:
       parameter: DynamoDbTableArns
     notes: "DynamoDB table ARN for Lambda execution role IAM policy"
 
-  # DynamoDB → Lambda (fn) — table name for runtime env var
-  - source:
-      stack: ddb-passengers
-      output: TableName
-    target:
-      stack: fn
-      parameter: TableName
-    notes: "DynamoDB table name → TABLE_NAME env var for runtime data access"
-
   # Cognito → Lambda (fn) — OIDC issuer for JWT validation
   - source:
       stack: cognito

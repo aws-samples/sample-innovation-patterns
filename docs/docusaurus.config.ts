@@ -9,7 +9,7 @@ const showWorking = existsSync(resolve(__dirname, 'docs/working'));
 const config: Config = {
   title: 'Innovation Patterns',
   tagline: 'Reusable infrastructure patterns for AWS',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/site-logo.svg',
   future: {v4: true},
   url: 'https://code.aws.dev',
   baseUrl: process.env.CI ? '/innovation-patterns-0a90b6/' : '/',
@@ -37,7 +37,7 @@ const config: Config = {
     },
     navbar: {
       title: 'Innovation Patterns',
-      logo: {alt: 'IPA Logo', src: 'img/logo.png'},
+      logo: {alt: 'IPA Logo', src: 'img/site-logo.svg'},
       items: [
         {type: 'docSidebar', sidebarId: 'patternsSidebar', label: 'Patterns', position: 'left'},
         {type: 'docSidebar', sidebarId: 'guidesSidebar', label: 'Guides', position: 'left'},
@@ -60,7 +60,7 @@ const config: Config = {
           {label: 'Developer Docs', to: '/developer-docs/'},
         ]},
       ],
-      copyright: `Copyright \u00A9 ${new Date().getFullYear()} Innovation Patterns.`,
+      copyright: `AWS Generative AI Innovation Center`,
     },
     prism: {
       theme: prismThemes.github,

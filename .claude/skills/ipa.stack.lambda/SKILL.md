@@ -28,7 +28,6 @@ Deploy a Lambda function with container image packaging. One template deployed a
 | AuthIssuer | String | — | — | — |
 | AuthAudience | String | — | — | — |
 | DynamoDbTableArns | String | (empty) | — | — |
-| TableName | String | (empty) | — | — |
 
 ### Parameter Classification
 
@@ -40,9 +39,22 @@ Deploy a Lambda function with container image packaging. One template deployed a
 - AuthIssuer ← ipa.stack.cognito `IssuerUrl`
 - AuthAudience ← ipa.stack.cognito `UserPoolClientId`
 
-**Wirable — Optional** (2) — sourced from upstream stack outputs when DynamoDB is composed:
+**Wirable — Optional** (1) — sourced from upstream stack outputs when DynamoDB is composed:
 - DynamoDbTableArns ← ipa.stack.dynamodb `TableArn` (defaults to empty — no DynamoDB permissions granted)
-- TableName ← ipa.stack.dynamodb `TableName` (defaults to empty — TABLE_NAME env var is empty)
+
+## Naming Convention
+
+DynamoDB table names are resolved by **convention**, not by environment variable. The app-lib `PynamodbUtil.env_table_name(model_name)` constructs the physical table name at runtime:
+
+```
+{APP_NAMESPACE}_{APP_ENV}_{model_name}
+```
+
+- `APP_NAMESPACE` and `APP_ENV` are passed to Lambda as environment variables by this template
+- `model_name` is hardcoded in each PynamoDB model class (e.g., `"passengers"`)
+- This matches the DynamoDB CloudFormation template naming: `!Sub '${Namespace}_${Environment}_${TableName}'`
+
+No `TABLE_NAME` environment variable is needed. The convention is the contract between the DynamoDB and Lambda stacks.
 
 ## Outputs
 

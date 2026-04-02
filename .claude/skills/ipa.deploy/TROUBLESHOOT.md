@@ -21,9 +21,9 @@ Reference file for `/ipa.deploy` — failure catalog for deploy-level issues not
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `ExpiredTokenException` or `ExpiredToken` | AWS session token has expired | Refresh credentials: re-authenticate with your AWS profile (`aws sso login --profile {AWS_PROFILE}` or equivalent) |
-| `InvalidClientTokenId` | AWS access key is invalid or deactivated | Verify `AWS_PROFILE` in `.env` points to a valid, active profile: `aws configure list --profile {AWS_PROFILE}` |
-| `NoCredentialProviders` or `Unable to locate credentials` | No credentials configured for the profile | Configure credentials for `{AWS_PROFILE}`: `aws configure --profile {AWS_PROFILE}` or set up SSO |
+| `ExpiredTokenException` or `ExpiredToken` | AWS session token has expired | Refresh credentials: re-authenticate with your AWS profile (`source .env 2>/dev/null; aws sso login` or equivalent) |
+| `InvalidClientTokenId` | AWS access key is invalid or deactivated | Verify `AWS_PROFILE` in `.env` points to a valid, active profile: `source .env 2>/dev/null; aws configure list` |
+| `NoCredentialProviders` or `Unable to locate credentials` | No credentials configured for the profile | Configure credentials for `{AWS_PROFILE}`: `source .env 2>/dev/null; aws configure` or set up SSO |
 | `Access Denied` on `sts:GetCallerIdentity` | Profile exists but cannot authenticate | Check that the profile's credentials are current and the IAM user/role is active |
 | `SignatureDoesNotMatch` | Clock skew or corrupted credentials | Sync system clock (`sudo ntpdate pool.ntp.org`), then retry. If persists, reconfigure credentials |
 

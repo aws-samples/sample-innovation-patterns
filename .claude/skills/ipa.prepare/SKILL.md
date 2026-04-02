@@ -41,9 +41,11 @@ This skill supports two invocation modes:
 Full flow: pre-flight → plan display → confirmation → execute → verify → report.
 
 ### Auto-Triggered Invocation (called by `/ipa.deploy`)
-Abbreviated flow: pre-flight → plan display → **skip confirmation** → execute → verify → report.
-When invoked from `/ipa.deploy`'s Step 1.3a, the builder has already confirmed the
-deployment plan. An additional prepare confirmation is redundant.
+Abbreviated flow: **skip pre-flight** → plan display → **skip confirmation** → execute → verify → report.
+When invoked from `/ipa.deploy`'s Step 1.3a, the builder has already validated
+credentials and `.env` in deploy's own pre-flight. Repeating those checks is redundant.
+Skip all of Step 1 (pre-flight validation) and proceed directly to Step 2 (plan display)
+with skip-confirmation.
 
 The invocation mode is determined by context: if `/ipa.prepare` is running because
 `/ipa.deploy` detected undeployed prepare stacks, it is auto-triggered.
@@ -61,11 +63,13 @@ The invocation mode is determined by context: if `/ipa.prepare` is running becau
 | `.env` | `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_PROFILE` | Pre-flight validation |
 | `scripts/prepare.mk` | Target names, stack names | Plan display + execution |
 | `make -n` | Dry-run output | Plan display |
-| `aws cloudformation describe-stacks` | Stack status | Post-execution verification |
+| `source .env 2>/dev/null; aws cloudformation describe-stacks` | Stack status | Post-execution verification |
 
 ---
 
 ## Step 1: Pre-Flight Validation
+
+> **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials. Do NOT pass `--profile` or `--region` explicitly.
 
 Run all checks and report all failures at once.
 
@@ -94,7 +98,7 @@ Check `scripts/prepare.mk` exists and contains a `prepare` target.
 
 ### 1.4 Verify AWS Credentials
 
-Run: `aws sts get-caller-identity --profile {AWS_PROFILE} --region {AWS_REGION}`
+Run: `source .env 2>/dev/null; aws sts get-caller-identity`
 
 **If fails**: "AWS credentials are invalid or expired for profile `{AWS_PROFILE}`."
 
@@ -141,7 +145,7 @@ Run: `make -f scripts/prepare.mk prepare`
 
 Display Make output as it runs.
 
-**If fails**: Read stack events via `aws cloudformation describe-stack-events --stack-name {failed-stack}`, diagnose, and propose fix. Same error classification as `/ipa.deploy`.
+**If fails**: Read stack events via `source .env 2>/dev/null; aws cloudformation describe-stack-events --stack-name {failed-stack}`, diagnose, and propose fix. Same error classification as `/ipa.deploy`.
 
 ---
 
@@ -150,7 +154,7 @@ Display Make output as it runs.
 For each prepare stack, run:
 
 ```bash
-aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
 ```
 
 Confirm all report `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
