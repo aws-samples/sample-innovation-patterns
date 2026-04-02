@@ -10,6 +10,29 @@ export const routes: RouteObject[] = [
     children: [
       { path: '/login', Component: LoginPage },
       {
+        path: '/sink',
+        lazy: () =>
+          import('@/pages/sink/SinkLayout').then((m) => ({
+            Component: m.SinkLayout,
+          })),
+        children: [
+          {
+            index: true,
+            lazy: () =>
+              import('@/pages/sink/SinkIndexPage').then((m) => ({
+                Component: m.SinkIndexPage,
+              })),
+          },
+          {
+            path: ':name',
+            lazy: () =>
+              import('@/pages/sink/SinkDetailPage').then((m) => ({
+                Component: m.SinkDetailPage,
+              })),
+          },
+        ],
+      },
+      {
         path: '/',
         Component: RootLayout,
         children: [

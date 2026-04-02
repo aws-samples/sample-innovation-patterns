@@ -353,7 +353,14 @@ After `.env` and `.env.example` are written, check whether security infrastructu
    - Display: "Security infrastructure has not been provisioned yet. Running `/ipa.security` to set up IAM roles and log bucket..."
    - Invoke `/ipa.security`.
 4. **If `APP_BUILDER_ROLE_ARN` is present**:
-   - Display: "Initialization complete. Security infrastructure is already configured."
+   - Display:
+     ```
+     Initialization complete. Security infrastructure is already configured.
+
+     Next steps:
+       • Run `/ipa.compose` to compose infrastructure and generate Makefiles
+       • Run `/ipa.security` to review or update IAM roles and log bucket
+     ```
    - Do not invoke `/ipa.security`.
 
 ---

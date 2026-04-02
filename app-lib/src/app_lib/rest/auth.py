@@ -15,8 +15,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "false").lower() == "true"
-AUTH_ISSUER = os.environ.get("AUTH_ISSUER", "")
-AUTH_AUDIENCE = os.environ.get("AUTH_AUDIENCE", "")
+AUTH_ISSUER = os.environ.get("OIDC_ISSUER", os.environ.get("AUTH_ISSUER", ""))
+AUTH_AUDIENCE = os.environ.get("OIDC_CLIENT_ID", os.environ.get("AUTH_AUDIENCE", ""))
 AUTH_ALGORITHMS = os.environ.get("AUTH_ALGORITHMS", "RS256").split(",")
 
 PUBLIC_PATHS = {"/health", "/version", "/docs", "/openapi.json"}

@@ -178,6 +178,9 @@ Always generate `scripts/prepare.mk`. Stacks marked `(prepare)` in the pattern's
 
 -include .env
 
+# Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
+APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
+
 .PHONY: prepare {all prepare-* targets} teardown-prepare {all teardown-* targets}
 ```
 
@@ -221,6 +224,66 @@ prepare-{suffix}: prepare-{dep1}
 		--parameter-overrides {TargetParam1}=$(OUTPUT1) \
 		--no-fail-on-empty-changeset
 ```
+
+### Per-Stack Prepare Target — Cognito (with Domain Prefix)
+
+When the Cognito stack is marked `(prepare)`, generate a target that includes the `CognitoDomainPrefix` parameter:
+
+```makefile
+prepare-cognito:
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--template-file infra/cfn/cognito/cognito.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+			CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH) \
+		--no-fail-on-empty-changeset
+```
+
+### Cognito OIDC Environment Variable Target
+
+When the prepare stack list includes `cognito`, generate a `prepare-cognito-env` target that depends on `prepare-cognito`. This target extracts Cognito OIDC outputs and writes them to `.env`:
+
+```makefile
+prepare-cognito-env: prepare-cognito
+	$(eval OIDC_ISSUER_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_CLIENT_ID_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_DISCOVERY_URL_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`DiscoveryUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_END_SESSION_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_USER_POOL_ID_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing OIDC configuration to .env..."
+	@grep -v '^OIDC_\|^# OIDC Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# OIDC Configuration (written by /ipa.prepare after cognito deploy)" >> .env
+	@echo "OIDC_ISSUER=$(OIDC_ISSUER_VAL)" >> .env
+	@echo "OIDC_CLIENT_ID=$(OIDC_CLIENT_ID_VAL)" >> .env
+	@echo "OIDC_DISCOVERY_URL=$(OIDC_DISCOVERY_URL_VAL)" >> .env
+	@echo "OIDC_END_SESSION_ENDPOINT=$(OIDC_END_SESSION_VAL)" >> .env
+	@echo "OIDC_USER_POOL_ID=$(OIDC_USER_POOL_ID_VAL)" >> .env
+```
+
+**Why `_VAL` suffix on eval vars**: Prevents collision with the `.env`-sourced variables of the same name that `-include .env` loads. Without the suffix, `$(eval OIDC_ISSUER := ...)` would shadow the variable from `.env` on re-runs, causing self-referential evaluation.
+
+**Chaining**: The aggregate `prepare:` target chains: `prepare-cognito → prepare-cognito-env → prepare-ecr`. All subsequent prepare targets depend on `prepare-cognito-env` (not `prepare-cognito`).
 
 ### Aggregate Teardown Target
 
@@ -269,6 +332,7 @@ their targets here. If no `## Post-Deploy` section exists, generate a no-op post
 #   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
 
 -include .env
+export
 
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
@@ -286,10 +350,12 @@ List all post-deploy step targets in declared dependency order.
 
 ### Per-Step Target — configure-frontend
 
+OIDC variables (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_END_SESSION_ENDPOINT`) come from `.env` via `-include .env` — no `$(eval)` needed for Cognito outputs.
+
 ```makefile
 configure-frontend:
 	$(eval API_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigw \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigwv2 \
 		--query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
@@ -298,27 +364,12 @@ configure-frontend:
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval ISSUER_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval CLIENT_ID := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval END_SESSION := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	python3 scripts/util/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
-		--oidc-authority "$(ISSUER_URL)" \
-		--oidc-client-id "$(CLIENT_ID)" \
+		--oidc-authority "$(OIDC_ISSUER)" \
+		--oidc-client-id "$(OIDC_CLIENT_ID)" \
 		--oidc-redirect-uri "$(APP_URL)/authentication/callback" \
-		--oidc-end-session-endpoint "$(END_SESSION)" \
+		--oidc-end-session-endpoint "$(OIDC_END_SESSION_ENDPOINT)" \
 		--output web-client/dist/config.js
 ```
 
@@ -369,6 +420,33 @@ update-cognito-callback: invalidate-cf
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
 			CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH) \
 			CallbackURL=$(APP_URL)/authentication/callback \
+		--no-fail-on-empty-changeset
+```
+
+### Per-Step Target — update-apigwv2-cors
+
+OIDC variables (`OIDC_ISSUER`, `OIDC_CLIENT_ID`) come from `.env` via `-include .env` — no `$(eval)` needed for Cognito outputs.
+
+```makefile
+update-apigwv2-cors: update-cognito-callback
+	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cf \
+		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval FUNCTION_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-fn \
+		--query 'Stacks[0].Outputs[?OutputKey==`FunctionArn`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-apigwv2 \
+		--template-file infra/cfn/apigateway-v2/apigateway-v2.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+			ApiName=$(APP_NAMESPACE)-$(APP_ENV)-api \
+			LambdaFunctionArn=$(FUNCTION_ARN) \
+			IssuerUrl=$(OIDC_ISSUER) UserPoolClientId=$(OIDC_CLIENT_ID) \
+			AllowedOrigin=$(APP_URL) \
 		--no-fail-on-empty-changeset
 ```
 

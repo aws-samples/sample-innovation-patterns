@@ -601,6 +601,16 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 4. **Aggregate teardown target**: `teardown-prepare: teardown-{sfxN} ... teardown-{sfx1}` in reverse order.
 5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
 
+#### Cognito OIDC Environment Variable Target
+
+If the prepare stack list includes `cognito`:
+
+1. Generate a `prepare-cognito-env` target that depends on `prepare-cognito`
+2. This target extracts Cognito OIDC outputs and writes them to `.env`
+3. All subsequent prepare targets depend on `prepare-cognito-env` (not `prepare-cognito`)
+4. The aggregate `prepare:` target chains: `prepare-cognito → prepare-cognito-env → prepare-ecr`
+5. Load the `prepare-cognito-env` target template from MAKEFILE_TEMPLATES.md
+
 **Critical rules**:
 - Same naming/variable conventions as deploy.mk
 - All targets are `.PHONY`
@@ -628,12 +638,24 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) post-deploy.mk template. Gen
    - Write the operational command (Python script call, aws s3 sync, aws cloudfront, aws cloudformation deploy).
 4. No teardown targets — post-deploy steps are operational, not infrastructure.
 
+#### OIDC Variables from .env
+
+When generating post-deploy targets that reference Cognito outputs (IssuerUrl,
+UserPoolClientId, EndSessionEndpoint), do NOT generate `$(eval)` lines to fetch
+these from CloudFormation. Instead, reference the `.env` variables directly:
+- `$(OIDC_ISSUER)` instead of fetching IssuerUrl
+- `$(OIDC_CLIENT_ID)` instead of fetching UserPoolClientId
+- `$(OIDC_END_SESSION_ENDPOINT)` instead of fetching EndSessionEndpoint
+
+These variables are written to `.env` by `prepare-cognito-env` in prepare.mk
+and loaded via `-include .env` in the post-deploy.mk header.
+
 **Critical rules**:
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
 - All targets are `.PHONY`.
 - Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{suffix}`.
-- The `update-cognito-callback` target must pass ALL parameters that `deploy-cognito` passes,
-  plus the updated `CallbackURL`. Copy the parameter list from `deploy-cognito` in deploy.mk.
+- The `update-cognito-callback` target must pass ALL parameters that `prepare-cognito` passes,
+  plus the updated `CallbackURL`. Copy the parameter list from `prepare-cognito` in prepare.mk.
 - `$(eval ... $(shell ...))` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables.
 
 ---

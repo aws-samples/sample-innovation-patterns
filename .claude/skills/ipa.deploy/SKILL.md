@@ -177,9 +177,9 @@ Deployment Plan: {APP_NAMESPACE}-{APP_ENV}
 
   Stack                              Action
   ─────────────────────────────────  ──────
-  {APP_NAMESPACE}-{APP_ENV}-ecr      create/update
-  {APP_NAMESPACE}-{APP_ENV}-cognito  create/update
-  {APP_NAMESPACE}-{APP_ENV}-lambda   create/update (depends on: ecr, cognito)
+  {APP_NAMESPACE}-{APP_ENV}-ddb-passengers  create/update
+  {APP_NAMESPACE}-{APP_ENV}-fn       create/update (depends on: ecr, cognito, ddb-passengers)
+  {APP_NAMESPACE}-{APP_ENV}-apigwv2  create/update (depends on: fn, cognito)
 
 Proceed with deployment? (yes/no):
 ```
@@ -300,16 +300,16 @@ Display a structured report:
 ```
 Deployment Complete: {APP_NAMESPACE}-{APP_ENV}
 
-  Stack                              Status
-  ─────────────────────────────────  ───────────────
-  {APP_NAMESPACE}-{APP_ENV}-ecr      CREATE_COMPLETE
-  {APP_NAMESPACE}-{APP_ENV}-cognito  CREATE_COMPLETE
-  {APP_NAMESPACE}-{APP_ENV}-lambda   CREATE_COMPLETE
+  Stack                                      Status
+  ─────────────────────────────────────────  ───────────────
+  {APP_NAMESPACE}-{APP_ENV}-ddb-passengers   CREATE_COMPLETE
+  {APP_NAMESPACE}-{APP_ENV}-fn               CREATE_COMPLETE
+  {APP_NAMESPACE}-{APP_ENV}-apigwv2          CREATE_COMPLETE
 
   Outputs:
   ────────
-  {APP_NAMESPACE}-{APP_ENV}-ecr:
-    RepositoryUri = 123456789012.dkr.ecr.us-east-1.amazonaws.com/ipatest-dev-ecr
+  {APP_NAMESPACE}-{APP_ENV}-fn:
+    FunctionArn = arn:aws:lambda:us-east-1:123456789012:function:ipatest-dev-fn
 
 Next steps:
   • Review deployed resources in the AWS Console

@@ -101,7 +101,7 @@ Use AskUserQuestion with 1 question:
 - Options:
   - **"Managed policy" (Recommended)** — "IPA creates Builder and CodeBuild roles; you provide the policy name"
   - **"Existing role ARNs"** — "Skip role creation; provide pre-provisioned role ARNs"
-- The managed policy option description must NOT name any specific policy (no AdministratorAccess, PowerUserAccess, etc.).
+- The path selection must NOT name specific policies — policy choices are deferred to Step 3a.
 
 - If the builder selects **"Managed policy"** → proceed to **Step 3a: Managed Policy Input**.
 - If the builder selects **"Existing role ARNs"** → proceed to **Step 3b: Existing Role ARN Input**.
@@ -110,9 +110,14 @@ Use AskUserQuestion with 1 question:
 
 ## Step 3a: Managed Policy Input
 
-1. Ask the builder to type the managed policy name or ARN. **Do NOT present predefined options or multiple-choice selections** — this must be a free-text input only:
-   > Enter the managed policy name or ARN to attach to both execution roles
-   > (e.g. `ReadOnlyAccess`, `MyCustomPolicy`, or a full ARN):
+1. Use AskUserQuestion:
+   - Question: "Which managed policy should IPA attach to both execution roles?"
+   - Header: "Policy"
+   - Options:
+     - **"PowerUserAccess (Recommended)"** — "Broad AWS access without IAM administration"
+     - **"ReadOnlyAccess"** — "Read-only access across AWS services"
+   - multiSelect: false
+   The builder may select a predefined option or use "Other" to type a custom policy name or full ARN (e.g., `MyCustomPolicy` or `arn:aws:iam::123456789012:policy/MyPolicy`).
 2. Validate the input against the three accepted formats (see Validation Rules).
 3. If it's a short name (no `arn:` prefix): resolve to `arn:aws:iam::aws:policy/{name}`.
 4. Store the resolved ARN as `ManagedPolicyArn` for template generation.
@@ -189,10 +194,16 @@ Display a confirmation table before deployment. Adapt the content based on the c
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
-Ask: "Deploy this security configuration? (yes to proceed, no to start over):"
+Use AskUserQuestion:
+- Question: "Deploy this security configuration?"
+- Header: "Deploy"
+- Options:
+  - **"Yes, deploy"** — "Deploy the security stack with the configuration shown above"
+  - **"No, start over"** — "Return to path selection and re-enter configuration"
+- multiSelect: false
 
-- **If confirmed** → proceed to **Step 6: Generate and Deploy**.
-- **If rejected** → restart from Step 2.
+- If **"Yes, deploy"** → proceed to **Step 6: Generate and Deploy**.
+- If **"No, start over"** → restart from Step 2.
 
 ---
 
@@ -535,6 +546,11 @@ Show a summary of written values:
 Written to .env:
   APP_BUILDER_ROLE_ARN={value}
   APP_CODEBUILD_ROLE_ARN={value}
+
+Next steps:
+  • Run `/ipa.compose` to compose infrastructure and generate Makefiles
+  • Run `/ipa.security` again to review or update the configuration
+  • Re-run `/ipa.init` to change project namespace or environment
 ```
 
 ---
@@ -601,16 +617,28 @@ Infer the current path from the stack's `describe-stacks` response: if `ManagedP
 
 ### U3: Update Prompt
 
-Ask: "Would you like to update the security configuration? (yes to modify, no to keep current):"
+Use AskUserQuestion:
+- Question: "Would you like to update the security configuration?"
+- Header: "Update"
+- Options:
+  - **"Yes, update"** — "Modify the security configuration"
+  - **"No, keep current"** — "Keep the current configuration as-is"
+- multiSelect: false
 
-- **If no**: complete with "Security configuration is current. No changes needed."
-- **If yes**: proceed to Step 2 (Path Selection) to re-enter the full configuration flow.
+- If **"No, keep current"**: complete with "Security configuration is current. No changes needed."
+- If **"Yes, update"**: proceed to Step 2 (Path Selection) to re-enter the full configuration flow.
 
 ### U4: Path Switching Warning
 
 If the builder is switching paths:
 
-- **Managed → Existing**: "Warning: Switching to existing role ARNs will REMOVE the IAM roles currently managed by the security stack. The stack will be updated to contain only the log bucket. Proceed? (yes/no):"
+- **Managed → Existing**: Use AskUserQuestion:
+  - Question: "Switching to existing role ARNs will REMOVE the IAM roles currently managed by the security stack. The stack will be updated to contain only the log bucket. Proceed?"
+  - Header: "Confirm"
+  - Options:
+    - **"Yes, switch paths"** — "Remove managed roles and use existing role ARNs"
+    - **"No, keep current path"** — "Stay with managed policy configuration"
+  - multiSelect: false
 - **Existing → Managed**: "Note: Switching to managed policy will create new IAM roles in the security stack."
 
 ### U5: No-Change Detection
@@ -629,8 +657,14 @@ If CloudFormation returns "No updates are to be performed" during stack update:
 If the security stack is in `ROLLBACK_COMPLETE` state:
 
 1. Display: "The security stack `{stack_name}` is in ROLLBACK_COMPLETE state from a previous failed deployment."
-2. Ask: "Delete the failed stack and retry? (yes to delete and recreate, no to abort):"
-3. **If yes**:
+2. Use AskUserQuestion:
+   - Question: "Delete the failed stack and retry?"
+   - Header: "Recovery"
+   - Options:
+     - **"Yes, delete and retry"** — "Delete the failed stack and create a new one"
+     - **"No, abort"** — "Stop here; fix manually via AWS Console or CLI"
+   - multiSelect: false
+3. **If "Yes, delete and retry"**:
    ```bash
    source .env 2>/dev/null; aws cloudformation delete-stack \
      --stack-name {stack_name}
@@ -641,7 +675,7 @@ If the security stack is in `ROLLBACK_COMPLETE` state:
      --stack-name {stack_name}
    ```
    Then proceed with the First-Time Flow (Step 2).
-4. **If no**: abort with "Aborting. You can manually delete the stack via AWS Console or CLI and re-run `/ipa.security`."
+4. **If "No, abort"**: abort with "Aborting. You can manually delete the stack via AWS Console or CLI and re-run `/ipa.security`."
 
 ### Permission Errors
 

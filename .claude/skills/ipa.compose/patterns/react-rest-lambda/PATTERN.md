@@ -4,13 +4,13 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 
 ## Stack Sequence
 
-1. ipa.stack.ecr (prepare) — ECR repository for container images
-   - Depends on: none
-   - Suffix: ecr
-
-2. ipa.stack.cognito — Cognito User Pool for authentication
+1. ipa.stack.cognito (prepare) — Cognito User Pool for authentication
    - Depends on: none
    - Suffix: cognito
+
+2. ipa.stack.ecr (prepare) — ECR repository for container images
+   - Depends on: none
+   - Suffix: ecr
 
 3. ipa.stack.dynamodb — DynamoDB table for data persistence
    - Depends on: none
@@ -40,7 +40,6 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 3. ipa.stack.apigwv2 (suffix: apigwv2)
 4. ipa.stack.lambda fn (suffix: fn)
 5. ipa.stack.dynamodb (suffix: ddb-passengers)
-6. ipa.stack.cognito (suffix: cognito)
 
 ## Wiring
 
@@ -167,7 +166,7 @@ Post-deploy runs automatically within /ipa.deploy — no separate invocation nee
 - Stack outputs:
   - apigwv2 → ApiUrl
   - cf → AppUrl
-  - cognito → IssuerUrl, UserPoolClientId, EndSessionEndpoint
+- .env variables: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_END_SESSION_ENDPOINT
 
 ### upload-frontend
 - Action: Sync web-client/dist/ to S3 bucket
@@ -184,12 +183,14 @@ Post-deploy runs automatically within /ipa.deploy — no separate invocation nee
 - Command: aws cloudfront create-invalidation + aws cloudfront wait invalidation-completed
 
 ### update-cognito-callback
-- Action: Update Cognito callback/logout URLs with CloudFront domain
+- Action: Update Cognito callback/logout URLs — add CloudFront domain alongside localhost
 - Depends on: invalidate-cf
 - Stack outputs:
   - cf → AppUrl
-- Command: aws cloudformation deploy (Cognito stack with updated CallbackURL parameter)
-- Notes: Must pass ALL original deploy-cognito parameters plus CallbackURL={AppUrl}/authentication/callback
+- .env variables: OIDC_ISSUER, OIDC_CLIENT_ID (for reference — not directly used by this target)
+- Command: aws cloudformation deploy (Cognito stack with CallbackURL={AppUrl}/authentication/callback)
+- Notes: Passes ALL original prepare-cognito parameters plus updated CallbackURL.
+  The localhost callback remains — CloudFront URL is added as additional allowed callback.
 
 ### update-apigwv2-cors
 - Action: Update API Gateway v2 CORS origin with CloudFront domain
@@ -197,6 +198,6 @@ Post-deploy runs automatically within /ipa.deploy — no separate invocation nee
 - Stack outputs:
   - cf → AppUrl
   - fn → FunctionArn
-  - cognito → IssuerUrl, UserPoolClientId
+- .env variables: OIDC_ISSUER, OIDC_CLIENT_ID
 - Command: aws cloudformation deploy (apigwv2 stack with updated AllowedOrigin parameter)
 - Notes: Must pass ALL original deploy-apigwv2 parameters plus AllowedOrigin={AppUrl}

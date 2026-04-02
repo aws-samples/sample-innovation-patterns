@@ -23,14 +23,14 @@ before build and deploy scripts can run.
 3. Confirms with builder
 4. Runs `make -f scripts/prepare.mk prepare`
 5. Verifies all prepare stacks reach `*_COMPLETE` status
-6. Reports results
+6. Writes OIDC configuration to `.env` (if Cognito is a prepare stack)
+7. Reports results
 
 ## What This Skill Does NOT Do
 
 - Does not generate prepare.mk — that's `/ipa.compose`'s job
 - Does not create IAM roles — that's `/ipa.security`'s job
 - Does not run build or deploy — use `/ipa.deploy`
-- Does not modify `.env`
 - Does not support per-stack targeting — always runs the aggregate `prepare` target
 
 ## Invocation Modes
@@ -123,6 +123,8 @@ Prepare Plan: {APP_NAMESPACE}-{APP_ENV}
 
   Stack                              Action
   ---------------------------------  ------
+  {APP_NAMESPACE}-{APP_ENV}-cognito  create/update
+  .env                               write OIDC configuration
   {APP_NAMESPACE}-{APP_ENV}-ecr      create/update
 
 These are one-time prerequisite stacks. They must exist before
@@ -168,11 +170,13 @@ Prepare Complete: {APP_NAMESPACE}-{APP_ENV}
 
   Stack                              Status
   ---------------------------------  ---------------
+  {APP_NAMESPACE}-{APP_ENV}-cognito  CREATE_COMPLETE
   {APP_NAMESPACE}-{APP_ENV}-ecr      CREATE_COMPLETE
+  .env                               OIDC vars written
 
 Next steps:
   - Run `/ipa.deploy` to build and deploy the application
-  - Re-run `/ipa.prepare` if prepare stacks change (e.g., new pattern composed)
+  - Re-run `/ipa.prepare` if prepare stacks change
   - Prepare stacks are NOT auto-deleted by /ipa.destroy — manual teardown:
     make -f scripts/prepare.mk teardown-prepare
 ```
