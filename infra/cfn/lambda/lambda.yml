@@ -134,6 +134,18 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+        # CloudWatch custom metrics — always included (observability module)
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-cloudwatch-metrics'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': !Sub '${Namespace}/${Environment}'
       Tags:
         - Key: Namespace
           Value: !Ref Namespace

@@ -24,6 +24,8 @@ test-validate:
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/apigateway-v2/apigateway-v2.yml
 	aws cloudformation validate-template \
+		--template-body file://infra/cfn/app-cloudwatch/app-cloudwatch.yml
+	aws cloudformation validate-template \
 		--template-body file://infra/cfn/s3/s3.yml
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/cloudfront/cloudfront.yml

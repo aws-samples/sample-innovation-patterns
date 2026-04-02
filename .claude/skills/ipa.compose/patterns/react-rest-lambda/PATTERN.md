@@ -25,6 +25,10 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
    - Depends on: ipa.stack.lambda (fn), ipa.stack.cognito
    - Suffix: apigwv2
 
+5a. ipa.stack.app-cloudwatch — CloudWatch dashboard, metric filters, and alarms
+   - Depends on: ipa.stack.lambda (fn), ipa.stack.apigwv2
+   - Suffix: app-cloudwatch
+
 6. ipa.stack.s3 — S3 bucket for static web hosting
    - Depends on: none
    - Suffix: s3
@@ -37,6 +41,7 @@ Full-stack serverless web application pattern. Deploys a React frontend served v
 
 1. ipa.stack.cloudfront (suffix: cf)
 2. ipa.stack.s3 (suffix: s3)
+2a. ipa.stack.app-cloudwatch (suffix: app-cloudwatch)
 3. ipa.stack.apigwv2 (suffix: apigwv2)
 4. ipa.stack.lambda fn (suffix: fn)
 5. ipa.stack.dynamodb (suffix: ddb-passengers)
@@ -134,6 +139,10 @@ wiring:
       stack: cf
       parameter: S3BucketName
     notes: "S3 bucket name for CloudFront OAC bucket policy resource"
+
+  # Lambda → App CloudWatch — no explicit wiring needed
+  # App CloudWatch constructs log group names by convention from Namespace + Environment
+  # Override with LambdaLogGroupName/ApiGatewayLogGroupName parameters if needed
 ```
 
 ## Known Deferrals

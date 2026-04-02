@@ -76,6 +76,12 @@ runtime_permissions:
       - logs:PutLogEvents
     resource: "arn:aws:logs:{AWS_REGION}:{AWS_ACCOUNT_ID}:log-group:/aws/lambda/{APP_NAMESPACE}-{APP_ENV}-{FunctionName}:*"
     purpose: "CloudWatch Logs write — granted via AWSLambdaBasicExecutionRole managed policy"
+
+  - actions:
+      - cloudwatch:PutMetricData
+    resource: "*"
+    condition: "cloudwatch:namespace == {Namespace}/{Environment}"
+    purpose: "Custom CloudWatch metric emission — observability module (always included)"
 ```
 
 ## Security Controls

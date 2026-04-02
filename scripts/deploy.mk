@@ -19,11 +19,11 @@ IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
-.PHONY: deploy deploy-ddb-passengers deploy-fn deploy-apigwv2 deploy-s3 deploy-cf teardown teardown-cf teardown-s3 teardown-apigwv2 teardown-fn teardown-ddb-passengers
+.PHONY: deploy deploy-ddb-passengers deploy-fn deploy-apigwv2 deploy-app-cloudwatch deploy-s3 deploy-cf teardown teardown-cf teardown-s3 teardown-app-cloudwatch teardown-apigwv2 teardown-fn teardown-ddb-passengers
 
 # === DEPLOY (deployment order) ===
 
-deploy: deploy-ddb-passengers deploy-fn deploy-apigwv2 deploy-s3 deploy-cf
+deploy: deploy-ddb-passengers deploy-fn deploy-apigwv2 deploy-app-cloudwatch deploy-s3 deploy-cf
 
 deploy-ddb-passengers:
 	aws cloudformation deploy \
@@ -96,6 +96,13 @@ deploy-apigwv2: deploy-fn
 			IssuerUrl=$(ISSUER_URL) UserPoolClientId=$(USER_POOL_CLIENT_ID) \
 		--no-fail-on-empty-changeset
 
+deploy-app-cloudwatch: deploy-fn deploy-apigwv2
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-app-cloudwatch \
+		--template-file infra/cfn/app-cloudwatch/app-cloudwatch.yml \
+		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
+		--no-fail-on-empty-changeset
+
 deploy-s3:
 	$(eval LOG_BUCKET_NAME := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-security \
@@ -142,7 +149,7 @@ deploy-cf: deploy-s3
 
 # === TEARDOWN (reverse order) ===
 
-teardown: teardown-cf teardown-s3 teardown-apigwv2 teardown-fn teardown-ddb-passengers
+teardown: teardown-cf teardown-s3 teardown-app-cloudwatch teardown-apigwv2 teardown-fn teardown-ddb-passengers
 
 teardown-cf:
 	aws cloudformation delete-stack \
@@ -155,6 +162,12 @@ teardown-s3:
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3
 	aws cloudformation wait stack-delete-complete \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-s3
+
+teardown-app-cloudwatch:
+	aws cloudformation delete-stack \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-app-cloudwatch
+	aws cloudformation wait stack-delete-complete \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-app-cloudwatch
 
 teardown-apigwv2:
 	aws cloudformation delete-stack \

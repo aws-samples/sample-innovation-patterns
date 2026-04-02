@@ -45,6 +45,47 @@ from app_lib.rest.auth import JWTAuthMiddleware
 
 app.add_middleware(JWTAuthMiddleware)
 
+# --- Observability middleware ---
+import traceback
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from app_lib.util.observability import log_exception
+
+
+class ObservabilityMiddleware(BaseHTTPMiddleware):
+    """Catches unhandled exceptions and emits structured error logs."""
+
+    async def dispatch(self, request: Request, call_next):
+        """Process request and catch unhandled exceptions.
+
+        Args:
+            request: The incoming HTTP request.
+            call_next: The next middleware or route handler.
+
+        Returns:
+            The response from the next handler, or a 500 JSON response.
+        """
+        try:
+            response = await call_next(request)
+            return response
+        except Exception as exc:
+            log_exception(
+                exc,
+                path=request.url.path,
+                method=request.method,
+                context={"traceback": traceback.format_exc()},
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"},
+            )
+
+
+app.add_middleware(ObservabilityMiddleware)
+
 app.include_router(v1_router)
 app.include_router(sse_router)
 app.include_router(job_router)  # SQS pattern

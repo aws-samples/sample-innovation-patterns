@@ -77,6 +77,6 @@ Both `fn` and `fn-stream` instances use the same container image — one `build-
 ## Security Summary
 
 **Required IAM actions**: lambda:CreateFunction, UpdateFunctionCode, UpdateFunctionConfiguration, DeleteFunction, GetFunction, TagResource, UntagResource + iam:CreateRole, PutRolePolicy, DeleteRole, PassRole — scoped to `{APP_NAMESPACE}-{APP_ENV}-*`
-**Runtime permissions**: Conditional DynamoDB CRUD, ECR image pull, CloudWatch Logs, Bedrock invoke (always)
+**Runtime permissions**: Conditional DynamoDB CRUD, ECR image pull, CloudWatch Logs, Bedrock invoke (always), CloudWatch PutMetricData (always, namespace-scoped)
 **Security controls**: No public function URL, dedicated least-privilege execution role, encryption in transit, 30-day log retention
 **Full advisory**: See [SECURITY.md](SECURITY.md)
