@@ -19,7 +19,7 @@ APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 post-deploy: load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-apigwv2-cors
 
 load-data:
-	cd app-lib && uv run python -m app_lib.util.load_dynamodb_util
+	cd app-lib && uv run python -m app_lib.features.passengers.util.load_dynamodb_util
 
 configure-frontend:
 	$(eval API_URL := $(shell aws cloudformation describe-stacks \

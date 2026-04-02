@@ -16,8 +16,7 @@ COPY app-lib/ ./app-lib/
 RUN pip install --no-cache-dir ./app-lib[api_lambda]
 
 # Copy Lambda entry points
-COPY app-lib/src/app_lib/patterns/lambda/api_lambda/ ./
-COPY app-lib/src/app_lib/patterns/lambda/handler/ ./
+COPY app-lib/src/app_lib/common/lambda/ ./
 # Default: Lambda Web Adapter mode (uvicorn on port 8080).
 # Override at deploy time via CFN ImageCommand parameter for custom entrypoints.
 CMD ["python", "-m", "uvicorn", "api_lambda_handler:app", "--host", "0.0.0.0", "--port", "8080"]

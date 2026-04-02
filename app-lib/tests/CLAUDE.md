@@ -5,11 +5,12 @@ Tests mirror the source code structure in `src/app_lib/`:
 
 ```
 tests/
-├── model/
-│   └── ddb/                    # DynamoDB model tests
-├── service/
-│   └── repositories/           # Repository service tests
-└── conftest.py                 # Shared fixtures
+├── features/
+│   └── passengers/             # Passenger feature tests
+├── common/
+│   └── util/                   # Shared utility tests
+├── conftest.py                 # Shared fixtures
+└── test_basic.py               # Package-level smoke test
 ```
 
 ## Running Tests

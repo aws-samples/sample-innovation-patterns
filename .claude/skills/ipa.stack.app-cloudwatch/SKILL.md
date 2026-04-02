@@ -41,7 +41,7 @@ Log group names and metric namespaces are resolved by **convention** from Namesp
 
 | Resource | Convention | Override Parameter |
 |----------|------------|-------------------|
-| Lambda log group | `/aws/lambda/{Namespace}-{Environment}-*` | LambdaLogGroupName |
+| Lambda log group | `/aws/lambda/{Namespace}-{Environment}-fn` | LambdaLogGroupName |
 | API Gateway log group | `/aws/apigateway/{Namespace}-{Environment}-apigwv2` | ApiGatewayLogGroupName |
 | Metric namespace | `{Namespace}/{Environment}` | MetricNamespace |
 

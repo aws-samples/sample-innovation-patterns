@@ -62,14 +62,14 @@ Ruff enforces docstring presence via pydocstyle rules (`D` prefix). Run `make li
 ### Code Organization
 ```
 src/app_lib/
-├── model/          # Data models (DynamoDB, Pydantic, etc.)
-├── service/        # Business logic and repositories
-├── util/           # Utility functions (see util/README.md)
-├── plays/          # Play-specific implementations
+├── features/       # Business features (passengers, etc.) — see features/CLAUDE.md
+├── common/         # Shared infrastructure (app, auth, utils, lambda handlers) — see common/CLAUDE.md
 └── assets/         # Static assets and datasets
 ```
 
-**Before implementing new functionality**: Check `util/` directory for existing utilities that can be reused (e.g., `PathUtil` for file paths).
+**Feature-centric layout**: Each feature is self-contained under `features/{name}/` with its own `model/`, `service/`, `routes/`, and `util/`. Features import from `common/`, never from each other.
+
+**Before implementing new functionality**: Check `common/util/` for existing utilities (e.g., `PathUtil` for file paths, `PynamodbUtil` for table naming).
 
 ## Tests
 - Python Pytest unit tests are located here: [tests/](./tests/)

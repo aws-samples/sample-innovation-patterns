@@ -25,8 +25,8 @@ Parameters:
     Default: ''
     Description: >-
       Optional override for the Lambda log group name used by metric filters.
-      If empty, uses the convention: /aws/lambda/{Namespace}-{Environment}-*
-      (wildcard matches all Lambda functions in the namespace).
+      If empty, uses the convention: /aws/lambda/{Namespace}-{Environment}-fn.
+      MetricFilters require an exact log group name (no wildcards).
 
   ApiGatewayLogGroupName:
     Type: String
@@ -75,7 +75,7 @@ Resources:
       LogGroupName: !If
         - HasCustomLambdaLogGroup
         - !Ref LambdaLogGroupName
-        - !Sub '/aws/lambda/${Namespace}-${Environment}-*'
+        - !Sub '/aws/lambda/${Namespace}-${Environment}-fn'
       FilterName: !Sub '${Namespace}-${Environment}-application-errors'
       FilterPattern: 'ERROR'
       MetricTransformations:
@@ -99,7 +99,7 @@ Resources:
       LogGroupName: !If
         - HasCustomLambdaLogGroup
         - !Ref LambdaLogGroupName
-        - !Sub '/aws/lambda/${Namespace}-${Environment}-*'
+        - !Sub '/aws/lambda/${Namespace}-${Environment}-fn'
       FilterName: !Sub '${Namespace}-${Environment}-unhandled-exceptions'
       FilterPattern: '?"\"exception\":" ?Traceback'
       MetricTransformations:

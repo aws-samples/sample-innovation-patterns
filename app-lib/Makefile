@@ -71,8 +71,9 @@ integration_cicd:
 # DEV Targets
 ########################################
 
-streamlit:
-	uv make run ...
+# Local dev server
+run:
+	cd src/app_lib/common && $(MAKE) dev
 
 ########################################
 # End DEV Targets

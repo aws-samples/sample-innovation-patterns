@@ -164,7 +164,7 @@ Post-deploy runs automatically within /ipa.deploy — no separate invocation nee
 
 ### load-data
 - Action: Load sample Titanic passenger data from CSV into DynamoDB table
-- Script: `cd app-lib && uv run python -m app_lib.util.load_dynamodb_util`
+- Script: `cd app-lib && uv run python -m app_lib.features.passengers.util.load_dynamodb_util`
 - Depends on: (none within post-deploy)
 - Notes: Uses PutItem (upsert) — safe to re-run. Reads from app-lib/src/app_lib/assets/datasets/titanic/walkthrough_titanic.csv
 
