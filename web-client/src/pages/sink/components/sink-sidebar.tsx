@@ -1,6 +1,12 @@
 import { type ComponentProps, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { ArrowLeftIcon, ChevronRightIcon, SearchIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  ListTodoIcon,
+  SearchIcon,
+} from 'lucide-react'
 
 import {
   Collapsible,
@@ -11,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -105,6 +112,26 @@ export function SinkSidebar(props: ComponentProps<typeof Sidebar>) {
           )
         })}
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === '/tasks'}>
+              <Link to="/tasks">
+                <ListTodoIcon />
+                <span>Tasks</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <a href="https://tabler.io/icons" target="_blank" rel="noopener noreferrer">
+                <ExternalLinkIcon />
+                <span>Icons</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

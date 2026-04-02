@@ -14,7 +14,6 @@ import {
   IconFileWord,
   IconFolder,
   IconHelp,
-  IconListDetails,
   IconMail,
   IconMessageCircle,
   IconReport,
@@ -68,9 +67,7 @@ const data = {
     { title: 'Jobs', url: '/jobs', icon: IconBolt },
     { title: 'Playground', url: '/playground', icon: IconChartBar },
     { title: 'KB Playground', url: '/kb-playground', icon: IconDatabase },
-    { title: 'Tasks', url: '/tasks', icon: IconListDetails },
     { title: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark },
-    { title: 'Icons', url: 'https://tabler.io/icons', icon: IconExternalLink, external: true },
   ],
   navClouds: [
     {
