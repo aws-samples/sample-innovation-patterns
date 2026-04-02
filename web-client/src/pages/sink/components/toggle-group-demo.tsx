@@ -5,12 +5,9 @@ import {
   ItalicIcon,
   StarIcon,
   UnderlineIcon,
-} from "lucide-react"
+} from 'lucide-react'
 
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export function ToggleGroupDemo() {
   return (
@@ -22,10 +19,7 @@ export function ToggleGroupDemo() {
         <ToggleGroupItem value="italic" aria-label="Toggle italic">
           <ItalicIcon />
         </ToggleGroupItem>
-        <ToggleGroupItem
-          value="strikethrough"
-          aria-label="Toggle strikethrough"
-        >
+        <ToggleGroupItem value="strikethrough" aria-label="Toggle strikethrough">
           <UnderlineIcon />
         </ToggleGroupItem>
       </ToggleGroup>
@@ -50,10 +44,7 @@ export function ToggleGroupDemo() {
         defaultValue="last-24-hours"
         className="*:data-[slot=toggle-group-item]:px-3"
       >
-        <ToggleGroupItem
-          value="last-24-hours"
-          aria-label="Toggle last 24 hours"
-        >
+        <ToggleGroupItem value="last-24-hours" aria-label="Toggle last 24 hours">
           Last 24 hours
         </ToggleGroupItem>
         <ToggleGroupItem value="last-7-days" aria-label="Toggle last 7 days">
@@ -62,10 +53,7 @@ export function ToggleGroupDemo() {
       </ToggleGroup>
 
       <ToggleGroup type="single" size="sm" defaultValue="last-24-hours">
-        <ToggleGroupItem
-          value="last-24-hours"
-          aria-label="Toggle last 24 hours"
-        >
+        <ToggleGroupItem value="last-24-hours" aria-label="Toggle last 24 hours">
           Last 24 hours
         </ToggleGroupItem>
         <ToggleGroupItem value="last-7-days" aria-label="Toggle last 7 days">
@@ -87,13 +75,7 @@ export function ToggleGroupDemo() {
         </ToggleGroupItem>
       </ToggleGroup>
 
-      <ToggleGroup
-        type="single"
-        size="sm"
-        defaultValue="top"
-        variant="outline"
-        spacing={2}
-      >
+      <ToggleGroup type="single" size="sm" defaultValue="top" variant="outline" spacing={2}>
         <ToggleGroupItem value="top" aria-label="Toggle top">
           Top
         </ToggleGroupItem>

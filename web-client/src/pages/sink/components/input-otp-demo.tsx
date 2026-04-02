@@ -1,13 +1,8 @@
-import * as React from "react"
-import { REGEXP_ONLY_DIGITS } from "input-otp"
+import * as React from 'react'
+import { REGEXP_ONLY_DIGITS } from 'input-otp'
 
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSeparator,
-  InputOTPSlot,
-} from "@/components/ui/input-otp"
-import { Label } from "@/components/ui/label"
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from '@/components/ui/input-otp'
+import { Label } from '@/components/ui/label'
 
 export function InputOTPDemo() {
   return (
@@ -60,17 +55,12 @@ function InputOTPPattern() {
 }
 
 function InputOTPWithSeparator() {
-  const [value, setValue] = React.useState("123456")
+  const [value, setValue] = React.useState('123456')
 
   return (
     <div className="grid gap-2">
       <Label htmlFor="with-separator">With Separator</Label>
-      <InputOTP
-        id="with-separator"
-        maxLength={6}
-        value={value}
-        onChange={setValue}
-      >
+      <InputOTP id="with-separator" maxLength={6} value={value} onChange={setValue}>
         <InputOTPGroup>
           <InputOTPSlot index={0} />
           <InputOTPSlot index={1} />

@@ -1,4 +1,4 @@
-import { TrashIcon } from "lucide-react"
+import { TrashIcon } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -11,8 +11,8 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 
 export function AlertDialogDemo() {
   return (
@@ -25,8 +25,8 @@ export function AlertDialogDemo() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
+              This action cannot be undone. This will permanently delete your account and remove
+              your data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -46,8 +46,7 @@ export function AlertDialogDemo() {
             </AlertDialogMedia>
             <AlertDialogTitle>Delete this item?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              item from your account.
+              This action cannot be undone. This will permanently delete the item from your account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -66,9 +65,7 @@ export function AlertDialogDemo() {
               <TrashIcon className="size-8" />
             </AlertDialogMedia>
             <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

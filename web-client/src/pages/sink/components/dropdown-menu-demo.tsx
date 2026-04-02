@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from 'react'
 import {
   BadgeCheckIcon,
   BellIcon,
@@ -12,14 +12,10 @@ import {
   SparklesIcon,
   TrashIcon,
   UserIcon,
-} from "lucide-react"
+} from 'lucide-react'
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -36,7 +32,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu'
 
 export function DropdownMenuDemo() {
   return (
@@ -139,10 +135,7 @@ function DropdownMenuCheckboxes() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            checked={showStatusBar}
-            onCheckedChange={setShowStatusBar}
-          >
+          <DropdownMenuCheckboxItem checked={showStatusBar} onCheckedChange={setShowStatusBar}>
             Status Bar
           </DropdownMenuCheckboxItem>
           <DropdownMenuCheckboxItem
@@ -152,10 +145,7 @@ function DropdownMenuCheckboxes() {
           >
             Activity Bar
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={showPanel}
-            onCheckedChange={setShowPanel}
-          >
+          <DropdownMenuCheckboxItem checked={showPanel} onCheckedChange={setShowPanel}>
             Panel
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
@@ -172,7 +162,7 @@ function DropdownMenuCheckboxes() {
 }
 
 function DropdownMenuRadioGroupDemo() {
-  const [position, setPosition] = React.useState("bottom")
+  const [position, setPosition] = React.useState('bottom')
 
   return (
     <DropdownMenu>
@@ -199,19 +189,14 @@ function DropdownMenuWithAvatar() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-12 justify-start px-2 md:max-w-[200px]"
-        >
+        <Button variant="outline" className="h-12 justify-start px-2 md:max-w-[200px]">
           <Avatar>
             <AvatarImage src="https://github.com/shadcn.png" alt="Shadcn" />
             <AvatarFallback className="rounded-lg">CN</AvatarFallback>
           </Avatar>
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">shadcn</span>
-            <span className="text-muted-foreground truncate text-xs">
-              shadcn@example.com
-            </span>
+            <span className="text-muted-foreground truncate text-xs">shadcn@example.com</span>
           </div>
           <ChevronsUpDownIcon className="text-muted-foreground ml-auto" />
         </Button>
@@ -228,9 +213,7 @@ function DropdownMenuWithAvatar() {
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">shadcn</span>
-              <span className="text-muted-foreground truncate text-xs">
-                shadcn@example.com
-              </span>
+              <span className="text-muted-foreground truncate text-xs">shadcn@example.com</span>
             </div>
           </div>
         </DropdownMenuLabel>
@@ -270,15 +253,9 @@ function DropdownMenuAvatarOnly() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="size-8 rounded-full border-none p-0"
-        >
+        <Button variant="outline" className="size-8 rounded-full border-none p-0">
           <Avatar>
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="maxleiter" />
             <AvatarFallback className="rounded-lg">LR</AvatarFallback>
           </Avatar>
         </Button>
@@ -290,17 +267,12 @@ function DropdownMenuAvatarOnly() {
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
             <Avatar>
-              <AvatarImage
-                src="https://github.com/maxleiter.png"
-                alt="maxleiter"
-              />
+              <AvatarImage src="https://github.com/maxleiter.png" alt="maxleiter" />
               <AvatarFallback className="rounded-lg">LR</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">maxleiter</span>
-              <span className="text-muted-foreground truncate text-xs">
-                maxleiter@example.com
-              </span>
+              <span className="text-muted-foreground truncate text-xs">maxleiter@example.com</span>
             </div>
           </div>
         </DropdownMenuLabel>

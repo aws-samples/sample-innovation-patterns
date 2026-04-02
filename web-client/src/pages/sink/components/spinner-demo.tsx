@@ -1,7 +1,7 @@
-import { ArrowRightIcon } from "lucide-react"
+import { ArrowRightIcon } from 'lucide-react'
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Empty,
   EmptyContent,
@@ -9,14 +9,10 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty"
-import { Field, FieldLabel } from "@/components/ui/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/spinner"
+} from '@/components/ui/empty'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Spinner } from '@/components/ui/spinner'
 
 export function SpinnerDemo() {
   return (
@@ -83,8 +79,7 @@ export function SpinnerDemo() {
           </EmptyMedia>
           <EmptyTitle>No projects yet</EmptyTitle>
           <EmptyDescription>
-            You haven&apos;t created any projects yet. Get started by creating
-            your first project.
+            You haven&apos;t created any projects yet. Get started by creating your first project.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

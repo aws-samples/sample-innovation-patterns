@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetClose,
@@ -10,9 +10,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
+} from '@/components/ui/sheet'
 
-const SHEET_SIDES = ["top", "right", "bottom", "left"] as const
+const SHEET_SIDES = ['top', 'right', 'bottom', 'left'] as const
 
 export function SheetDemo() {
   return (
@@ -25,8 +25,7 @@ export function SheetDemo() {
           <SheetHeader>
             <SheetTitle>Edit profile</SheetTitle>
             <SheetDescription>
-              Make changes to your profile here. Click save when you&apos;re
-              done.
+              Make changes to your profile here. Click save when you&apos;re done.
             </SheetDescription>
           </SheetHeader>
           <div className="grid flex-1 auto-rows-min gap-6 px-4">
@@ -55,8 +54,7 @@ export function SheetDemo() {
           <SheetHeader>
             <SheetTitle>Custom Close</SheetTitle>
             <SheetDescription>
-              This sheet has no default close button. Use the footer buttons
-              instead.
+              This sheet has no default close button. Use the footer buttons instead.
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 px-4" />
@@ -80,24 +78,19 @@ export function SheetDemo() {
               <SheetHeader>
                 <SheetTitle>Edit profile</SheetTitle>
                 <SheetDescription>
-                  Make changes to your profile here. Click save when you&apos;re
-                  done.
+                  Make changes to your profile here. Click save when you&apos;re done.
                 </SheetDescription>
               </SheetHeader>
               <div className="overflow-y-auto px-4 text-sm">
-                <h4 className="mb-4 text-lg leading-none font-medium">
-                  Lorem Ipsum
-                </h4>
+                <h4 className="mb-4 text-lg leading-none font-medium">Lorem Ipsum</h4>
                 {Array.from({ length: 10 }).map((_, index) => (
                   <p key={index} className="mb-4 leading-normal">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
-                    do eiusmod tempor incididunt ut labore et dolore magna
-                    aliqua. Ut enim ad minim veniam, quis nostrud exercitation
-                    ullamco laboris nisi ut aliquip ex ea commodo consequat.
-                    Duis aute irure dolor in reprehenderit in voluptate velit
-                    esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-                    occaecat cupidatat non proident, sunt in culpa qui officia
-                    deserunt mollit anim id est laborum.
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+                    incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+                    nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+                    fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+                    culpa qui officia deserunt mollit anim id est laborum.
                   </p>
                 ))}
               </div>

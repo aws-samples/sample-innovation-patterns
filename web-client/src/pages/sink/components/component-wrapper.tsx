@@ -13,10 +13,7 @@ export function ComponentWrapper({
       <div
         id={name}
         data-name={name.toLowerCase()}
-        className={cn(
-          'flex w-full scroll-mt-16 flex-col rounded-lg border',
-          className
-        )}
+        className={cn('flex w-full scroll-mt-16 flex-col rounded-lg border', className)}
         {...props}
       >
         <div className="border-b px-4 py-3">
@@ -48,9 +45,7 @@ class ComponentErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-4 text-red-500">
-          Something went wrong in component: {this.props.name}
-        </div>
+        <div className="p-4 text-red-500">Something went wrong in component: {this.props.name}</div>
       )
     }
 

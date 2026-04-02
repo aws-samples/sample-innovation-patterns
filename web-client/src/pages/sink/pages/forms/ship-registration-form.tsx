@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
   FieldContent,
@@ -9,34 +9,29 @@ import {
   FieldLegend,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
+} from '@/components/ui/input-group'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 
 export function ShipRegistrationForm() {
   return (
     <div className="flex max-w-md flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Join us in SF or online on October 23
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">Join us in SF or online on October 23</h1>
         <FieldDescription>
           Already signed up? <a href="#">Log in</a>
         </FieldDescription>
@@ -46,8 +41,7 @@ export function ShipRegistrationForm() {
           <FieldSet>
             <FieldLegend>1. Select your ticket type</FieldLegend>
             <FieldDescription>
-              Select your ticket type to join us in San Francisco or online on
-              October 23.
+              Select your ticket type to join us in San Francisco or online on October 23.
             </FieldDescription>
             <Field>
               <RadioGroup>
@@ -55,9 +49,7 @@ export function ShipRegistrationForm() {
                   <Field orientation="horizontal">
                     <FieldContent>
                       <FieldTitle>In Person</FieldTitle>
-                      <FieldDescription>
-                        Join us in San Francisco on October 23.
-                      </FieldDescription>
+                      <FieldDescription>Join us in San Francisco on October 23.</FieldDescription>
                     </FieldContent>
                     <RadioGroupItem value="in-person" id="in-person" />
                   </Field>
@@ -66,9 +58,7 @@ export function ShipRegistrationForm() {
                   <Field orientation="horizontal">
                     <FieldContent>
                       <FieldTitle>Online</FieldTitle>
-                      <FieldDescription>
-                        Join us online on October 23.
-                      </FieldDescription>
+                      <FieldDescription>Join us online on October 23.</FieldDescription>
                     </FieldContent>
                     <RadioGroupItem value="online" id="online" />
                   </Field>
@@ -78,16 +68,13 @@ export function ShipRegistrationForm() {
           </FieldSet>
           <Field orientation="horizontal">
             <Checkbox id="next-conf" />
-            <FieldLabel htmlFor="next-conf">
-              Also sign up for Next.js Conf 2025
-            </FieldLabel>
+            <FieldLabel htmlFor="next-conf">Also sign up for Next.js Conf 2025</FieldLabel>
           </Field>
           <FieldSet>
             <FieldLegend>2. Complete your attendee information</FieldLegend>
             <FieldDescription>
-              By entering your information, you acknowledge that you have read
-              and agree to the <a href="#">Terms of Service</a> and{" "}
-              <a href="#">Privacy Policy</a>.
+              By entering your information, you acknowledge that you have read and agree to the{' '}
+              <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
             </FieldDescription>
             <FieldGroup className="grid grid-cols-2 gap-x-4">
               <Field>
@@ -108,11 +95,7 @@ export function ShipRegistrationForm() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="job-title">Job Title</FieldLabel>
-                <Input
-                  id="job-title"
-                  placeholder="Software Engineer"
-                  required
-                />
+                <Input id="job-title" placeholder="Software Engineer" required />
               </Field>
               <Field>
                 <FieldLabel htmlFor="country">Country</FieldLabel>
@@ -147,17 +130,11 @@ export function ShipRegistrationForm() {
           </FieldSet>
           <FieldSet>
             <FieldLegend>3. Buy your ticket</FieldLegend>
-            <FieldDescription>
-              Enter your card details to purchase your ticket.
-            </FieldDescription>
+            <FieldDescription>Enter your card details to purchase your ticket.</FieldDescription>
             <FieldGroup className="grid grid-cols-2 gap-x-4">
               <Field className="col-span-2">
                 <FieldLabel htmlFor="card-number">Card Number</FieldLabel>
-                <Input
-                  id="card-number"
-                  placeholder="1234 5678 9012 3456"
-                  required
-                />
+                <Input id="card-number" placeholder="1234 5678 9012 3456" required />
               </Field>
               <Field>
                 <FieldLabel htmlFor="expiry-date">Expiry Date</FieldLabel>
@@ -181,8 +158,7 @@ export function ShipRegistrationForm() {
           <Field>
             <Button type="submit">Purchase Ticket</Button>
             <FieldDescription>
-              By clicking Purchase Ticket, you agree to the{" "}
-              <a href="#">Terms of Service</a> and{" "}
+              By clicking Purchase Ticket, you agree to the <a href="#">Terms of Service</a> and{' '}
               <a href="#">Privacy Policy</a>.
             </FieldDescription>
           </Field>

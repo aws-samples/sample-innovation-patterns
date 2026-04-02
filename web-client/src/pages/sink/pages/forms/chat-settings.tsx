@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { CircleIcon, InfoIcon } from "lucide-react"
+import { useState } from 'react'
+import { CircleIcon, InfoIcon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
   FieldContent,
@@ -12,14 +12,14 @@ import {
   FieldSeparator,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
+} from '@/components/ui/field'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
+} from '@/components/ui/input-group'
+import { Kbd } from '@/components/ui/kbd'
 import {
   Select,
   SelectContent,
@@ -27,117 +27,104 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const spokenLanguages = [
-  { label: "English", value: "en" },
-  { label: "Spanish", value: "es" },
-  { label: "French", value: "fr" },
-  { label: "German", value: "de" },
-  { label: "Italian", value: "it" },
-  { label: "Portuguese", value: "pt" },
-  { label: "Russian", value: "ru" },
-  { label: "Chinese", value: "zh" },
-  { label: "Japanese", value: "ja" },
-  { label: "Korean", value: "ko" },
-  { label: "Arabic", value: "ar" },
-  { label: "Hindi", value: "hi" },
-  { label: "Bengali", value: "bn" },
-  { label: "Telugu", value: "te" },
-  { label: "Marathi", value: "mr" },
-  { label: "Kannada", value: "kn" },
-  { label: "Malayalam", value: "ml" },
+  { label: 'English', value: 'en' },
+  { label: 'Spanish', value: 'es' },
+  { label: 'French', value: 'fr' },
+  { label: 'German', value: 'de' },
+  { label: 'Italian', value: 'it' },
+  { label: 'Portuguese', value: 'pt' },
+  { label: 'Russian', value: 'ru' },
+  { label: 'Chinese', value: 'zh' },
+  { label: 'Japanese', value: 'ja' },
+  { label: 'Korean', value: 'ko' },
+  { label: 'Arabic', value: 'ar' },
+  { label: 'Hindi', value: 'hi' },
+  { label: 'Bengali', value: 'bn' },
+  { label: 'Telugu', value: 'te' },
+  { label: 'Marathi', value: 'mr' },
+  { label: 'Kannada', value: 'kn' },
+  { label: 'Malayalam', value: 'ml' },
 ]
 
 const voices = [
-  { label: "Samantha", value: "samantha" },
-  { label: "Alex", value: "alex" },
-  { label: "Fred", value: "fred" },
-  { label: "Victoria", value: "victoria" },
-  { label: "Tom", value: "tom" },
-  { label: "Karen", value: "karen" },
-  { label: "Sam", value: "sam" },
-  { label: "Daniel", value: "daniel" },
+  { label: 'Samantha', value: 'samantha' },
+  { label: 'Alex', value: 'alex' },
+  { label: 'Fred', value: 'fred' },
+  { label: 'Victoria', value: 'victoria' },
+  { label: 'Tom', value: 'tom' },
+  { label: 'Karen', value: 'karen' },
+  { label: 'Sam', value: 'sam' },
+  { label: 'Daniel', value: 'daniel' },
 ]
 
 const personalities = [
   {
-    label: "Friendly",
-    value: "friendly",
-    description: "Friendly and approachable.",
+    label: 'Friendly',
+    value: 'friendly',
+    description: 'Friendly and approachable.',
   },
   {
-    label: "Professional",
-    value: "professional",
-    description: "Professional and authoritative.",
+    label: 'Professional',
+    value: 'professional',
+    description: 'Professional and authoritative.',
   },
-  { label: "Funny", value: "funny", description: "Funny and light-hearted." },
+  { label: 'Funny', value: 'funny', description: 'Funny and light-hearted.' },
   {
-    label: "Sarcastic",
-    value: "sarcastic",
-    description: "Sarcastic and witty.",
+    label: 'Sarcastic',
+    value: 'sarcastic',
+    description: 'Sarcastic and witty.',
   },
-  { label: "Cynical", value: "cynical", description: "Cynical and skeptical." },
+  { label: 'Cynical', value: 'cynical', description: 'Cynical and skeptical.' },
 ]
 
 const instructions = [
   {
-    label: "Witty",
-    value: "witty",
-    description: "Use quick and clever responses when appropriate.",
+    label: 'Witty',
+    value: 'witty',
+    description: 'Use quick and clever responses when appropriate.',
   },
   {
-    label: "Professional",
-    value: "professional",
-    description: "Have a professional and authoritative tone.",
+    label: 'Professional',
+    value: 'professional',
+    description: 'Have a professional and authoritative tone.',
   },
   {
-    label: "Funny",
-    value: "funny",
-    description: "Use humor and wit to engage the user.",
+    label: 'Funny',
+    value: 'funny',
+    description: 'Use humor and wit to engage the user.',
   },
   {
-    label: "Sarcastic",
-    value: "sarcastic",
-    description: "Use sarcasm and wit to engage the user.",
+    label: 'Sarcastic',
+    value: 'sarcastic',
+    description: 'Use sarcasm and wit to engage the user.',
   },
   {
-    label: "Cynical",
-    value: "cynical",
-    description: "Use cynicism and skepticism to engage the user.",
+    label: 'Cynical',
+    value: 'cynical',
+    description: 'Use cynicism and skepticism to engage the user.',
   },
 ]
 
 export function ChatSettings() {
-  const [tab, setTab] = useState("general")
-  const [theme, setTheme] = useState("system")
-  const [accentColor, setAccentColor] = useState("default")
-  const [spokenLanguage, setSpokenLanguage] = useState("en")
-  const [voice, setVoice] = useState("samantha")
-  const [personality, setPersonality] = useState("friendly")
-  const [customInstructions, setCustomInstructions] = useState("")
+  const [tab, setTab] = useState('general')
+  const [theme, setTheme] = useState('system')
+  const [accentColor, setAccentColor] = useState('default')
+  const [spokenLanguage, setSpokenLanguage] = useState('en')
+  const [voice, setVoice] = useState('samantha')
+  const [personality, setPersonality] = useState('friendly')
+  const [customInstructions, setCustomInstructions] = useState('')
 
   return (
     <div className="flex flex-col gap-4">
       <Button variant="outline" asChild className="w-full md:hidden">
-        <select
-          value={tab}
-          onChange={(e) => setTab(e.target.value)}
-          className="appearance-none"
-        >
+        <select value={tab} onChange={(e) => setTab(e.target.value)} className="appearance-none">
           <option value="general">General</option>
           <option value="notifications">Notifications</option>
           <option value="personalization">Personalization</option>
@@ -206,19 +193,13 @@ export function ChatSettings() {
                 <FieldSeparator />
                 <Field orientation="responsive">
                   <FieldContent>
-                    <FieldLabel htmlFor="spoken-language">
-                      Spoken Language
-                    </FieldLabel>
+                    <FieldLabel htmlFor="spoken-language">Spoken Language</FieldLabel>
                     <FieldDescription>
-                      For best results, select the language you mainly speak. If
-                      it&apos;s not listed, it may still be supported via
-                      auto-detection.
+                      For best results, select the language you mainly speak. If it&apos;s not
+                      listed, it may still be supported via auto-detection.
                     </FieldDescription>
                   </FieldContent>
-                  <Select
-                    value={spokenLanguage}
-                    onValueChange={setSpokenLanguage}
-                  >
+                  <Select value={spokenLanguage} onValueChange={setSpokenLanguage}>
                     <SelectTrigger id="spoken-language">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -257,8 +238,8 @@ export function ChatSettings() {
               <FieldSet>
                 <FieldLabel>Responses</FieldLabel>
                 <FieldDescription>
-                  Get notified when ChatGPT responds to requests that take time,
-                  like research or image generation.
+                  Get notified when ChatGPT responds to requests that take time, like research or
+                  image generation.
                 </FieldDescription>
                 <FieldGroup data-slot="checkbox-group">
                   <Field orientation="horizontal">
@@ -273,7 +254,7 @@ export function ChatSettings() {
               <FieldSet>
                 <FieldLabel>Tasks</FieldLabel>
                 <FieldDescription>
-                  Get notified when tasks you&apos;ve created have updates.{" "}
+                  Get notified when tasks you&apos;ve created have updates.{' '}
                   <a href="#">Manage tasks</a>
                 </FieldDescription>
                 <FieldGroup data-slot="checkbox-group">
@@ -325,8 +306,8 @@ export function ChatSettings() {
                 <FieldContent>
                   <FieldLabel htmlFor="about">More about you</FieldLabel>
                   <FieldDescription>
-                    Tell us more about yourself. This will be used to help us
-                    personalize your experience.
+                    Tell us more about yourself. This will be used to help us personalize your
+                    experience.
                   </FieldDescription>
                 </FieldContent>
                 <Textarea
@@ -339,9 +320,7 @@ export function ChatSettings() {
               <FieldLabel>
                 <Field orientation="horizontal">
                   <FieldContent>
-                    <FieldLabel htmlFor="customization">
-                      Enable customizations
-                    </FieldLabel>
+                    <FieldLabel htmlFor="customization">Enable customizations</FieldLabel>
                     <FieldDescription>
                       Enable customizations to make ChatGPT more personalized.
                     </FieldDescription>
@@ -352,9 +331,7 @@ export function ChatSettings() {
               <FieldSeparator />
               <Field orientation="responsive">
                 <FieldContent>
-                  <FieldLabel htmlFor="personality">
-                    ChatGPT Personality
-                  </FieldLabel>
+                  <FieldLabel htmlFor="personality">ChatGPT Personality</FieldLabel>
                   <FieldDescription>
                     Set the style and tone ChatGPT should use when responding.
                   </FieldDescription>
@@ -365,10 +342,7 @@ export function ChatSettings() {
                   </SelectTrigger>
                   <SelectContent align="end">
                     {personalities.map((personality) => (
-                      <SelectItem
-                        key={personality.value}
-                        value={personality.value}
-                      >
+                      <SelectItem key={personality.value} value={personality.value}>
                         <FieldContent className="gap-0.5">
                           <FieldLabel>{personality.label}</FieldLabel>
                           <FieldDescription className="text-xs">
@@ -382,9 +356,7 @@ export function ChatSettings() {
               </Field>
               <FieldSeparator />
               <Field>
-                <FieldLabel htmlFor="instructions">
-                  Custom Instructions
-                </FieldLabel>
+                <FieldLabel htmlFor="instructions">Custom Instructions</FieldLabel>
                 <Textarea
                   id="instructions"
                   value={customInstructions}
@@ -399,9 +371,7 @@ export function ChatSettings() {
                       className="rounded-full"
                       size="sm"
                       onClick={() =>
-                        setCustomInstructions(
-                          `${customInstructions} ${instruction.description}`
-                        )
+                        setCustomInstructions(`${customInstructions} ${instruction.description}`)
                       }
                     >
                       {instruction.label}
@@ -415,13 +385,11 @@ export function ChatSettings() {
             <FieldGroup>
               <Field orientation="horizontal">
                 <FieldContent>
-                  <FieldLabel htmlFor="2fa">
-                    Multi-factor authentication
-                  </FieldLabel>
+                  <FieldLabel htmlFor="2fa">Multi-factor authentication</FieldLabel>
                   <FieldDescription>
-                    Enable multi-factor authentication to secure your account.
-                    If you do not have a two-factor authentication device, you
-                    can use a one-time code sent to your email.
+                    Enable multi-factor authentication to secure your account. If you do not have a
+                    two-factor authentication device, you can use a one-time code sent to your
+                    email.
                   </FieldDescription>
                 </FieldContent>
                 <Switch id="2fa" />
@@ -430,9 +398,7 @@ export function ChatSettings() {
               <Field orientation="horizontal">
                 <FieldContent>
                   <FieldTitle>Log out</FieldTitle>
-                  <FieldDescription>
-                    Log out of your account on this device.
-                  </FieldDescription>
+                  <FieldDescription>Log out of your account on this device.</FieldDescription>
                 </FieldContent>
                 <Button variant="outline" size="sm">
                   Log Out
@@ -443,9 +409,8 @@ export function ChatSettings() {
                 <FieldContent>
                   <FieldTitle>Log out of all devices</FieldTitle>
                   <FieldDescription>
-                    This will log you out of all devices, including the current
-                    session. It may take up to 30 minutes for the changes to
-                    take effect.
+                    This will log you out of all devices, including the current session. It may take
+                    up to 30 minutes for the changes to take effect.
                   </FieldDescription>
                 </FieldContent>
                 <Button variant="outline" size="sm">

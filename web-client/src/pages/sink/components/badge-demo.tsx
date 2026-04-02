@@ -1,6 +1,6 @@
-import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react"
+import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from 'lucide-react'
 
-import { Badge } from "@/components/ui/badge"
+import { Badge } from '@/components/ui/badge'
 
 export function BadgeDemo() {
   return (
@@ -22,19 +22,14 @@ export function BadgeDemo() {
           <AlertCircleIcon />
           Alert
         </Badge>
-        <Badge className="h-5 min-w-5 rounded-full px-1 font-mono tabular-nums">
-          8
-        </Badge>
+        <Badge className="h-5 min-w-5 rounded-full px-1 font-mono tabular-nums">8</Badge>
         <Badge
           className="h-5 min-w-5 rounded-full px-1 font-mono tabular-nums"
           variant="destructive"
         >
           99
         </Badge>
-        <Badge
-          className="h-5 min-w-5 rounded-full px-1 font-mono tabular-nums"
-          variant="outline"
-        >
+        <Badge className="h-5 min-w-5 rounded-full px-1 font-mono tabular-nums" variant="outline">
           20+
         </Badge>
       </div>

@@ -1,11 +1,11 @@
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel"
+} from '@/components/ui/carousel'
 
 export function CarouselDemo() {
   return (
@@ -30,7 +30,7 @@ export function CarouselDemo() {
       <Carousel
         className="max-w-sm *:data-[slot=carousel-next]:hidden *:data-[slot=carousel-previous]:hidden *:data-[slot=carousel-next]:md:inline-flex *:data-[slot=carousel-previous]:md:inline-flex"
         opts={{
-          align: "start",
+          align: 'start',
         }}
       >
         <CarouselContent>

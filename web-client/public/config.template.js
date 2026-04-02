@@ -21,4 +21,13 @@ window.__CONFIG__ = {
   OIDC_REDIRECT_URI: "",
   OIDC_SCOPE: "openid profile email",
   LOG_LEVEL: "debug",
+  // Feature flags: toggle UI features on/off. Set to true to show, false to hide.
+  // These control sidebar navigation visibility only — routes remain accessible via URL.
+  features: {
+    chat: false,
+    jobs: false,
+    playground: true,
+    kb_playground: false,
+    kitchen_sink: true,
+  },
 };

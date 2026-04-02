@@ -9,11 +9,7 @@ export function SinkIndexPage() {
         .map(([key, component]) => {
           const Demo = component.component
           return (
-            <ComponentWrapper
-              key={key}
-              name={key}
-              className={component.className || ''}
-            >
+            <ComponentWrapper key={key} name={key} className={component.className || ''}>
               <Demo />
             </ComponentWrapper>
           )

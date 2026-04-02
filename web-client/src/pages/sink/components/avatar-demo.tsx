@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react"
+import { PlusIcon } from 'lucide-react'
 
 import {
   Avatar,
@@ -7,7 +7,7 @@ import {
   AvatarGroup,
   AvatarGroupCount,
   AvatarImage,
-} from "@/components/ui/avatar"
+} from '@/components/ui/avatar'
 
 export function AvatarDemo() {
   return (
@@ -67,17 +67,11 @@ export function AvatarDemo() {
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <Avatar size="sm">
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="@maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
             <AvatarFallback>ML</AvatarFallback>
           </Avatar>
           <Avatar size="sm">
-            <AvatarImage
-              src="https://github.com/evilrabbit.png"
-              alt="@evilrabbit"
-            />
+            <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
             <AvatarFallback>ER</AvatarFallback>
           </Avatar>
         </AvatarGroup>
@@ -87,17 +81,11 @@ export function AvatarDemo() {
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="@maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
             <AvatarFallback>ML</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/evilrabbit.png"
-              alt="@evilrabbit"
-            />
+            <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
             <AvatarFallback>ER</AvatarFallback>
           </Avatar>
         </AvatarGroup>
@@ -107,17 +95,11 @@ export function AvatarDemo() {
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <Avatar size="lg">
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="@maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
             <AvatarFallback>ML</AvatarFallback>
           </Avatar>
           <Avatar size="lg">
-            <AvatarImage
-              src="https://github.com/evilrabbit.png"
-              alt="@evilrabbit"
-            />
+            <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
             <AvatarFallback>ER</AvatarFallback>
           </Avatar>
         </AvatarGroup>
@@ -130,17 +112,11 @@ export function AvatarDemo() {
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="@maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
             <AvatarFallback>ML</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/evilrabbit.png"
-              alt="@evilrabbit"
-            />
+            <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
             <AvatarFallback>ER</AvatarFallback>
           </Avatar>
           <AvatarGroupCount>+3</AvatarGroupCount>
@@ -151,17 +127,11 @@ export function AvatarDemo() {
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/maxleiter.png"
-              alt="@maxleiter"
-            />
+            <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
             <AvatarFallback>ML</AvatarFallback>
           </Avatar>
           <Avatar>
-            <AvatarImage
-              src="https://github.com/evilrabbit.png"
-              alt="@evilrabbit"
-            />
+            <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
             <AvatarFallback>ER</AvatarFallback>
           </Avatar>
           <AvatarGroupCount>

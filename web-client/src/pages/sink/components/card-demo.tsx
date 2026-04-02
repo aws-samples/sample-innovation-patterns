@@ -1,12 +1,8 @@
-import { BathIcon, BedIcon, LandPlotIcon } from "lucide-react"
+import { BathIcon, BedIcon, LandPlotIcon } from 'lucide-react'
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -14,9 +10,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export function CardDemo() {
   return (
@@ -24,21 +20,14 @@ export function CardDemo() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
+          <CardDescription>Enter your email below to login to your account</CardDescription>
         </CardHeader>
         <CardContent>
           <form>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
+                <Input id="email" type="email" placeholder="m@example.com" required />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
@@ -63,7 +52,7 @@ export function CardDemo() {
             Login with Google
           </Button>
           <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
+            Don&apos;t have an account?{' '}
             <a href="#" className="underline underline-offset-4">
               Sign up
             </a>
@@ -73,15 +62,10 @@ export function CardDemo() {
       <Card>
         <CardHeader>
           <CardTitle>Meeting Notes</CardTitle>
-          <CardDescription>
-            Transcript from the meeting with the client.
-          </CardDescription>
+          <CardDescription>Transcript from the meeting with the client.</CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
-          <p>
-            Client requested dashboard redesign with focus on mobile
-            responsiveness.
-          </p>
+          <p>Client requested dashboard redesign with focus on mobile responsiveness.</p>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-6">
             <li>New analytics widgets for daily/weekly metrics</li>
             <li>Simplified navigation menu</li>
@@ -97,17 +81,11 @@ export function CardDemo() {
               <AvatarFallback>CN</AvatarFallback>
             </Avatar>
             <Avatar>
-              <AvatarImage
-                src="https://github.com/maxleiter.png"
-                alt="@maxleiter"
-              />
+              <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
               <AvatarFallback>LR</AvatarFallback>
             </Avatar>
             <Avatar>
-              <AvatarImage
-                src="https://github.com/evilrabbit.png"
-                alt="@evilrabbit"
-              />
+              <AvatarImage src="https://github.com/evilrabbit.png" alt="@evilrabbit" />
               <AvatarFallback>ER</AvatarFallback>
             </Avatar>
           </div>
@@ -145,17 +123,13 @@ export function CardDemo() {
         <Card>
           <CardHeader>
             <CardTitle>Header Only</CardTitle>
-            <CardDescription>
-              This is a card with a header and a description.
-            </CardDescription>
+            <CardDescription>This is a card with a header and a description.</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Header and Content</CardTitle>
-            <CardDescription>
-              This is a card with a header and a content.
-            </CardDescription>
+            <CardDescription>This is a card with a header and a content.</CardDescription>
           </CardHeader>
           <CardContent className="text-sm">Content</CardContent>
         </Card>
@@ -165,9 +139,7 @@ export function CardDemo() {
         <Card>
           <CardHeader>
             <CardTitle>Header + Footer</CardTitle>
-            <CardDescription>
-              This is a card with a header and a footer.
-            </CardDescription>
+            <CardDescription>This is a card with a header and a footer.</CardDescription>
           </CardHeader>
           <CardFooter className="text-sm">Footer</CardFooter>
         </Card>
@@ -178,9 +150,7 @@ export function CardDemo() {
         <Card>
           <CardHeader>
             <CardTitle>Header + Footer</CardTitle>
-            <CardDescription>
-              This is a card with a header and a footer.
-            </CardDescription>
+            <CardDescription>This is a card with a header and a footer.</CardDescription>
           </CardHeader>
           <CardContent className="text-sm">Content</CardContent>
           <CardFooter className="text-sm">Footer</CardFooter>
@@ -196,9 +166,7 @@ export function CardDemo() {
         </Card>
         <Card>
           <CardContent className="text-sm">Content</CardContent>
-          <CardFooter className="border-t text-sm">
-            Footer with Border
-          </CardFooter>
+          <CardFooter className="border-t text-sm">Footer with Border</CardFooter>
         </Card>
       </div>
     </div>

@@ -1,9 +1,9 @@
-import { AppearanceSettings } from "@/pages/sink/pages/forms/appearance-settings"
-import { ChatSettings } from "@/pages/sink/pages/forms/chat-settings"
-import { DisplaySettings } from "@/pages/sink/pages/forms/display-settings"
-import { NotionPromptForm } from "@/pages/sink/pages/forms/notion-prompt-form"
-import { ShipRegistrationForm } from "@/pages/sink/pages/forms/ship-registration-form"
-import { ShippingForm } from "@/pages/sink/pages/forms/shipping-form"
+import { AppearanceSettings } from '@/pages/sink/pages/forms/appearance-settings'
+import { ChatSettings } from '@/pages/sink/pages/forms/chat-settings'
+import { DisplaySettings } from '@/pages/sink/pages/forms/display-settings'
+import { NotionPromptForm } from '@/pages/sink/pages/forms/notion-prompt-form'
+import { ShipRegistrationForm } from '@/pages/sink/pages/forms/ship-registration-form'
+import { ShippingForm } from '@/pages/sink/pages/forms/shipping-form'
 
 export function FormsPage() {
   return (

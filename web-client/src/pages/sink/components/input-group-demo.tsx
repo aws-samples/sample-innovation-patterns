@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from 'react'
 import {
   IconBrandJavascript,
   IconCheck,
@@ -14,7 +14,7 @@ import {
   IconServerSpark,
   IconStar,
   IconTrash,
-} from "@tabler/icons-react"
+} from '@tabler/icons-react'
 import {
   ArrowRightIcon,
   ArrowUpIcon,
@@ -22,27 +22,19 @@ import {
   EyeClosedIcon,
   FlipVerticalIcon,
   SearchIcon,
-} from "lucide-react"
-import { toast } from "sonner"
+} from 'lucide-react'
+import { toast } from 'sonner'
 
-import { Button } from "@/components/ui/button"
-import {
-  ButtonGroup,
-  ButtonGroupText,
-} from "@/components/ui/button-group"
+import { Button } from '@/components/ui/button'
+import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+} from '@/components/ui/dropdown-menu'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import {
   InputGroup,
   InputGroupAddon,
@@ -50,31 +42,21 @@ import {
   InputGroupInput,
   InputGroupText,
   InputGroupTextarea,
-} from "@/components/ui/input-group"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Spinner } from "@/components/ui/spinner"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/input-group'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function InputGroupDemo() {
-  const [country, setCountry] = useState("+1")
+  const [country, setCountry] = useState('+1')
 
   return (
     <div className="flex w-full flex-wrap gap-12 pb-72 *:[div]:w-full *:[div]:max-w-sm">
       <div className="flex flex-col gap-10">
         <Field>
-          <FieldLabel htmlFor="input-default-01">
-            Default (No Input Group)
-          </FieldLabel>
+          <FieldLabel htmlFor="input-default-01">Default (No Input Group)</FieldLabel>
           <Input placeholder="Default" id="input-default-01" />
         </Field>
         <Field>
@@ -86,11 +68,7 @@ export function InputGroupDemo() {
         <Field data-disabled="true">
           <FieldLabel htmlFor="input-disabled-03">Disabled</FieldLabel>
           <InputGroup>
-            <InputGroupInput
-              id="input-disabled-03"
-              placeholder="This field is disabled"
-              disabled
-            />
+            <InputGroupInput id="input-disabled-03" placeholder="This field is disabled" disabled />
           </InputGroup>
         </Field>
         <Field data-invalid="true">
@@ -151,10 +129,7 @@ export function InputGroupDemo() {
             <InputGroupInput id="input-icon-both-10" />
             <InputGroupAddon align="inline-end">
               <IconStar />
-              <InputGroupButton
-                size="icon-xs"
-                onClick={() => toast.success("Copied to clipboard")}
-              >
+              <InputGroupButton size="icon-xs" onClick={() => toast.success('Copied to clipboard')}>
                 <IconCopy />
               </InputGroupButton>
             </InputGroupAddon>
@@ -171,9 +146,7 @@ export function InputGroupDemo() {
               <IconInfoCircle />
             </InputGroupAddon>
           </InputGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <FieldGroup className="grid grid-cols-2 gap-4">
           <Field>
@@ -230,15 +203,9 @@ export function InputGroupDemo() {
                   sideOffset={10}
                   alignOffset={-8}
                 >
-                  <DropdownMenuItem onClick={() => setCountry("+1")}>
-                    +1
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCountry("+44")}>
-                    +44
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCountry("+46")}>
-                    +46
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCountry('+1')}>+1</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCountry('+44')}>+44</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCountry('+46')}>+46</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </InputGroupAddon>
@@ -254,10 +221,7 @@ export function InputGroupDemo() {
           </InputGroup>
           <InputGroup className="gap-0">
             <InputGroupAddon>
-              <FieldLabel
-                htmlFor="input-prefix-11"
-                className="text-muted-foreground"
-              >
+              <FieldLabel htmlFor="input-prefix-11" className="text-muted-foreground">
                 example.com/
               </FieldLabel>
             </InputGroupAddon>
@@ -321,25 +285,15 @@ export function InputGroupDemo() {
                   </InputGroupButton>
                 </InputGroupAddon>
               </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="flex flex-col gap-1 rounded-xl text-sm"
-              >
+              <PopoverContent align="start" className="flex flex-col gap-1 rounded-xl text-sm">
                 <p className="font-medium">Your connection is not secure.</p>
-                <p>
-                  You should not enter any sensitive information on this site.
-                </p>
+                <p>You should not enter any sensitive information on this site.</p>
               </PopoverContent>
             </Popover>
-            <InputGroupAddon className="text-muted-foreground">
-              https://
-            </InputGroupAddon>
+            <InputGroupAddon className="text-muted-foreground">https://</InputGroupAddon>
             <InputGroupInput id="input-secure-19" />
             <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                onClick={() => toast.success("Added to favorites")}
-              >
+              <InputGroupButton size="icon-xs" onClick={() => toast.success('Added to favorites')}>
                 <IconStar />
               </InputGroupButton>
             </InputGroupAddon>
@@ -408,20 +362,14 @@ export function InputGroupDemo() {
             </InputGroupAddon>
           </InputGroup>
           <InputGroup>
-            <InputGroupInput
-              id="input-search-apps-24"
-              placeholder="Search for Apps..."
-            />
+            <InputGroupInput id="input-search-apps-24" placeholder="Search for Apps..." />
             <InputGroupAddon align="inline-end">Ask AI</InputGroupAddon>
             <InputGroupAddon align="inline-end">
               <Kbd>Tab</Kbd>
             </InputGroupAddon>
           </InputGroup>
           <InputGroup>
-            <InputGroupInput
-              id="input-search-type-25"
-              placeholder="Type to search..."
-            />
+            <InputGroupInput id="input-search-type-25" placeholder="Type to search..." />
             <InputGroupAddon align="inline-start">
               <IconServerSpark />
             </InputGroupAddon>
@@ -448,10 +396,7 @@ export function InputGroupDemo() {
           </FieldDescription>
         </Field>
         <InputGroup>
-          <InputGroupInput
-            id="input-search-docs-27"
-            placeholder="Search documentation..."
-          />
+          <InputGroupInput id="input-search-docs-27" placeholder="Search documentation..." />
           <InputGroupAddon>
             <IconSearch />
           </InputGroupAddon>
@@ -480,21 +425,13 @@ export function InputGroupDemo() {
             </InputGroup>
             <ButtonGroupText>.com</ButtonGroupText>
           </ButtonGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <Field data-disabled="true">
           <FieldLabel htmlFor="input-group-29">Loading</FieldLabel>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
           <InputGroup>
-            <InputGroupInput
-              id="input-group-29"
-              disabled
-              defaultValue="shadcn"
-            />
+            <InputGroupInput id="input-group-29" disabled defaultValue="shadcn" />
             <InputGroupAddon align="inline-end">
               <Spinner />
             </InputGroupAddon>
@@ -531,24 +468,17 @@ export function InputGroupDemo() {
       <div className="flex flex-col gap-10">
         <Field>
           <FieldLabel htmlFor="textarea-header-footer-12">Default</FieldLabel>
-          <Textarea
-            id="textarea-header-footer-12"
-            placeholder="Enter your text here..."
-          />
+          <Textarea id="textarea-header-footer-12" placeholder="Enter your text here..." />
         </Field>
         <Field>
-          <FieldLabel htmlFor="textarea-header-footer-13">
-            Input Group
-          </FieldLabel>
+          <FieldLabel htmlFor="textarea-header-footer-13">Input Group</FieldLabel>
           <InputGroup>
             <InputGroupTextarea
               id="textarea-header-footer-13"
               placeholder="Enter your text here..."
             />
           </InputGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <Field data-invalid="true">
           <FieldLabel htmlFor="textarea-header-footer-14">Invalid</FieldLabel>
@@ -559,9 +489,7 @@ export function InputGroupDemo() {
               aria-invalid="true"
             />
           </InputGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <Field data-disabled="true">
           <FieldLabel htmlFor="textarea-header-footer-15">Disabled</FieldLabel>
@@ -572,9 +500,7 @@ export function InputGroupDemo() {
               disabled
             />
           </InputGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="textarea-header-footer-30">Textarea</FieldLabel>
@@ -585,11 +511,7 @@ export function InputGroupDemo() {
             />
             <InputGroupAddon align="block-end">
               <InputGroupText>0/280 characters</InputGroupText>
-              <InputGroupButton
-                variant="default"
-                size="icon-xs"
-                className="ml-auto rounded-full"
-              >
+              <InputGroupButton variant="default" size="icon-xs" className="ml-auto rounded-full">
                 <ArrowUpIcon />
                 <span className="sr-only">Send</span>
               </InputGroupButton>
@@ -599,16 +521,9 @@ export function InputGroupDemo() {
         <Field>
           <FieldLabel htmlFor="prompt-31">Enter your prompt</FieldLabel>
           <InputGroup>
-            <InputGroupTextarea
-              id="prompt-31"
-              placeholder="Ask, Search or Chat..."
-            />
+            <InputGroupTextarea id="prompt-31" placeholder="Ask, Search or Chat..." />
             <InputGroupAddon align="block-end">
-              <InputGroupButton
-                variant="outline"
-                className="rounded-full"
-                size="icon-xs"
-              >
+              <InputGroupButton variant="outline" className="rounded-full" size="icon-xs">
                 <IconPlus />
               </InputGroupButton>
               <DropdownMenu>
@@ -621,30 +536,19 @@ export function InputGroupDemo() {
                   <DropdownMenuItem>Manual</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <InputGroupText className="ml-auto">
-                12 messages left
-              </InputGroupText>
-              <InputGroupButton
-                variant="default"
-                className="rounded-full"
-                size="icon-xs"
-              >
+              <InputGroupText className="ml-auto">12 messages left</InputGroupText>
+              <InputGroupButton variant="default" className="rounded-full" size="icon-xs">
                 <ArrowUpIcon />
                 <span className="sr-only">Send</span>
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
-          <FieldDescription>
-            This is a description of the input group.
-          </FieldDescription>
+          <FieldDescription>This is a description of the input group.</FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="textarea-comment-31">Comment Box</FieldLabel>
           <InputGroup>
-            <InputGroupTextarea
-              id="textarea-comment-31"
-              placeholder="Share your thoughts..."
-            />
+            <InputGroupTextarea id="textarea-comment-31" placeholder="Share your thoughts..." />
             <InputGroupAddon align="block-end">
               <InputGroupButton variant="ghost" className="ml-auto" size="sm">
                 Cancel

@@ -2,7 +2,7 @@ import {
   NativeSelect,
   NativeSelectOptGroup,
   NativeSelectOption,
-} from "@/components/ui/native-select"
+} from '@/components/ui/native-select'
 import {
   Select,
   SelectContent,
@@ -11,15 +11,13 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select'
 
 export function NativeSelectDemo() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        <div className="text-muted-foreground text-sm font-medium">
-          Basic Select
-        </div>
+        <div className="text-muted-foreground text-sm font-medium">Basic Select</div>
         <div className="flex flex-col gap-4">
           <NativeSelect>
             <NativeSelectOption value="">Select a fruit</NativeSelectOption>
@@ -48,18 +46,14 @@ export function NativeSelectDemo() {
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        <div className="text-muted-foreground text-sm font-medium">
-          With Groups
-        </div>
+        <div className="text-muted-foreground text-sm font-medium">With Groups</div>
         <div className="flex flex-col gap-4">
           <NativeSelect>
             <NativeSelectOption value="">Select a food</NativeSelectOption>
             <NativeSelectOptGroup label="Fruits">
               <NativeSelectOption value="apple">Apple</NativeSelectOption>
               <NativeSelectOption value="banana">Banana</NativeSelectOption>
-              <NativeSelectOption value="blueberry">
-                Blueberry
-              </NativeSelectOption>
+              <NativeSelectOption value="blueberry">Blueberry</NativeSelectOption>
             </NativeSelectOptGroup>
             <NativeSelectOptGroup label="Vegetables">
               <NativeSelectOption value="carrot">Carrot</NativeSelectOption>
@@ -89,9 +83,7 @@ export function NativeSelectDemo() {
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        <div className="text-muted-foreground text-sm font-medium">
-          Disabled State
-        </div>
+        <div className="text-muted-foreground text-sm font-medium">Disabled State</div>
         <div className="flex flex-col gap-4">
           <NativeSelect disabled>
             <NativeSelectOption value="">Disabled</NativeSelectOption>
@@ -110,9 +102,7 @@ export function NativeSelectDemo() {
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        <div className="text-muted-foreground text-sm font-medium">
-          Error State
-        </div>
+        <div className="text-muted-foreground text-sm font-medium">Error State</div>
         <div className="flex flex-col gap-4">
           <NativeSelect aria-invalid="true">
             <NativeSelectOption value="">Error state</NativeSelectOption>

@@ -1,4 +1,4 @@
-import { Code2Icon, PlusIcon, TrashIcon } from "lucide-react"
+import { Code2Icon, PlusIcon, TrashIcon } from 'lucide-react'
 
 import {
   ContextMenu,
@@ -14,7 +14,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu"
+} from '@/components/ui/context-menu'
 
 export function ContextMenuDemo() {
   return (
@@ -68,9 +68,7 @@ export function ContextMenuDemo() {
         <ContextMenuSeparator />
         <ContextMenuRadioGroup value="pedro">
           <ContextMenuLabel inset>People</ContextMenuLabel>
-          <ContextMenuRadioItem value="pedro">
-            Pedro Duarte
-          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="pedro">Pedro Duarte</ContextMenuRadioItem>
           <ContextMenuRadioItem value="colm">Colm Tuite</ContextMenuRadioItem>
         </ContextMenuRadioGroup>
       </ContextMenuContent>

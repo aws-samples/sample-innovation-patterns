@@ -1,14 +1,14 @@
-import { zodResolver } from "@hookform/resolvers/zod"
-import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import { useForm } from "react-hook-form"
-import { toast } from "sonner"
-import { z } from "zod"
+import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
+import { CalendarIcon } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
+import { z } from 'zod'
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -17,80 +17,73 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 
 const items = [
   {
-    id: "recents",
-    label: "Recents",
+    id: 'recents',
+    label: 'Recents',
   },
   {
-    id: "home",
-    label: "Home",
+    id: 'home',
+    label: 'Home',
   },
   {
-    id: "applications",
-    label: "Applications",
+    id: 'applications',
+    label: 'Applications',
   },
   {
-    id: "desktop",
-    label: "Desktop",
+    id: 'desktop',
+    label: 'Desktop',
   },
   {
-    id: "downloads",
-    label: "Downloads",
+    id: 'downloads',
+    label: 'Downloads',
   },
   {
-    id: "documents",
-    label: "Documents",
+    id: 'documents',
+    label: 'Documents',
   },
 ] as const
 
 const FormSchema = z.object({
   username: z.string().min(2, {
-    message: "Username must be at least 2 characters.",
+    message: 'Username must be at least 2 characters.',
   }),
   bio: z
     .string()
     .min(10, {
-      message: "Bio must be at least 10 characters.",
+      message: 'Bio must be at least 10 characters.',
     })
     .max(160, {
-      message: "Bio must not be longer than 30 characters.",
+      message: 'Bio must not be longer than 30 characters.',
     }),
   email: z
     .string({
-      error: "Please select an email to display.",
+      error: 'Please select an email to display.',
     })
     .email(),
-  type: z.enum(["all", "mentions", "none"], {
-    error: "You need to select a notification type.",
+  type: z.enum(['all', 'mentions', 'none'], {
+    error: 'You need to select a notification type.',
   }),
   mobile: z.boolean().default(false).optional(),
   items: z.array(z.string()).refine((value) => value.some((item) => item), {
-    message: "You have to select at least one item.",
+    message: 'You have to select at least one item.',
   }),
   dob: z.date({
-    error: "A date of birth is required.",
+    error: 'A date of birth is required.',
   }),
   marketing_emails: z.boolean().default(false).optional(),
   security_emails: z.boolean(),
@@ -100,13 +93,13 @@ export function FormDemo() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      username: "",
-      items: ["recents", "home"],
+      username: '',
+      items: ['recents', 'home'],
     },
   })
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
-    toast("You submitted the following values:", {
+    toast('You submitted the following values:', {
       description: (
         <pre className="mt-2 w-[320px] rounded-md bg-neutral-950 p-4">
           <code className="text-white">{JSON.stringify(data, null, 2)}</code>
@@ -117,10 +110,7 @@ export function FormDemo() {
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="grid w-full max-w-sm gap-6"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid w-full max-w-sm gap-6">
         <FormField
           control={form.control}
           name="username"
@@ -130,9 +120,7 @@ export function FormDemo() {
               <FormControl>
                 <Input placeholder="shadcn" {...field} />
               </FormControl>
-              <FormDescription>
-                This is your public display name.
-              </FormDescription>
+              <FormDescription>This is your public display name.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -198,17 +186,13 @@ export function FormDemo() {
                     <FormControl>
                       <RadioGroupItem value="all" />
                     </FormControl>
-                    <FormLabel className="font-normal">
-                      All new messages
-                    </FormLabel>
+                    <FormLabel className="font-normal">All new messages</FormLabel>
                   </FormItem>
                   <FormItem className="flex items-center gap-2">
                     <FormControl>
                       <RadioGroupItem value="mentions" />
                     </FormControl>
-                    <FormLabel className="font-normal">
-                      Direct messages and mentions
-                    </FormLabel>
+                    <FormLabel className="font-normal">Direct messages and mentions</FormLabel>
                   </FormItem>
                   <FormItem className="flex items-center gap-2">
                     <FormControl>
@@ -228,18 +212,14 @@ export function FormDemo() {
           render={({ field }) => (
             <FormItem className="flex flex-row items-start gap-3 rounded-md border p-4 shadow-xs">
               <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
               <div className="flex flex-col gap-1">
                 <FormLabel className="leading-snug">
                   Use different settings for my mobile devices
                 </FormLabel>
                 <FormDescription className="leading-snug">
-                  You can manage your mobile notifications in the mobile
-                  settings page.
+                  You can manage your mobile notifications in the mobile settings page.
                 </FormDescription>
               </div>
             </FormItem>
@@ -264,10 +244,7 @@ export function FormDemo() {
                     name="items"
                     render={({ field }) => {
                       return (
-                        <FormItem
-                          key={item.id}
-                          className="flex items-start gap-3"
-                        >
+                        <FormItem key={item.id} className="flex items-start gap-3">
                           <FormControl>
                             <Checkbox
                               checked={field.value?.includes(item.id)}
@@ -275,9 +252,7 @@ export function FormDemo() {
                                 return checked
                                   ? field.onChange([...field.value, item.id])
                                   : field.onChange(
-                                      field.value?.filter(
-                                        (value) => value !== item.id
-                                      )
+                                      field.value?.filter((value) => value !== item.id),
                                     )
                               }}
                             />
@@ -305,17 +280,13 @@ export function FormDemo() {
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={"outline"}
+                      variant={'outline'}
                       className={cn(
-                        "w-[240px] pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
+                        'w-[240px] pl-3 text-left font-normal',
+                        !field.value && 'text-muted-foreground',
                       )}
                     >
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
+                      {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -325,16 +296,12 @@ export function FormDemo() {
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date: Date) =>
-                      date > new Date() || date < new Date("1900-01-01")
-                    }
+                    disabled={(date: Date) => date > new Date() || date < new Date('1900-01-01')}
                     initialFocus
                   />
                 </PopoverContent>
               </Popover>
-              <FormDescription>
-                Your date of birth is used to calculate your age.
-              </FormDescription>
+              <FormDescription>Your date of birth is used to calculate your age.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -348,18 +315,13 @@ export function FormDemo() {
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start justify-between rounded-lg border p-4 shadow-xs">
                   <div className="flex flex-col gap-0.5">
-                    <FormLabel className="leading-normal">
-                      Marketing emails
-                    </FormLabel>
+                    <FormLabel className="leading-normal">Marketing emails</FormLabel>
                     <FormDescription className="leading-snug">
                       Receive emails about new products, features, and more.
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
@@ -370,9 +332,7 @@ export function FormDemo() {
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start justify-between rounded-lg border p-4 shadow-xs">
                   <div className="flex flex-col gap-0.5 opacity-60">
-                    <FormLabel className="leading-normal">
-                      Security emails
-                    </FormLabel>
+                    <FormLabel className="leading-normal">Security emails</FormLabel>
                     <FormDescription className="leading-snug">
                       Receive emails about your account security.
                     </FormDescription>

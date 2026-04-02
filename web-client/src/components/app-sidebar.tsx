@@ -1,3 +1,4 @@
+import { config } from '@/lib/config'
 import type { ComponentProps, ComponentPropsWithoutRef } from 'react'
 import {
   IconBolt,
@@ -62,12 +63,17 @@ import { VersionBadge } from '@/components/version-badge'
 const data = {
   navMain: [
     { title: 'Dashboard', url: '/', icon: IconDashboard },
-    { title: 'Chat', url: '/chat', icon: IconMessageCircle },
+    { title: 'Chat', url: '/chat', icon: IconMessageCircle, flag: 'chat' as const },
     { title: 'Passengers', url: '/passengers', icon: IconUsers },
-    { title: 'Jobs', url: '/jobs', icon: IconBolt },
-    { title: 'Playground', url: '/playground', icon: IconChartBar },
-    { title: 'KB Playground', url: '/kb-playground', icon: IconDatabase },
-    { title: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark },
+    { title: 'Jobs', url: '/jobs', icon: IconBolt, flag: 'jobs' as const },
+    { title: 'Playground', url: '/playground', icon: IconChartBar, flag: 'playground' as const },
+    {
+      title: 'KB Playground',
+      url: '/kb-playground',
+      icon: IconDatabase,
+      flag: 'kb_playground' as const,
+    },
+    { title: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark, flag: 'kitchen_sink' as const },
   ],
   navClouds: [
     {
@@ -145,6 +151,8 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 }
 
 function NavMain({ items, currentPath }: { items: typeof data.navMain; currentPath: string }) {
+  const visibleItems = items.filter((item) => !item.flag || config.features[item.flag])
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -168,7 +176,7 @@ function NavMain({ items, currentPath }: { items: typeof data.navMain; currentPa
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild tooltip={item.title} isActive={item.url === currentPath}>
                 {'external' in item && item.external ? (

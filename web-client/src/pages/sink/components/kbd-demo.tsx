@@ -1,18 +1,10 @@
-import { ArrowLeftIcon, ArrowRightIcon, CommandIcon, WavesIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, CommandIcon, WavesIcon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function KbdDemo() {
   return (
@@ -85,7 +77,7 @@ export function KbdDemo() {
           </TooltipTrigger>
           <TooltipContent>
             <div className="flex items-center gap-2">
-              Print Document{" "}
+              Print Document{' '}
               <KbdGroup>
                 <Kbd>Ctrl</Kbd>
                 <Kbd>P</Kbd>

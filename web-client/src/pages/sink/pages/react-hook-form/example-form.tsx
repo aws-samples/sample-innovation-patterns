@@ -1,11 +1,11 @@
-import { useState } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { format } from "date-fns"
-import { Controller, useForm } from "react-hook-form"
-import type z from "zod"
+import { useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
+import { Controller, useForm } from 'react-hook-form'
+import type z from 'zod'
 
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import {
   Card,
   CardContent,
@@ -13,15 +13,15 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+} from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   Field,
   FieldContent,
@@ -33,51 +33,41 @@ import {
   FieldSeparator,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
-import { addons, exampleFormSchema } from "@/pages/sink/pages/schema"
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { addons, exampleFormSchema } from '@/pages/sink/pages/schema'
 
 export function ExampleForm() {
   const [values, setValues] = useState<z.infer<typeof exampleFormSchema>>()
   const [open, setOpen] = useState(false)
   const form = useForm<z.infer<typeof exampleFormSchema>>({
     resolver: zodResolver(exampleFormSchema),
-    mode: "onChange",
+    mode: 'onChange',
     defaultValues: {
-      name: "",
-      email: "",
-      plan: "basic" as const,
-      billingPeriod: "",
-      addons: ["analytics"],
+      name: '',
+      email: '',
+      plan: 'basic' as const,
+      billingPeriod: '',
+      addons: ['analytics'],
       emailNotifications: false,
       teamSize: 1,
-      comments: "",
+      comments: '',
       startDate: new Date(),
-      theme: "system",
-      password: "",
+      theme: 'system',
+      password: '',
     },
   })
 
@@ -91,9 +81,7 @@ export function ExampleForm() {
       <Card className="w-full max-w-sm">
         <CardHeader className="border-b">
           <CardTitle>React Hook Form</CardTitle>
-          <CardDescription>
-            This form uses React Hook Form with Zod validation.
-          </CardDescription>
+          <CardDescription>This form uses React Hook Form with Zod validation.</CardDescription>
         </CardHeader>
         <CardContent>
           <form id="subscription-form" onSubmit={form.handleSubmit(onSubmit)}>
@@ -133,9 +121,7 @@ export function ExampleForm() {
                         aria-invalid={isInvalid}
                         autoComplete="off"
                       />
-                      <FieldDescription>
-                        Enter your email address
-                      </FieldDescription>
+                      <FieldDescription>Enter your email address</FieldDescription>
                       {isInvalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
                   )
@@ -150,9 +136,7 @@ export function ExampleForm() {
                   return (
                     <FieldSet data-invalid={isInvalid}>
                       <FieldLegend>Subscription Plan</FieldLegend>
-                      <FieldDescription>
-                        Choose your subscription plan.
-                      </FieldDescription>
+                      <FieldDescription>Choose your subscription plan.</FieldDescription>
                       <RadioGroup
                         name={field.name}
                         value={field.value}
@@ -163,15 +147,9 @@ export function ExampleForm() {
                           <Field orientation="horizontal">
                             <FieldContent>
                               <FieldTitle>Basic</FieldTitle>
-                              <FieldDescription>
-                                For individuals and small teams
-                              </FieldDescription>
+                              <FieldDescription>For individuals and small teams</FieldDescription>
                             </FieldContent>
-                            <RadioGroupItem
-                              value="basic"
-                              id="basic"
-                              aria-invalid={isInvalid}
-                            />
+                            <RadioGroupItem value="basic" id="basic" aria-invalid={isInvalid} />
                           </Field>
                         </FieldLabel>
                         <FieldLabel htmlFor="pro">
@@ -182,11 +160,7 @@ export function ExampleForm() {
                                 For businesses with higher demands
                               </FieldDescription>
                             </FieldContent>
-                            <RadioGroupItem
-                              value="pro"
-                              id="pro"
-                              aria-invalid={isInvalid}
-                            />
+                            <RadioGroupItem value="pro" id="pro" aria-invalid={isInvalid} />
                           </Field>
                         </FieldLabel>
                       </RadioGroup>
@@ -203,9 +177,7 @@ export function ExampleForm() {
                   const isInvalid = fieldState.invalid
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor={field.name}>
-                        Billing Period
-                      </FieldLabel>
+                      <FieldLabel htmlFor={field.name}>Billing Period</FieldLabel>
                       <Select
                         name={field.name}
                         value={field.value}
@@ -220,9 +192,7 @@ export function ExampleForm() {
                           <SelectItem value="yearly">Yearly</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FieldDescription>
-                        Choose how often you want to be billed.
-                      </FieldDescription>
+                      <FieldDescription>Choose how often you want to be billed.</FieldDescription>
                       {isInvalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
                   )
@@ -251,20 +221,14 @@ export function ExampleForm() {
                               onCheckedChange={(checked) => {
                                 const newValue = checked
                                   ? [...field.value, addon.id]
-                                  : field.value.filter(
-                                      (value) => value !== addon.id
-                                    )
+                                  : field.value.filter((value) => value !== addon.id)
                                 field.onChange(newValue)
                                 field.onBlur()
                               }}
                             />
                             <FieldContent>
-                              <FieldLabel htmlFor={addon.id}>
-                                {addon.title}
-                              </FieldLabel>
-                              <FieldDescription>
-                                {addon.description}
-                              </FieldDescription>
+                              <FieldLabel htmlFor={addon.id}>{addon.title}</FieldLabel>
+                              <FieldDescription>{addon.description}</FieldDescription>
                             </FieldContent>
                           </Field>
                         ))}
@@ -310,9 +274,7 @@ export function ExampleForm() {
                   return (
                     <Field orientation="horizontal">
                       <FieldContent>
-                        <FieldLabel htmlFor={field.name}>
-                          Email Notifications
-                        </FieldLabel>
+                        <FieldLabel htmlFor={field.name}>Email Notifications</FieldLabel>
                         <FieldDescription>
                           Receive email updates about your subscription
                         </FieldDescription>
@@ -346,11 +308,7 @@ export function ExampleForm() {
                             className="justify-start"
                             aria-invalid={isInvalid}
                           >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
+                            {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -383,18 +341,14 @@ export function ExampleForm() {
                         type="single"
                         variant="outline"
                         value={field.value}
-                        onValueChange={(value) =>
-                          value && field.onChange(value)
-                        }
+                        onValueChange={(value) => value && field.onChange(value)}
                         aria-invalid={isInvalid}
                       >
                         <ToggleGroupItem value="light">Light</ToggleGroupItem>
                         <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
                         <ToggleGroupItem value="system">System</ToggleGroupItem>
                       </ToggleGroup>
-                      <FieldDescription>
-                        Choose your preferred color theme
-                      </FieldDescription>
+                      <FieldDescription>Choose your preferred color theme</FieldDescription>
                       {isInvalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
                   )
@@ -417,8 +371,7 @@ export function ExampleForm() {
                         aria-invalid={isInvalid}
                       />
                       <FieldDescription>
-                        Must contain uppercase, lowercase, number, and be 8+
-                        characters
+                        Must contain uppercase, lowercase, number, and be 8+ characters
                       </FieldDescription>
                       {isInvalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -433,9 +386,7 @@ export function ExampleForm() {
                   const isInvalid = fieldState.invalid
                   return (
                     <Field data-invalid={isInvalid}>
-                      <FieldLabel htmlFor={field.name}>
-                        Additional Comments
-                      </FieldLabel>
+                      <FieldLabel htmlFor={field.name}>Additional Comments</FieldLabel>
                       <Textarea
                         {...field}
                         id={field.name}
@@ -444,8 +395,7 @@ export function ExampleForm() {
                         aria-invalid={isInvalid}
                       />
                       <FieldDescription>
-                        Share any additional requirements or feedback (10-240
-                        characters)
+                        Share any additional requirements or feedback (10-240 characters)
                       </FieldDescription>
                       {isInvalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -457,11 +407,7 @@ export function ExampleForm() {
         </CardContent>
         <CardFooter className="border-t">
           <Field orientation="horizontal" className="justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => form.reset()}
-            >
+            <Button type="button" variant="outline" onClick={() => form.reset()}>
               Reset
             </Button>
             <Button type="submit" form="subscription-form">
@@ -474,9 +420,7 @@ export function ExampleForm() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Submitted Values</DialogTitle>
-            <DialogDescription>
-              Here are the values you submitted.
-            </DialogDescription>
+            <DialogDescription>Here are the values you submitted.</DialogDescription>
           </DialogHeader>
           <pre className="overflow-x-auto rounded-md bg-black p-4 font-mono text-sm text-white">
             <code>{JSON.stringify(values, null, 2)}</code>

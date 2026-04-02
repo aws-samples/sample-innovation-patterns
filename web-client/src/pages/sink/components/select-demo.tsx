@@ -1,9 +1,4 @@
-import {
-  ChartBarIcon,
-  ChartLineIcon,
-  ChartPieIcon,
-  CircleDashed,
-} from "lucide-react"
+import { ChartBarIcon, ChartLineIcon, ChartPieIcon, CircleDashed } from 'lucide-react'
 
 import {
   Select,
@@ -13,7 +8,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select'
 
 export function SelectDemo() {
   return (

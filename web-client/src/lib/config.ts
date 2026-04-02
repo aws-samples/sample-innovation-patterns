@@ -20,6 +20,14 @@
  * See: docs/docs/solution/web-client/CONFIG.md
  */
 
+interface FeatureFlags {
+  chat: boolean
+  jobs: boolean
+  playground: boolean
+  kb_playground: boolean
+  kitchen_sink: boolean
+}
+
 interface AppConfig {
   API_BASE_URL: string
   OIDC_AUTHORITY: string
@@ -28,6 +36,7 @@ interface AppConfig {
   OIDC_SCOPE: string
   OIDC_END_SESSION_ENDPOINT: string
   LOG_LEVEL: string
+  features: FeatureFlags
 }
 
 declare global {
@@ -44,6 +53,13 @@ export const config: AppConfig = window.__CONFIG__ ?? {
   OIDC_SCOPE: 'openid profile email',
   OIDC_END_SESSION_ENDPOINT: '',
   LOG_LEVEL: 'debug',
+  features: {
+    chat: false,
+    jobs: false,
+    playground: true,
+    kb_playground: false,
+    kitchen_sink: true,
+  },
 }
 
 console.log('[config]', config)

@@ -1,4 +1,4 @@
-import { HelpCircleIcon, SettingsIcon, Trash2Icon } from "lucide-react"
+import { HelpCircleIcon, SettingsIcon, Trash2Icon } from 'lucide-react'
 
 import {
   Menubar,
@@ -15,7 +15,7 @@ import {
   MenubarSubContent,
   MenubarSubTrigger,
   MenubarTrigger,
-} from "@/components/ui/menubar"
+} from '@/components/ui/menubar'
 
 export function MenubarDemo() {
   return (
@@ -75,9 +75,7 @@ export function MenubarDemo() {
         <MenubarTrigger>View</MenubarTrigger>
         <MenubarContent>
           <MenubarCheckboxItem>Always Show Bookmarks Bar</MenubarCheckboxItem>
-          <MenubarCheckboxItem checked>
-            Always Show Full URLs
-          </MenubarCheckboxItem>
+          <MenubarCheckboxItem checked>Always Show Full URLs</MenubarCheckboxItem>
           <MenubarSeparator />
           <MenubarItem inset>
             Reload <MenubarShortcut>⌘R</MenubarShortcut>

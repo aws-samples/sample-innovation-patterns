@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState } from 'react'
 import {
   IconApps,
   IconArrowUp,
@@ -12,14 +12,10 @@ import {
   IconPlus,
   IconWorld,
   IconX,
-} from "@tabler/icons-react"
+} from '@tabler/icons-react'
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import {
   Command,
   CommandEmpty,
@@ -27,7 +23,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from '@/components/ui/command'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -40,124 +36,110 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Field, FieldLabel } from "@/components/ui/field"
+} from '@/components/ui/dropdown-menu'
+import { Field, FieldLabel } from '@/components/ui/field'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@/components/ui/input-group"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/input-group'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const SAMPLE_DATA = {
   mentionable: [
     {
-      type: "page",
-      title: "Meeting Notes",
-      image: "\u{1F4DD}",
+      type: 'page',
+      title: 'Meeting Notes',
+      image: '\u{1F4DD}',
     },
     {
-      type: "page",
-      title: "Project Dashboard",
-      image: "\u{1F4CA}",
+      type: 'page',
+      title: 'Project Dashboard',
+      image: '\u{1F4CA}',
     },
     {
-      type: "page",
-      title: "Ideas & Brainstorming",
-      image: "\u{1F4A1}",
+      type: 'page',
+      title: 'Ideas & Brainstorming',
+      image: '\u{1F4A1}',
     },
     {
-      type: "page",
-      title: "Calendar & Events",
-      image: "\u{1F4C5}",
+      type: 'page',
+      title: 'Calendar & Events',
+      image: '\u{1F4C5}',
     },
     {
-      type: "page",
-      title: "Documentation",
-      image: "\u{1F4DA}",
+      type: 'page',
+      title: 'Documentation',
+      image: '\u{1F4DA}',
     },
     {
-      type: "page",
-      title: "Goals & Objectives",
-      image: "\u{1F3AF}",
+      type: 'page',
+      title: 'Goals & Objectives',
+      image: '\u{1F3AF}',
     },
     {
-      type: "page",
-      title: "Budget Planning",
-      image: "\u{1F4B0}",
+      type: 'page',
+      title: 'Budget Planning',
+      image: '\u{1F4B0}',
     },
     {
-      type: "page",
-      title: "Team Directory",
-      image: "\u{1F465}",
+      type: 'page',
+      title: 'Team Directory',
+      image: '\u{1F465}',
     },
     {
-      type: "page",
-      title: "Technical Specs",
-      image: "\u{1F527}",
+      type: 'page',
+      title: 'Technical Specs',
+      image: '\u{1F527}',
     },
     {
-      type: "page",
-      title: "Analytics Report",
-      image: "\u{1F4C8}",
+      type: 'page',
+      title: 'Analytics Report',
+      image: '\u{1F4C8}',
     },
     {
-      type: "user",
-      title: "shadcn",
-      image: "https://github.com/shadcn.png",
-      workspace: "Workspace",
+      type: 'user',
+      title: 'shadcn',
+      image: 'https://github.com/shadcn.png',
+      workspace: 'Workspace',
     },
     {
-      type: "user",
-      title: "maxleiter",
-      image: "https://github.com/maxleiter.png",
-      workspace: "Cursor",
+      type: 'user',
+      title: 'maxleiter',
+      image: 'https://github.com/maxleiter.png',
+      workspace: 'Cursor',
     },
     {
-      type: "user",
-      title: "evilrabbit",
-      image: "https://github.com/evilrabbit.png",
-      workspace: "Vercel",
+      type: 'user',
+      title: 'evilrabbit',
+      image: 'https://github.com/evilrabbit.png',
+      workspace: 'Vercel',
     },
   ],
   models: [
     {
-      name: "Auto",
+      name: 'Auto',
       icon: IconBrandZeit,
     },
     {
-      name: "Claude Sonnet 4",
+      name: 'Claude Sonnet 4',
       icon: IconBrandAbstract,
-      badge: "Beta",
+      badge: 'Beta',
     },
     {
-      name: "GPT-5",
+      name: 'GPT-5',
       icon: IconBrandOpenai,
-      badge: "Beta",
+      badge: 'Beta',
     },
   ],
 }
 
-function MentionableIcon({
-  item,
-}: {
-  item: (typeof SAMPLE_DATA.mentionable)[0]
-}) {
-  return item.type === "page" ? (
-    <span className="flex size-4 items-center justify-center">
-      {item.image}
-    </span>
+function MentionableIcon({ item }: { item: (typeof SAMPLE_DATA.mentionable)[0] }) {
+  return item.type === 'page' ? (
+    <span className="flex size-4 items-center justify-center">{item.image}</span>
   ) : (
     <Avatar className="size-4">
       <AvatarImage src={item.image} />
@@ -170,9 +152,9 @@ export function NotionPromptForm() {
   const [mentions, setMentions] = useState<string[]>([])
   const [mentionPopoverOpen, setMentionPopoverOpen] = useState(false)
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<
-    (typeof SAMPLE_DATA.models)[0]
-  >(SAMPLE_DATA.models[0])
+  const [selectedModel, setSelectedModel] = useState<(typeof SAMPLE_DATA.models)[0]>(
+    SAMPLE_DATA.models[0],
+  )
   const [scopeMenuOpen, setScopeMenuOpen] = useState(false)
 
   const grouped = useMemo(() => {
@@ -188,7 +170,7 @@ export function NotionPromptForm() {
         }
         return acc
       },
-      {} as Record<string, typeof SAMPLE_DATA.mentionable>
+      {} as Record<string, typeof SAMPLE_DATA.mentionable>,
     )
   }, [mentions])
 
@@ -201,24 +183,18 @@ export function NotionPromptForm() {
           Prompt
         </FieldLabel>
         <InputGroup className="bg-background dark:bg-background shadow-none">
-          <InputGroupTextarea
-            id="notion-prompt"
-            placeholder="Ask, search, or make anything..."
-          />
+          <InputGroupTextarea id="notion-prompt" placeholder="Ask, search, or make anything..." />
           <InputGroupAddon align="block-start">
-            <Popover
-              open={mentionPopoverOpen}
-              onOpenChange={setMentionPopoverOpen}
-            >
+            <Popover open={mentionPopoverOpen} onOpenChange={setMentionPopoverOpen}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <PopoverTrigger asChild>
                     <InputGroupButton
                       variant="outline"
-                      size={!hasMentions ? "sm" : "icon-sm"}
+                      size={!hasMentions ? 'sm' : 'icon-sm'}
                       className="rounded-full transition-transform"
                     >
-                      <IconAt /> {!hasMentions && "Add context"}
+                      <IconAt /> {!hasMentions && 'Add context'}
                     </InputGroupButton>
                   </PopoverTrigger>
                 </TooltipTrigger>
@@ -230,10 +206,7 @@ export function NotionPromptForm() {
                   <CommandList>
                     <CommandEmpty>No pages found</CommandEmpty>
                     {Object.entries(grouped).map(([type, items]) => (
-                      <CommandGroup
-                        key={type}
-                        heading={type === "page" ? "Pages" : "Users"}
-                      >
+                      <CommandGroup key={type} heading={type === 'page' ? 'Pages' : 'Users'}>
                         {items.map((item) => (
                           <CommandItem
                             key={item.title}
@@ -255,9 +228,7 @@ export function NotionPromptForm() {
             </Popover>
             <div className="no-scrollbar -m-1.5 flex gap-1 overflow-y-auto p-1.5">
               {mentions.map((mention) => {
-                const item = SAMPLE_DATA.mentionable.find(
-                  (item) => item.title === mention
-                )
+                const item = SAMPLE_DATA.mentionable.find((item) => item.title === mention)
 
                 if (!item) {
                   return null
@@ -284,25 +255,18 @@ export function NotionPromptForm() {
           <InputGroupAddon align="block-end" className="gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <InputGroupButton
-                  size="icon-sm"
-                  className="rounded-full"
-                  aria-label="Attach file"
-                >
+                <InputGroupButton size="icon-sm" className="rounded-full" aria-label="Attach file">
                   <IconPaperclip />
                 </InputGroupButton>
               </TooltipTrigger>
               <TooltipContent>Attach file</TooltipContent>
             </Tooltip>
-            <DropdownMenu
-              open={modelPopoverOpen}
-              onOpenChange={setModelPopoverOpen}
-            >
+            <DropdownMenu open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
                     <InputGroupButton size="sm" className="rounded-full">
-                      {selectedModel.icon && selectedModel.name !== "Auto" && (
+                      {selectedModel.icon && selectedModel.name !== 'Auto' && (
                         <selectedModel.icon />
                       )}
                       {selectedModel.name}
@@ -311,11 +275,7 @@ export function NotionPromptForm() {
                 </TooltipTrigger>
                 <TooltipContent>Select AI model</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent
-                side="top"
-                align="start"
-                className="[--radius:1.2rem]"
-              >
+              <DropdownMenuContent side="top" align="start" className="[--radius:1.2rem]">
                 <DropdownMenuGroup className="w-72">
                   <DropdownMenuLabel className="text-muted-foreground text-xs">
                     Get answers about your workspace
@@ -352,32 +312,18 @@ export function NotionPromptForm() {
                   <IconWorld /> All Sources
                 </InputGroupButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                align="start"
-                className="[--radius:1.2rem]"
-              >
+              <DropdownMenuContent side="top" align="start" className="[--radius:1.2rem]">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    asChild
-                    onSelect={(e) => e.preventDefault()}
-                  >
+                  <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
                     <label htmlFor="web-search">
-                      <IconWorld /> Web Search{" "}
-                      <Switch
-                        id="web-search"
-                        className="ml-auto"
-                        defaultChecked
-                      />
+                      <IconWorld /> Web Search{' '}
+                      <Switch id="web-search" className="ml-auto" defaultChecked />
                     </label>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    asChild
-                    onSelect={(e) => e.preventDefault()}
-                  >
+                  <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
                     <label htmlFor="apps">
                       <IconApps /> Apps and Integrations
                       <Switch id="apps" className="ml-auto" defaultChecked />
@@ -396,34 +342,27 @@ export function NotionPromptForm() {
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-72 p-0 [--radius:1.2rem]">
                       <Command>
-                        <CommandInput
-                          placeholder="Find or use knowledge in..."
-                          autoFocus
-                        />
+                        <CommandInput placeholder="Find or use knowledge in..." autoFocus />
                         <CommandList>
                           <CommandEmpty>No knowledge found</CommandEmpty>
                           <CommandGroup>
                             {SAMPLE_DATA.mentionable
-                              .filter((item) => item.type === "user")
+                              .filter((item) => item.type === 'user')
                               .map((user) => (
                                 <CommandItem
                                   key={user.title}
                                   value={user.title}
                                   onSelect={() => {
                                     // Handle user selection here
-                                    console.log("Selected user:", user.title)
+                                    console.log('Selected user:', user.title)
                                   }}
                                 >
                                   <Avatar className="size-4">
                                     <AvatarImage src={user.image} />
-                                    <AvatarFallback>
-                                      {user.title[0]}
-                                    </AvatarFallback>
+                                    <AvatarFallback>{user.title[0]}</AvatarFallback>
                                   </Avatar>
-                                  {user.title}{" "}
-                                  <span className="text-muted-foreground">
-                                    - {user.workspace}
-                                  </span>
+                                  {user.title}{' '}
+                                  <span className="text-muted-foreground">- {user.workspace}</span>
                                 </CommandItem>
                               ))}
                           </CommandGroup>

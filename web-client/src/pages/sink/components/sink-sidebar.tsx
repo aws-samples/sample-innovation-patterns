@@ -8,11 +8,7 @@ import {
   SearchIcon,
 } from 'lucide-react'
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import {
   Sidebar,
@@ -39,8 +35,8 @@ export function SinkSidebar(props: ComponentProps<typeof Sidebar>) {
     if (!search) return componentRegistry
     return Object.fromEntries(
       Object.entries(componentRegistry).filter(([, item]) =>
-        item.name.toLowerCase().includes(search.toLowerCase())
-      )
+        item.name.toLowerCase().includes(search.toLowerCase()),
+      ),
     )
   }, [search])
 
@@ -71,9 +67,7 @@ export function SinkSidebar(props: ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         {(['registry:ui', 'registry:page'] as const).map((type) => {
-          const items = Object.entries(filtered).filter(
-            ([, i]) => i.type === type
-          )
+          const items = Object.entries(filtered).filter(([, i]) => i.type === type)
           if (!items.length) return null
           return (
             <Collapsible key={type} defaultOpen className="group/collapsible">
@@ -90,10 +84,7 @@ export function SinkSidebar(props: ComponentProps<typeof Sidebar>) {
                       <SidebarMenuSub>
                         {items.map(([key, item]) => (
                           <SidebarMenuSubItem key={key}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={pathname === item.href}
-                            >
+                            <SidebarMenuSubButton asChild isActive={pathname === item.href}>
                               <Link to={item.href}>
                                 <span>{item.name}</span>
                                 {item.label && (

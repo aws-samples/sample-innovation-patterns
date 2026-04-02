@@ -1,5 +1,5 @@
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
 export function SwitchDemo() {
   return (
@@ -31,8 +31,7 @@ export function SwitchDemo() {
         <div className="flex flex-col gap-1">
           <div className="font-medium">Share across devices</div>
           <div className="text-muted-foreground text-sm font-normal">
-            Focus is shared across devices, and turns off when you leave the
-            app.
+            Focus is shared across devices, and turns off when you leave the app.
           </div>
         </div>
         <Switch

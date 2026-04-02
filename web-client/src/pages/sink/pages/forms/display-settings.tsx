@@ -1,6 +1,6 @@
-import { SunDimIcon, SunIcon } from "lucide-react"
+import { SunDimIcon, SunIcon } from 'lucide-react'
 
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
   FieldContent,
@@ -11,16 +11,16 @@ import {
   FieldSeparator,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
+} from '@/components/ui/field'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
 
 export function DisplaySettings() {
   return (
@@ -51,9 +51,7 @@ export function DisplaySettings() {
         <Field orientation="responsive">
           <FieldContent>
             <FieldTitle>Brightness</FieldTitle>
-            <FieldDescription>
-              Adjust the display brightness level.
-            </FieldDescription>
+            <FieldDescription>Adjust the display brightness level.</FieldDescription>
           </FieldContent>
           <div className="flex min-w-[150px] items-center gap-2">
             <SunDimIcon className="size-4 shrink-0" />
@@ -70,9 +68,7 @@ export function DisplaySettings() {
         <FieldSeparator />
         <Field orientation="horizontal">
           <FieldContent>
-            <FieldLabel htmlFor="auto-brightness">
-              Automatically Adjust Brightness
-            </FieldLabel>
+            <FieldLabel htmlFor="auto-brightness">Automatically Adjust Brightness</FieldLabel>
             <FieldDescription>
               Automatically adjust brightness based on ambient light.
             </FieldDescription>
@@ -93,9 +89,7 @@ export function DisplaySettings() {
         <Field orientation="responsive">
           <FieldContent>
             <FieldLabel htmlFor="refresh-rate">Refresh Rate</FieldLabel>
-            <FieldDescription>
-              Select the display refresh rate.
-            </FieldDescription>
+            <FieldDescription>Select the display refresh rate.</FieldDescription>
           </FieldContent>
           <Select>
             <SelectTrigger id="refresh-rate" className="ml-auto min-w-[200px]">
@@ -112,12 +106,8 @@ export function DisplaySettings() {
         <FieldSeparator />
         <Field orientation="responsive">
           <FieldContent>
-            <FieldLabel htmlFor="tv-connection">
-              When connected to TV
-            </FieldLabel>
-            <FieldDescription>
-              Choose display behavior when connected to a TV.
-            </FieldDescription>
+            <FieldLabel htmlFor="tv-connection">When connected to TV</FieldLabel>
+            <FieldDescription>Choose display behavior when connected to a TV.</FieldDescription>
           </FieldContent>
           <Select>
             <SelectTrigger id="tv-connection" className="ml-auto">

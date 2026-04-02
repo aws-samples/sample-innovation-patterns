@@ -1,4 +1,4 @@
-import { CheckIcon } from "lucide-react"
+import { CheckIcon } from 'lucide-react'
 
 import {
   Field,
@@ -10,55 +10,52 @@ import {
   FieldSeparator,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
-import { Label } from "@/components/ui/label"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
+} from '@/components/ui/field'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 
 const modes = [
   {
-    name: "Light",
-    value: "light",
-    image: "/placeholder.svg",
+    name: 'Light',
+    value: 'light',
+    image: '/placeholder.svg',
   },
   {
-    name: "Dark",
-    value: "dark",
-    image: "/placeholder.svg",
+    name: 'Dark',
+    value: 'dark',
+    image: '/placeholder.svg',
   },
   {
-    name: "System",
-    value: "system",
-    image: "/placeholder.svg",
+    name: 'System',
+    value: 'system',
+    image: '/placeholder.svg',
   },
 ]
 
 const accents = [
   {
-    name: "Blue",
-    value: "#007AFF",
+    name: 'Blue',
+    value: '#007AFF',
   },
   {
-    name: "Purple",
-    value: "#6A4695",
+    name: 'Purple',
+    value: '#6A4695',
   },
   {
-    name: "Red",
-    value: "#FF3B30",
+    name: 'Red',
+    value: '#FF3B30',
   },
   {
-    name: "Orange",
-    value: "#FF9500",
+    name: 'Orange',
+    value: '#FF9500',
   },
 ]
 
@@ -66,25 +63,17 @@ export function AppearanceSettings() {
   return (
     <FieldSet>
       <FieldLegend>Appearance</FieldLegend>
-      <FieldDescription>
-        Configure appearance. accent, scroll bar, and more.
-      </FieldDescription>
+      <FieldDescription>Configure appearance. accent, scroll bar, and more.</FieldDescription>
       <FieldGroup>
         <FieldSet>
           <FieldLegend variant="label">Mode</FieldLegend>
-          <FieldDescription>
-            Select the mode to use for the appearance.
-          </FieldDescription>
+          <FieldDescription>Select the mode to use for the appearance.</FieldDescription>
           <RadioGroup
             className="flex flex-col gap-4 @min-[28rem]/field-group:grid @min-[28rem]/field-group:grid-cols-3"
             defaultValue="light"
           >
             {modes.map((mode) => (
-              <FieldLabel
-                htmlFor={mode.value}
-                className="gap-0 overflow-hidden"
-                key={mode.value}
-              >
+              <FieldLabel htmlFor={mode.value} className="gap-0 overflow-hidden" key={mode.value}>
                 <img
                   src={mode.image}
                   alt={mode.name}
@@ -107,9 +96,7 @@ export function AppearanceSettings() {
         <Field orientation="horizontal">
           <FieldContent>
             <FieldTitle>Accent</FieldTitle>
-            <FieldDescription>
-              Select the accent color to use for the appearance.
-            </FieldDescription>
+            <FieldDescription>Select the accent color to use for the appearance.</FieldDescription>
           </FieldContent>
           <FieldSet aria-label="Accent">
             <RadioGroup className="flex flex-wrap gap-2" defaultValue="#007AFF">
@@ -136,9 +123,7 @@ export function AppearanceSettings() {
         <Field orientation="responsive">
           <FieldContent>
             <FieldLabel htmlFor="icon-size">Sidebar Icon Size</FieldLabel>
-            <FieldDescription>
-              Select the size of the sidebar icons.
-            </FieldDescription>
+            <FieldDescription>Select the size of the sidebar icons.</FieldDescription>
           </FieldContent>
           <Select>
             <SelectTrigger id="icon-size" className="ml-auto">

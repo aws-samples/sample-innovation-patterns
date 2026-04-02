@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from 'react'
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
@@ -24,14 +24,10 @@ import {
   UserCircleIcon,
   UserRoundXIcon,
   VolumeOffIcon,
-} from "lucide-react"
+} from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-  ButtonGroupText,
-} from "@/components/ui/button-group"
+import { Button } from '@/components/ui/button'
+import { ButtonGroup, ButtonGroupSeparator, ButtonGroupText } from '@/components/ui/button-group'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,38 +35,30 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Field, FieldGroup } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+} from '@/components/ui/dropdown-menu'
+import { Field, FieldGroup } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group"
-import { Label } from "@/components/ui/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+} from '@/components/ui/input-group'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function ButtonGroupDemo() {
-  const [currency, setCurrency] = useState("$")
+  const [currency, setCurrency] = useState('$')
   return (
     <div className="flex gap-12">
       <div className="flex max-w-sm flex-col gap-6">
@@ -127,9 +115,7 @@ export function ButtonGroupDemo() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>Disable</DropdownMenuItem>
-                <DropdownMenuItem variant="destructive">
-                  Uninstall
-                </DropdownMenuItem>
+                <DropdownMenuItem variant="destructive">Uninstall</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </ButtonGroup>
@@ -237,10 +223,7 @@ export function ButtonGroupDemo() {
           </Button>
           <InputGroup>
             <InputGroupInput placeholder="0.00" />
-            <InputGroupAddon
-              align="inline-end"
-              className="text-muted-foreground"
-            >
+            <InputGroupAddon align="inline-end" className="text-muted-foreground">
               <PercentIcon />
             </InputGroupAddon>
           </InputGroup>
@@ -248,10 +231,7 @@ export function ButtonGroupDemo() {
         <div className="flex gap-2 [--radius:0.95rem] [--ring:var(--color-blue-300)] [--spacing:0.22rem] **:[.shadow-xs]:shadow-none">
           <InputGroup>
             <InputGroupInput placeholder="Type to search..." />
-            <InputGroupAddon
-              align="inline-start"
-              className="text-muted-foreground"
-            >
+            <InputGroupAddon align="inline-start" className="text-muted-foreground">
               <SearchIcon />
             </InputGroupAddon>
           </InputGroup>
@@ -278,8 +258,8 @@ export function ButtonGroupDemo() {
                   />
                   <p className="font-medium">Start a new task with Copilot</p>
                   <p className="text-muted-foreground">
-                    Describe your task in natural language. Copilot will work in
-                    the background and open a pull request for your review.
+                    Describe your task in natural language. Copilot will work in the background and
+                    open a pull request for your review.
                   </p>
                 </div>
               </PopoverContent>
@@ -292,13 +272,8 @@ export function ButtonGroupDemo() {
             <ButtonGroup>
               <InputGroup>
                 <InputGroupInput id="width" />
-                <InputGroupAddon className="text-muted-foreground">
-                  W
-                </InputGroupAddon>
-                <InputGroupAddon
-                  align="inline-end"
-                  className="text-muted-foreground"
-                >
+                <InputGroupAddon className="text-muted-foreground">W</InputGroupAddon>
+                <InputGroupAddon align="inline-end" className="text-muted-foreground">
                   px
                 </InputGroupAddon>
               </InputGroup>
@@ -330,18 +305,18 @@ export function ButtonGroupDemo() {
                     >
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          "#EA4335", // Red
-                          "#FBBC04", // Yellow
-                          "#34A853", // Green
-                          "#4285F4", // Blue
-                          "#9333EA", // Purple
-                          "#EC4899", // Pink
-                          "#10B981", // Emerald
-                          "#F97316", // Orange
-                          "#6366F1", // Indigo
-                          "#14B8A6", // Teal
-                          "#8B5CF6", // Violet
-                          "#F59E0B", // Amber
+                          '#EA4335', // Red
+                          '#FBBC04', // Yellow
+                          '#34A853', // Green
+                          '#4285F4', // Blue
+                          '#9333EA', // Purple
+                          '#EC4899', // Pink
+                          '#10B981', // Emerald
+                          '#F97316', // Orange
+                          '#6366F1', // Indigo
+                          '#14B8A6', // Teal
+                          '#8B5CF6', // Violet
+                          '#F59E0B', // Amber
                         ].map((color) => (
                           <div
                             key={color}
@@ -353,10 +328,7 @@ export function ButtonGroupDemo() {
                     </PopoverContent>
                   </Popover>
                 </InputGroupAddon>
-                <InputGroupAddon
-                  align="inline-end"
-                  className="text-muted-foreground"
-                >
+                <InputGroupAddon align="inline-end" className="text-muted-foreground">
                   %
                 </InputGroupAddon>
               </InputGroup>
@@ -486,11 +458,7 @@ export function ButtonGroupDemo() {
           </ButtonGroup>
         </Field>
         <div className="flex gap-6">
-          <ButtonGroup
-            orientation="vertical"
-            aria-label="Media controls"
-            className="h-fit"
-          >
+          <ButtonGroup orientation="vertical" aria-label="Media controls" className="h-fit">
             <Button variant="outline" size="icon">
               <PlusIcon />
             </Button>
@@ -551,7 +519,7 @@ export function ButtonGroupDemo() {
 }
 
 function ExportButtonGroup() {
-  const [exportType, setExportType] = useState("pdf")
+  const [exportType, setExportType] = useState('pdf')
 
   return (
     <ButtonGroup>

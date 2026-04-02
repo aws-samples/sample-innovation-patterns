@@ -12,7 +12,8 @@ import { Separator } from '@/components/ui/separator'
 import { config } from '@/lib/config'
 
 export function SettingsPage() {
-  const entries = Object.entries(config)
+  const entries = Object.entries(config).filter(([key]) => key !== 'features')
+  const featureEntries = Object.entries(config.features)
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
@@ -65,6 +66,41 @@ export function SettingsPage() {
                   </TableCell>
                 </TableRow>
               )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Feature Flags</h2>
+          <p className="text-muted-foreground text-sm">
+            Features enabled via{' '}
+            <code className="bg-muted rounded px-1 py-0.5 text-xs">window.__CONFIG__.features</code>
+            .
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead>Feature</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {featureEntries.map(([name, active]) => (
+                <TableRow key={name}>
+                  <TableCell className="font-medium">
+                    <code className="text-xs">{name}</code>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={active ? 'default' : 'outline'}>
+                      {active ? 'enabled' : 'disabled'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>

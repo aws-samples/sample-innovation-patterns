@@ -1,5 +1,5 @@
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
   FieldContent,
@@ -9,13 +9,10 @@ import {
   FieldLegend,
   FieldSet,
   FieldTitle,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
-import { Textarea } from "@/components/ui/textarea"
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Textarea } from '@/components/ui/textarea'
 
 export function ShippingForm() {
   return (
@@ -35,14 +32,12 @@ export function ShippingForm() {
         </Field>
         <FieldSet>
           <FieldLegend variant="label">Shipping Method</FieldLegend>
-          <FieldDescription>
-            Please select the shipping method for your order.
-          </FieldDescription>
+          <FieldDescription>Please select the shipping method for your order.</FieldDescription>
           <RadioGroup>
             <Field orientation="horizontal">
               <RadioGroupItem value="standard" id="shipping-method-1" />
               <FieldLabel htmlFor="shipping-method-1" className="font-normal">
-                Standard{" "}
+                Standard{' '}
                 <Badge className="rounded-full py-px" variant="outline">
                   Free
                 </Badge>
@@ -63,17 +58,11 @@ export function ShippingForm() {
         </Field>
         <FieldSet>
           <FieldLegend>Additional Items</FieldLegend>
-          <FieldDescription>
-            Please select the additional items for your order.
-          </FieldDescription>
+          <FieldDescription>Please select the additional items for your order.</FieldDescription>
           <FieldGroup data-slot="checkbox-group">
             <FieldLabel htmlFor="gift-wrapping">
               <Field orientation="horizontal">
-                <Checkbox
-                  value="gift-wrapping"
-                  id="gift-wrapping"
-                  aria-label="Gift Wrapping"
-                />
+                <Checkbox value="gift-wrapping" id="gift-wrapping" aria-label="Gift Wrapping" />
                 <FieldContent>
                   <FieldTitle>Gift Wrapping</FieldTitle>
                   <FieldDescription>
@@ -84,11 +73,7 @@ export function ShippingForm() {
             </FieldLabel>
             <FieldLabel htmlFor="insurance">
               <Field orientation="horizontal">
-                <Checkbox
-                  value="insurance"
-                  id="insurance"
-                  aria-label="Package Insurance"
-                />
+                <Checkbox value="insurance" id="insurance" aria-label="Package Insurance" />
                 <FieldContent>
                   <FieldTitle>Package Insurance</FieldTitle>
                   <FieldDescription>
@@ -107,8 +92,7 @@ export function ShippingForm() {
                 <FieldContent>
                   <FieldTitle>Signature Confirmation</FieldTitle>
                   <FieldDescription>
-                    Require recipient signature upon delivery for added
-                    security.
+                    Require recipient signature upon delivery for added security.
                   </FieldDescription>
                 </FieldContent>
               </Field>

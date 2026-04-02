@@ -1,14 +1,14 @@
-import * as React from "react"
-import { addDays } from "date-fns"
-import { Clock2Icon } from "lucide-react"
-import { type DateRange } from "react-day-picker"
-import { es } from "react-day-picker/locale"
+import * as React from 'react'
+import { addDays } from 'date-fns'
+import { Clock2Icon } from 'lucide-react'
+import { type DateRange } from 'react-day-picker'
+import { es } from 'react-day-picker/locale'
 
-import { Button } from "@/components/ui/button"
-import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from '@/components/ui/button'
+import { Calendar, CalendarDayButton } from '@/components/ui/calendar'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export function CalendarDemo() {
   return (
@@ -27,7 +27,7 @@ export function CalendarDemo() {
 
 function CalendarSingle() {
   const [date, setDate] = React.useState<Date | undefined>(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 12)
+    new Date(new Date().getFullYear(), new Date().getMonth(), 12),
   )
   return (
     <div className="flex flex-col gap-3">
@@ -67,7 +67,7 @@ function CalendarRange() {
         selected={dateRange}
         onSelect={setDateRange}
         numberOfMonths={2}
-        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+        disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
         className="rounded-lg border shadow-sm"
       />
     </div>
@@ -98,12 +98,10 @@ function CalendarRangeMultipleMonths() {
 }
 
 function CalendarBookedDates() {
-  const [date, setDate] = React.useState<Date | undefined>(
-    new Date(new Date().getFullYear(), 1, 3)
-  )
+  const [date, setDate] = React.useState<Date | undefined>(new Date(new Date().getFullYear(), 1, 3))
   const bookedDates = Array.from(
     { length: 15 },
-    (_, i) => new Date(new Date().getFullYear(), new Date().getMonth(), 12 + i)
+    (_, i) => new Date(new Date().getFullYear(), new Date().getMonth(), 12 + i),
   )
 
   return (
@@ -119,7 +117,7 @@ function CalendarBookedDates() {
           booked: bookedDates,
         }}
         modifiersClassNames={{
-          booked: "[&>button]:line-through opacity-100",
+          booked: '[&>button]:line-through opacity-100',
         }}
         className="rounded-lg border shadow-sm"
       />
@@ -129,7 +127,7 @@ function CalendarBookedDates() {
 
 function CalendarWithTime() {
   const [date, setDate] = React.useState<Date | undefined>(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 12)
+    new Date(new Date().getFullYear(), new Date().getMonth(), 12),
   )
 
   return (
@@ -137,12 +135,7 @@ function CalendarWithTime() {
       <div className="px-2 text-center text-sm">With Time Input</div>
       <Card className="w-fit py-4">
         <CardContent className="px-4">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={setDate}
-            className="p-0"
-          />
+          <Calendar mode="single" selected={date} onSelect={setDate} className="p-0" />
         </CardContent>
         <CardFooter className="flex flex-col gap-3 border-t px-4 pt-4">
           <div className="flex w-full flex-col gap-2">
@@ -185,9 +178,7 @@ function CalendarCustomDays() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="px-2 text-center text-sm">
-        With Custom Days and Formatters
-      </div>
+      <div className="px-2 text-center text-sm">With Custom Days and Formatters</div>
       <Calendar
         mode="range"
         defaultMonth={range?.from}
@@ -198,7 +189,7 @@ function CalendarCustomDays() {
         className="rounded-lg border shadow-sm [--cell-size:--spacing(12)]"
         formatters={{
           formatMonthDropdown: (date) => {
-            return date.toLocaleString("default", { month: "long" })
+            return date.toLocaleString('default', { month: 'long' })
           },
         }}
         components={{
@@ -208,9 +199,7 @@ function CalendarCustomDays() {
             return (
               <CalendarDayButton day={day} modifiers={modifiers} {...props}>
                 {children}
-                {!modifiers.outside && (
-                  <span>{isWeekend ? "$120" : "$100"}</span>
-                )}
+                {!modifiers.outside && <span>{isWeekend ? '$120' : '$100'}</span>}
               </CalendarDayButton>
             )
           },
@@ -222,10 +211,10 @@ function CalendarCustomDays() {
 
 function CalendarWithPresets() {
   const [date, setDate] = React.useState<Date | undefined>(
-    new Date(new Date().getFullYear(), 1, 12)
+    new Date(new Date().getFullYear(), 1, 12),
   )
   const [currentMonth, setCurrentMonth] = React.useState<Date>(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   )
 
   return (
@@ -245,11 +234,11 @@ function CalendarWithPresets() {
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2 border-t px-4 pt-4">
           {[
-            { label: "Today", value: 0 },
-            { label: "Tomorrow", value: 1 },
-            { label: "In 3 days", value: 3 },
-            { label: "In a week", value: 7 },
-            { label: "In 2 weeks", value: 14 },
+            { label: 'Today', value: 0 },
+            { label: 'Tomorrow', value: 1 },
+            { label: 'In 3 days', value: 3 },
+            { label: 'In a week', value: 7 },
+            { label: 'In 2 weeks', value: 14 },
           ].map((preset) => (
             <Button
               key={preset.value}
@@ -259,9 +248,7 @@ function CalendarWithPresets() {
               onClick={() => {
                 const newDate = addDays(new Date(), preset.value)
                 setDate(newDate)
-                setCurrentMonth(
-                  new Date(newDate.getFullYear(), newDate.getMonth(), 1)
-                )
+                setCurrentMonth(new Date(newDate.getFullYear(), newDate.getMonth(), 1))
               }}
             >
               {preset.label}

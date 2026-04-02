@@ -1,4 +1,4 @@
-import { ExampleForm } from "./example-form"
+import { ExampleForm } from './example-form'
 
 export function ReactHookFormPage() {
   return (

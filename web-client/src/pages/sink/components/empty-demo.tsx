@@ -1,7 +1,7 @@
-import { FolderCodeIcon, ArrowUpRightIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { FolderCodeIcon, ArrowUpRightIcon, PlusIcon, SearchIcon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   Empty,
   EmptyContent,
@@ -17,18 +17,10 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+} from '@/components/ui/empty'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Kbd } from '@/components/ui/kbd'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 export function EmptyDemo() {
   return (
@@ -40,8 +32,7 @@ export function EmptyDemo() {
           </EmptyMedia>
           <EmptyTitle>No projects yet</EmptyTitle>
           <EmptyDescription>
-            You haven&apos;t created any projects yet. Get started by creating
-            your first project.
+            You haven&apos;t created any projects yet. Get started by creating your first project.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -78,8 +69,8 @@ export function EmptyDemo() {
         <EmptyHeader>
           <EmptyTitle>404 - Not Found</EmptyTitle>
           <EmptyDescription>
-            The page you&apos;re looking for doesn&apos;t exist. Try searching
-            for what you need below.
+            The page you&apos;re looking for doesn&apos;t exist. Try searching for what you need
+            below.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -101,9 +92,8 @@ export function EmptyDemo() {
         <EmptyHeader>
           <EmptyTitle>Nothing to see here</EmptyTitle>
           <EmptyDescription>
-            No posts have been created yet. Get started by{" "}
-            <a href="#">creating your first post</a> to share with the
-            community.
+            No posts have been created yet. Get started by <a href="#">creating your first post</a>{' '}
+            to share with the community.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -120,8 +110,8 @@ export function EmptyDemo() {
               <EmptyHeader>
                 <EmptyTitle>404 - Not Found</EmptyTitle>
                 <EmptyDescription>
-                  The page you&apos;re looking for doesn&apos;t exist. Try
-                  searching for what you need below.
+                  The page you&apos;re looking for doesn&apos;t exist. Try searching for what you
+                  need below.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -152,8 +142,8 @@ export function EmptyDemo() {
                 </EmptyMedia>
                 <EmptyTitle>No projects yet</EmptyTitle>
                 <EmptyDescription>
-                  You haven&apos;t created any projects yet. Get started by
-                  creating your first project.
+                  You haven&apos;t created any projects yet. Get started by creating your first
+                  project.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -163,11 +153,7 @@ export function EmptyDemo() {
                   </Button>
                   <Button variant="outline">Import project</Button>
                 </div>
-                <Button
-                  variant="link"
-                  asChild
-                  className="text-muted-foreground"
-                >
+                <Button variant="link" asChild className="text-muted-foreground">
                   <a href="#">
                     Learn more <ArrowUpRightIcon />
                   </a>
@@ -195,8 +181,8 @@ export function EmptyDemo() {
                   </EmptyMedia>
                   <EmptyTitle>No projects yet</EmptyTitle>
                   <EmptyDescription>
-                    You haven&apos;t created any projects yet. Get started by
-                    creating your first project.
+                    You haven&apos;t created any projects yet. Get started by creating your first
+                    project.
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
@@ -206,11 +192,7 @@ export function EmptyDemo() {
                     </Button>
                     <Button variant="outline">Import project</Button>
                   </div>
-                  <Button
-                    variant="link"
-                    asChild
-                    className="text-muted-foreground"
-                  >
+                  <Button variant="link" asChild className="text-muted-foreground">
                     <a href="#">
                       Learn more <ArrowUpRightIcon />
                     </a>
@@ -228,9 +210,8 @@ export function EmptyDemo() {
                 <EmptyHeader>
                   <EmptyTitle>Nothing to see here</EmptyTitle>
                   <EmptyDescription>
-                    No posts have been created yet.{" "}
-                    <a href="#">Create your first post</a> to share with the
-                    community.
+                    No posts have been created yet. <a href="#">Create your first post</a> to share
+                    with the community.
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>

@@ -1,16 +1,8 @@
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon } from 'lucide-react'
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 
 export function HoverCardDemo() {
   return (
@@ -26,14 +18,10 @@ export function HoverCardDemo() {
           </Avatar>
           <div className="flex flex-col gap-1">
             <h4 className="text-sm font-semibold">@nextjs</h4>
-            <p className="text-sm">
-              The React Framework – created and maintained by @vercel.
-            </p>
+            <p className="text-sm">The React Framework – created and maintained by @vercel.</p>
             <div className="mt-1 flex items-center gap-2">
-              <CalendarIcon className="text-muted-foreground size-4" />{" "}
-              <span className="text-muted-foreground text-xs">
-                Joined December 2021
-              </span>
+              <CalendarIcon className="text-muted-foreground size-4" />{' '}
+              <span className="text-muted-foreground text-xs">Joined December 2021</span>
             </div>
           </div>
         </div>

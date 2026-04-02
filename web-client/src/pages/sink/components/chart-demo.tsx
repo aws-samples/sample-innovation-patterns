@@ -1,4 +1,4 @@
-import { TrendingUp } from "lucide-react"
+import { TrendingUp } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -9,7 +9,7 @@ import {
   LineChart,
   XAxis,
   YAxis,
-} from "recharts"
+} from 'recharts'
 
 import {
   Card,
@@ -18,105 +18,105 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from '@/components/ui/card'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@/components/ui/chart"
+} from '@/components/ui/chart'
 
 // --- Area Chart Data ---
 const areaChartData = [
-  { month: "January", desktop: 186 },
-  { month: "February", desktop: 305 },
-  { month: "March", desktop: 237 },
-  { month: "April", desktop: 73 },
-  { month: "May", desktop: 209 },
-  { month: "June", desktop: 214 },
+  { month: 'January', desktop: 186 },
+  { month: 'February', desktop: 305 },
+  { month: 'March', desktop: 237 },
+  { month: 'April', desktop: 73 },
+  { month: 'May', desktop: 209 },
+  { month: 'June', desktop: 214 },
 ]
 
 const areaChartConfig = {
   desktop: {
-    label: "Desktop",
-    color: "var(--chart-1)",
+    label: 'Desktop',
+    color: 'var(--chart-1)',
   },
 } satisfies ChartConfig
 
 // --- Bar Chart Data ---
 const barChartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
+  { month: 'January', desktop: 186, mobile: 80 },
+  { month: 'February', desktop: 305, mobile: 200 },
+  { month: 'March', desktop: 237, mobile: 120 },
+  { month: 'April', desktop: 73, mobile: 190 },
+  { month: 'May', desktop: 209, mobile: 130 },
+  { month: 'June', desktop: 214, mobile: 140 },
 ]
 
 const barChartConfig = {
   desktop: {
-    label: "Desktop",
-    color: "var(--chart-1)",
+    label: 'Desktop',
+    color: 'var(--chart-1)',
   },
   mobile: {
-    label: "Mobile",
-    color: "var(--chart-2)",
+    label: 'Mobile',
+    color: 'var(--chart-2)',
   },
 } satisfies ChartConfig
 
 // --- Bar Mixed Chart Data ---
 const barMixedData = [
-  { browser: "chrome", visitors: 275, fill: "var(--color-chrome)" },
-  { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
-  { browser: "firefox", visitors: 187, fill: "var(--color-firefox)" },
-  { browser: "edge", visitors: 173, fill: "var(--color-edge)" },
-  { browser: "other", visitors: 90, fill: "var(--color-other)" },
+  { browser: 'chrome', visitors: 275, fill: 'var(--color-chrome)' },
+  { browser: 'safari', visitors: 200, fill: 'var(--color-safari)' },
+  { browser: 'firefox', visitors: 187, fill: 'var(--color-firefox)' },
+  { browser: 'edge', visitors: 173, fill: 'var(--color-edge)' },
+  { browser: 'other', visitors: 90, fill: 'var(--color-other)' },
 ]
 
 const barMixedConfig = {
   visitors: {
-    label: "Visitors",
+    label: 'Visitors',
   },
   chrome: {
-    label: "Chrome",
-    color: "var(--chart-1)",
+    label: 'Chrome',
+    color: 'var(--chart-1)',
   },
   safari: {
-    label: "Safari",
-    color: "var(--chart-2)",
+    label: 'Safari',
+    color: 'var(--chart-2)',
   },
   firefox: {
-    label: "Firefox",
-    color: "var(--chart-3)",
+    label: 'Firefox',
+    color: 'var(--chart-3)',
   },
   edge: {
-    label: "Edge",
-    color: "var(--chart-4)",
+    label: 'Edge',
+    color: 'var(--chart-4)',
   },
   other: {
-    label: "Other",
-    color: "var(--chart-5)",
+    label: 'Other',
+    color: 'var(--chart-5)',
   },
 } satisfies ChartConfig
 
 // --- Line Chart Data ---
 const lineChartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
+  { month: 'January', desktop: 186, mobile: 80 },
+  { month: 'February', desktop: 305, mobile: 200 },
+  { month: 'March', desktop: 237, mobile: 120 },
+  { month: 'April', desktop: 73, mobile: 190 },
+  { month: 'May', desktop: 209, mobile: 130 },
+  { month: 'June', desktop: 214, mobile: 140 },
 ]
 
 const lineChartConfig = {
   desktop: {
-    label: "Desktop",
-    color: "var(--chart-1)",
+    label: 'Desktop',
+    color: 'var(--chart-1)',
   },
   mobile: {
-    label: "Mobile",
-    color: "var(--chart-2)",
+    label: 'Mobile',
+    color: 'var(--chart-2)',
   },
 } satisfies ChartConfig
 
@@ -138,9 +138,7 @@ function ChartAreaDemo() {
     <Card>
       <CardHeader>
         <CardTitle>Area Chart</CardTitle>
-        <CardDescription>
-          Showing total visitors for the last 6 months
-        </CardDescription>
+        <CardDescription>Showing total visitors for the last 6 months</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={areaChartConfig}>
@@ -160,10 +158,7 @@ function ChartAreaDemo() {
               tickMargin={8}
               tickFormatter={(value) => value.slice(0, 3)}
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
-            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
             <Area
               dataKey="desktop"
               type="natural"
@@ -208,10 +203,7 @@ function ChartBarDemo() {
               axisLine={false}
               tickFormatter={(value) => value.slice(0, 3)}
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dashed" />}
-            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
             <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
             <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
           </BarChart>
@@ -252,15 +244,10 @@ function ChartBarMixed() {
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tickFormatter={(value) =>
-                barMixedConfig[value as keyof typeof barMixedConfig]?.label
-              }
+              tickFormatter={(value) => barMixedConfig[value as keyof typeof barMixedConfig]?.label}
             />
             <XAxis dataKey="visitors" type="number" hide />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
             <Bar dataKey="visitors" layout="vertical" radius={5} />
           </BarChart>
         </ChartContainer>
