@@ -13,12 +13,14 @@ tests/
 └── test_basic.py               # Package-level smoke test
 ```
 
+When adding a new feature, create `tests/features/{name}/` with `__init__.py` files mirroring the feature structure.
+
 ## Running Tests
 
 From `app-lib/` directory:
 - All tests: `pytest`
 - Verbose: `pytest -v`
-- Specific file: `pytest tests/model/ddb/test_ddb_titanic_passenger_table.py`
+- Specific file: `pytest tests/features/passengers/test_passenger_table.py`
 - From tests directory: `make test` (see `tests/Makefile` for targets)
 
 ## Writing Tests

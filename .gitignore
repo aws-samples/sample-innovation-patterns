@@ -18,6 +18,9 @@ specs/
 .temp/
 .sav/
 .delete/
+.data/
+.output/
+.draft/
 
 # IPA generated templates (security-sensitive, not committed)
 infra/cfn/generated/

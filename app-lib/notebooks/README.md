@@ -16,3 +16,7 @@ from loguru import logger
 
 load_dotenv()
 ```
+
+## iPyKernel
+- To add an ipykernel for notebook development, run `make ipykernel -C app-lib/`
+- `Developer: Reload Window` in VSCode and the `app-lib/.venv/` venv should be available2

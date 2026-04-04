@@ -1,77 +1,91 @@
-# Python Guidance for Agentic Coding Assistants
+# app-lib/
 
-## Environment Management
-- Python environment managed with `uv` (see `pyproject.toml` and `uv.lock`)
-- Implementation is tool-agnostic - developers can use Conda, venv, or other tools
-- Install dependencies: `pip install -e ".[all]"` or `uv pip install -e ".[all]"`
-- Python version: 3.12 (see `.python-version`)
+Reusable Python library providing feature-centric REST API patterns for AWS applications. FastAPI + PynamoDB + Lambda Web Adapter.
+
+- Python 3.12, managed with `uv`. Install: `pip install -e ".[all]"`.
+- Lint/format: `make lint` (ruff, line-length 88, Google-style docstrings).
+- Tests: `make test` (pytest). Tests mirror source: `tests/features/` and `tests/common/`.
+- Feature-centric layout: each feature is self-contained under `features/{name}/`. Features import from `common/`, never from each other.
+- **To add a feature**: see `src/app_lib/features/CLAUDE.md` for the step-by-step recipe.
+- `PathUtil.lib_root()` resolves to `src/app_lib/` — it uses `__file__` parent traversal from `common/util/path_util.py` (3 levels up).
+- `PynamodbUtil.env_table_name(base)` prefixes table names with `{APP_NAMESPACE}_{APP_ENV}_` — all PynamoDB models must use this.
+- Lambda handlers in `common/lambda/` are COPYed to container root by `infra/containers/rest-lambda/Dockerfile`.
+
+See README.md for full conventions. See `src/app_lib/features/CLAUDE.md` for feature conventions. See `src/app_lib/common/CLAUDE.md` for shared infrastructure conventions.
+
+## Code Organization
+
+```
+src/app_lib/
+├── common/                          # Shared infrastructure
+│   ├── app.py                       # FastAPI app, middleware, feature router registration
+│   ├── auth.py                      # JWT auth middleware (OIDC-compliant)
+│   ├── Makefile                     # Local dev: uvicorn on port 8000
+│   ├── data/
+│   │   └── abstract_data_service.py # Generic CRUD interface — AbstractDataService[T]
+│   ├── lambda/                      # Lambda entry points (copied to container root)
+│   │   ├── api_lambda_handler.py    # REST API handler (imports app from common/app.py)
+│   │   ├── lambda_handler.py        # Generic event handler template
+│   │   └── s3_handler.py            # S3 file processor (SQS → S3 events)
+│   └── util/
+│       ├── path_util.py             # PathUtil — lib_root(), project_root(), lib_assets()
+│       ├── pynamodb_util.py         # PynamodbUtil — env_table_name() for DynamoDB
+│       ├── observability.py         # Structured logging, CloudWatch metrics, Bedrock usage
+│       └── jinja_util.py            # Jinja2 template rendering
+│
+├── features/                        # Business features (self-contained)
+│   └── passengers/                  # Demo feature — Titanic passenger CRUD
+│       ├── model/passenger_table.py           # PynamoDB model
+│       ├── service/passenger_data_service.py  # AbstractDataService[T] implementation
+│       ├── routes/passenger_routes.py         # FastAPI router (/api/v1/passengers)
+│       ├── routes/passenger_dto.py            # Pydantic request/response DTOs
+│       └── util/load_dynamodb_util.py         # CSV → DynamoDB loader
+│
+└── assets/                          # Static assets and datasets
+    └── datasets/titanic/            # Titanic CSV data
+
+tests/
+├── features/passengers/             # Passenger feature tests
+├── common/util/                     # Shared utility tests
+├── conftest.py                      # Shared fixtures
+└── test_basic.py                    # Package-level smoke test
+```
+
+## Adding a New Feature (Quick Reference)
+
+1. Create `features/{name}/` with `__init__.py`, `model/`, `service/`, `routes/`, `util/` (as needed)
+2. Model: PynamoDB model using `PynamodbUtil.env_table_name("your_table")`
+3. Service: extend `AbstractDataService[YourModel]` from `common.data`
+4. Routes: FastAPI `APIRouter(prefix="/api/v1", tags=["your_feature"])`
+5. Register in `common/app.py`: import router + `app.include_router(your_router)`
+6. Add tests in `tests/features/{name}/`
+7. If DynamoDB table needed: add stack via `/ipa.stack.dynamodb`
 
 ## Coding Standards
 
-### Header Documentation
-Use Google-style docstrings for all modules, classes, and functions:
+### Docstrings
+Google-style docstrings for all modules, classes, and functions. Ruff enforces via pydocstyle rules (`D` prefix). Docstrings auto-render to MKDocs via mkdocstrings.
 
-```python
-"""Module description.
+### Ruff Configuration
+See [ruff.toml](./ruff.toml): line-length 88, Python 3.9+ target, Pyflakes (F), pycodestyle (E4/E7/E9), isort (I), pydocstyle (D, Google convention), double quotes.
 
-Longer description if needed.
-"""
+## Environment Variables
 
-def function(arg1: str, arg2: int) -> bool:
-    """
-    Brief description.
-
-    Args:
-        arg1: Description of arg1
-        arg2: Description of arg2
-
-    Returns:
-        Description of return value
-
-    Example:
-        >>> function("test", 42)
-        True
-    """
-```
-
-### RUFF Lint/Format Style
-Configuration in [ruff.toml](./ruff.toml):
-
-- **Line length**: 88 characters (Black-compatible)
-- **Target**: Python 3.9+
-- **Enabled rules**: Pyflakes (F), pycodestyle errors (E4, E7, E9), isort (I), pydocstyle (D)
-- **Pydocstyle**: Google convention
-- **Format style**: Double quotes, spaces for indentation, auto line endings
-- **Import sorting**: Enabled via isort rules
-- **Run**: `make lint` to check and fix, `make lint-cicd` for CI checks
-
-### Docstring Completeness for API Docs
-
-Docstrings are auto-rendered to the MKDocs site via mkdocstrings. Include:
-
-- **Brief description**: First line, imperative mood ("Get passenger by ID")
-- **Args**: All parameters with types already in signature
-- **Returns**: What the function returns
-- **Raises**: All exceptions the function explicitly raises
-- **Example**: Runnable doctest when practical
-
-Classes should also document **Attributes** for public instance variables.
-
-Ruff enforces docstring presence via pydocstyle rules (`D` prefix). Run `make lint` to check.
-
-### Code Organization
-```
-src/app_lib/
-├── features/       # Business features (passengers, etc.) — see features/CLAUDE.md
-├── common/         # Shared infrastructure (app, auth, utils, lambda handlers) — see common/CLAUDE.md
-└── assets/         # Static assets and datasets
-```
-
-**Feature-centric layout**: Each feature is self-contained under `features/{name}/` with its own `model/`, `service/`, `routes/`, and `util/`. Features import from `common/`, never from each other.
-
-**Before implementing new functionality**: Check `common/util/` for existing utilities (e.g., `PathUtil` for file paths, `PynamodbUtil` for table naming).
+| Variable | Default | Used By |
+|----------|---------|---------|
+| `APP_NAMESPACE` | `""` | `PynamodbUtil` — DynamoDB table name prefix |
+| `APP_ENV` | `"dev"` | `PynamodbUtil` — environment segment in table names |
+| `API_STAGE_PREFIX` | `""` | `common/app.py` — FastAPI `root_path` for API Gateway |
+| `CORS_ALLOWED_ORIGINS` | `"*"` | `common/app.py` — comma-separated origins |
+| `AUTH_ENABLED` | `"false"` | `common/auth.py` — enable JWT validation |
+| `OIDC_ISSUER` / `AUTH_ISSUER` | `""` | `common/auth.py` — OIDC issuer URL |
+| `OIDC_CLIENT_ID` / `AUTH_AUDIENCE` | `""` | `common/auth.py` — expected audience |
+| `APP_METRIC_NAMESPACE` | `"{namespace}/{env}"` | `observability.py` — CloudWatch metric namespace |
+| `APP_VERSION` | `None` | `common/app.py` — version endpoint |
+| `BUILD_VERSION` | `"dev"` | `common/app.py` — build identifier |
 
 ## Tests
-- Python Pytest unit tests are located here: [tests/](./tests/)
-- See [tests/AGENTS.md](./tests/AGENTS.md) for test organization and conventions
-- Run tests: `make test` or `pytest`
+
+- Tests in [tests/](./tests/) mirror `src/app_lib/` structure
+- Run: `make test` or `pytest`
+- See [tests/CLAUDE.md](./tests/CLAUDE.md) for test conventions

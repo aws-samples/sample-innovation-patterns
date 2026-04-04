@@ -13,7 +13,7 @@ sync:
 
 # Register Jupyter kernel for notebooks
 ipykernel:
-	uv run python -m ipykernel install --user --name app-lib --display-name "app-lib (uv)"
+	uv run python -m ipykernel install --user --env VIRTUAL_ENV $(pwd)/.venv --name app-lib --display-name "app-lib (uv)"
 
 # Install package with all optional dependencies (pip-based, used in CI/Docker)
 install:
