@@ -542,3 +542,5 @@ Reference for understanding the current ecosystem and avoiding naming or suffix 
 | ipa.stack.s3 | s3 | none | 4 | 3 | deploy |
 | ipa.stack.cloudfront | cf | none | 7 | 3 | deploy |
 | ipa.stack.app-cloudwatch | cw | none | 8 | 1 | deploy |
+| ipa.stack.sqs | sqs | none | 8 | 5 | deploy |
+| ipa.stack.sqs-esm | esm | none | 7 | 0 | deploy |

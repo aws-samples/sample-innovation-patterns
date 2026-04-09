@@ -60,6 +60,20 @@ runtime_permissions:
     purpose: "DynamoDB CRUD operations — only granted when DynamoDbTableArns parameter is non-empty (HasDynamoDb condition)"
 
   - actions:
+      - sqs:SendMessage
+      - sqs:GetQueueAttributes
+    resource: "!Ref SqsSendQueueArns (comma-separated)"
+    purpose: "SQS message send — only granted when SqsSendQueueArns parameter is non-empty (HasSqsSend condition)"
+
+  - actions:
+      - sqs:ReceiveMessage
+      - sqs:DeleteMessage
+      - sqs:GetQueueAttributes
+      - sqs:ChangeMessageVisibility
+    resource: "!Ref SqsReceiveQueueArns (comma-separated)"
+    purpose: "SQS message receive/delete — only granted when SqsReceiveQueueArns parameter is non-empty (HasSqsReceive condition)"
+
+  - actions:
       - ecr:BatchGetImage
       - ecr:GetDownloadUrlForLayer
     resource: "*"
@@ -109,6 +123,14 @@ controls:
   - type: conditional_permissions
     enabled: true
     method: "DynamoDB IAM policy only created when DynamoDbTableArns is non-empty (HasDynamoDb condition) — no unused permissions"
+
+  - type: conditional_permissions
+    enabled: true
+    method: "SQS send IAM policy only created when SqsSendQueueArns is non-empty (HasSqsSend condition) — no unused permissions"
+
+  - type: conditional_permissions
+    enabled: true
+    method: "SQS receive IAM policy only created when SqsReceiveQueueArns is non-empty (HasSqsReceive condition) — no unused permissions"
 ```
 
 ## Known Deferrals

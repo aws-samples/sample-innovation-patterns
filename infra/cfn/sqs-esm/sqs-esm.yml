@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  SQS-to-Lambda event source mapping. Connects an SQS queue to a Lambda
+  function for automatic message processing. Must be deployed after both
+  SQS and Lambda stacks, and torn down before both.
+
+Parameters:
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace — 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Project namespace prefix for resource naming'
+
+  Environment:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Must be 1-12 chars, lowercase letters/digits/hyphens, starts with letter'
+    Description: 'Deployment environment'
+
+  FunctionArn:
+    Type: String
+    Description: 'Lambda function ARN to receive SQS messages (from ipa.stack.lambda FunctionArn output)'
+
+  QueueArn:
+    Type: String
+    Description: 'SQS queue ARN to poll for messages (from ipa.stack.sqs QueueArn output)'
+
+  BatchSize:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 10000
+    Description: 'Maximum number of messages to process per Lambda invocation'
+
+  MaxBatchingWindowInSeconds:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 300
+    Description: 'Maximum time in seconds to wait for a full batch before invoking Lambda (0 = no batching window)'
+
+  Enabled:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Whether the event source mapping is active'
+
+Conditions:
+  IsEnabled: !Equals [!Ref Enabled, 'true']
+
+Resources:
+  # Event source mapping — connects SQS queue to Lambda function
+  EventSourceMapping:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      EventSourceArn: !Ref QueueArn
+      FunctionName: !Ref FunctionArn
+      BatchSize: !Ref BatchSize
+      MaximumBatchingWindowInSeconds: !Ref MaxBatchingWindowInSeconds
+      Enabled: !If [IsEnabled, true, false]

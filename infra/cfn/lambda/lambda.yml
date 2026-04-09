@@ -77,8 +77,34 @@ Parameters:
     Default: ''
     Description: 'Comma-separated DynamoDB table ARNs for IAM policy scoping (optional — leave empty if no DynamoDB)'
 
+  # --- Wirable parameters (optional — only wired when SQS is composed) ---
+
+  SqsSendQueueArns:
+    Type: String
+    Default: ''
+    Description: 'Comma-separated SQS queue ARNs for send permissions (optional — leave empty if no SQS send)'
+
+  SqsReceiveQueueArns:
+    Type: String
+    Default: ''
+    Description: 'Comma-separated SQS queue ARNs for receive permissions (optional — leave empty if no SQS receive)'
+
+  SqsQueueUrl:
+    Type: String
+    Default: ''
+    Description: 'SQS queue URL injected as SQS_QUEUE_URL env var (optional — leave empty if no SQS)'
+
+  ImageCommand:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: 'Override container CMD (e.g., "python,-m,sqs_handler"). Leave empty to use Dockerfile CMD.'
+
 Conditions:
   HasDynamoDb: !Not [!Equals [!Ref DynamoDbTableArns, '']]
+  HasSqsSend: !Not [!Equals [!Ref SqsSendQueueArns, '']]
+  HasSqsReceive: !Not [!Equals [!Ref SqsReceiveQueueArns, '']]
+  HasSqsQueueUrl: !Not [!Equals [!Ref SqsQueueUrl, '']]
+  HasImageCommand: !Not [!Equals [!Select [0, !Ref ImageCommand], '']]
 
 Resources:
   # IAM execution role with least-privilege policies for Lambda runtime
@@ -113,6 +139,34 @@ Resources:
                     - dynamodb:DeleteItem
                     - dynamodb:UpdateItem
                   Resource: !Split [',', !Ref DynamoDbTableArns]
+          - !Ref 'AWS::NoValue'
+        # SQS Send — only created when SqsSendQueueArns is provided
+        - !If
+          - HasSqsSend
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-sqs-send'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                    - sqs:GetQueueAttributes
+                  Resource: !Split [',', !Ref SqsSendQueueArns]
+          - !Ref 'AWS::NoValue'
+        # SQS Receive — only created when SqsReceiveQueueArns is provided
+        - !If
+          - HasSqsReceive
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-sqs-receive'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sqs:ReceiveMessage
+                    - sqs:DeleteMessage
+                    - sqs:GetQueueAttributes
+                    - sqs:ChangeMessageVisibility
+                  Resource: !Split [',', !Ref SqsReceiveQueueArns]
           - !Ref 'AWS::NoValue'
         # ECR image pull — explicit for auditability (container-packaged Lambda)
         - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
@@ -164,6 +218,10 @@ Resources:
       PackageType: Image
       Code:
         ImageUri: !Ref ImageUri
+      ImageConfig: !If
+        - HasImageCommand
+        - Command: !Ref ImageCommand
+        - !Ref 'AWS::NoValue'
       Role: !GetAtt LambdaExecutionRole.Arn
       MemorySize: !Ref MemorySize
       Timeout: !Ref Timeout
@@ -176,6 +234,7 @@ Resources:
           APP_NAMESPACE: !Ref Namespace
           APP_ENV: !Ref Environment
           AWS_LWA_REMOVE_BASE_PATH: '/prod'
+          SQS_QUEUE_URL: !If [HasSqsQueueUrl, !Ref SqsQueueUrl, !Ref 'AWS::NoValue']
       Tags:
         - Key: Namespace
           Value: !Ref Namespace

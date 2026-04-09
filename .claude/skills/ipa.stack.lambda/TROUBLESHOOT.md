@@ -28,6 +28,22 @@
 
 **Recovery**: Verify the DynamoDB stack output: `aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-ddb --query 'Stacks[0].Outputs[?OutputKey==\`TableArn\`].OutputValue' --output text`. Compare with the Lambda function's execution role policy. Re-run `/ipa.compose` and redeploy if the wiring is incorrect.
 
+### SQS permission denied
+
+**Symptom**: Application logs show "AccessDeniedException" or "not authorized to perform sqs:SendMessage" at runtime.
+
+**Root Cause**: The `SqsSendQueueArns` or `SqsReceiveQueueArns` parameter value does not match the actual SQS queue ARN. The execution role's SQS policy is scoped to the ARN(s) passed via parameter — a mismatch means no access.
+
+**Recovery**: Verify the SQS stack output: `aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-sqs --query 'Stacks[0].Outputs[?OutputKey==\`QueueArn\`].OutputValue' --output text`. Compare with the Lambda function's execution role policy. Re-run `/ipa.compose` and redeploy if the wiring is incorrect.
+
+### ImageCommand override not taking effect
+
+**Symptom**: Worker Lambda runs the default REST handler instead of the expected SQS handler.
+
+**Root Cause**: The `ImageCommand` parameter is empty or malformed. CloudFormation `CommaDelimitedList` splits on commas — the value must be comma-separated with no spaces (e.g., `python,-m,sqs_handler`).
+
+**Recovery**: Verify the deployed function configuration: `aws lambda get-function-configuration --function-name {APP_NAMESPACE}-{APP_ENV}-fn-worker --query 'ImageConfigResponse.ImageConfig.Command'`. If empty, check that the `ImageCommand` parameter is correctly passed in deploy.mk. Correct format: `ImageCommand=python,-m,sqs_handler`.
+
 ### Stack update fails with "No updates are to be performed"
 
 **Symptom**: `aws cloudformation deploy` exits with an error about no updates.

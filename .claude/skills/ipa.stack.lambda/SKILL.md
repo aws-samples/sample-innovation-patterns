@@ -28,19 +28,27 @@ Deploy a Lambda function with container image packaging. One template deployed a
 | AuthIssuer | String | — | — | — |
 | AuthAudience | String | — | — | — |
 | DynamoDbTableArns | String | (empty) | — | — |
+| SqsSendQueueArns | String | (empty) | — | — |
+| SqsReceiveQueueArns | String | (empty) | — | — |
+| SqsQueueUrl | String | (empty) | — | — |
+| ImageCommand | CommaDelimitedList | (empty) | — | — |
 
 ### Parameter Classification
 
-**Configuration** (7) — sourced from `.env`, `Config:` annotations, or defaults:
+**Configuration** (8) — sourced from `.env`, `Config:` annotations, or defaults:
 - Namespace, Environment, FunctionName, InvokeMode, MemorySize, Timeout, LogBucketName
+- ImageCommand — override container CMD (e.g., `python,-m,sqs_handler`). Leave empty to use Dockerfile CMD.
 
 **Wirable — Required** (3) — sourced from upstream stack outputs:
 - ImageUri ← ipa.stack.ecr `RepositoryUri` (compose appends `:$(IMAGE_TAG)`, resolved from `scripts/util/version.py`)
 - AuthIssuer ← ipa.stack.cognito `IssuerUrl`
 - AuthAudience ← ipa.stack.cognito `UserPoolClientId`
 
-**Wirable — Optional** (1) — sourced from upstream stack outputs when DynamoDB is composed:
+**Wirable — Optional** (4) — sourced from upstream stack outputs when composed:
 - DynamoDbTableArns ← ipa.stack.dynamodb `TableArn` (defaults to empty — no DynamoDB permissions granted)
+- SqsSendQueueArns ← ipa.stack.sqs `QueueArn` (defaults to empty — no SQS send permissions)
+- SqsReceiveQueueArns ← ipa.stack.sqs `QueueArn` (defaults to empty — no SQS receive permissions)
+- SqsQueueUrl ← ipa.stack.sqs `QueueUrl` (defaults to empty — no SQS_QUEUE_URL env var)
 
 ## Naming Convention
 
@@ -77,6 +85,6 @@ Both `fn` and `fn-stream` instances use the same container image — one `build-
 ## Security Summary
 
 **Required IAM actions**: lambda:CreateFunction, UpdateFunctionCode, UpdateFunctionConfiguration, DeleteFunction, GetFunction, TagResource, UntagResource + iam:CreateRole, PutRolePolicy, DeleteRole, PassRole — scoped to `{APP_NAMESPACE}-{APP_ENV}-*`
-**Runtime permissions**: Conditional DynamoDB CRUD, ECR image pull, CloudWatch Logs, Bedrock invoke (always), CloudWatch PutMetricData (always, namespace-scoped)
+**Runtime permissions**: Conditional DynamoDB CRUD, conditional SQS send/receive, ECR image pull, CloudWatch Logs, Bedrock invoke (always), CloudWatch PutMetricData (always, namespace-scoped)
 **Security controls**: No public function URL, dedicated least-privilege execution role, encryption in transit, 30-day log retention
 **Full advisory**: See [SECURITY.md](SECURITY.md)
