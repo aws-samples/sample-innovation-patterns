@@ -26,6 +26,10 @@ from app_lib.features.passengers.routes.passenger_routes import (
     router as passengers_router,
 )
 
+# SQS pattern
+from app_lib.features.jobs.routes.job_routes import job_router
+from app_lib.features.jobs.routes.job_sse_routes import job_sse_router
+
 app = FastAPI(
     title="Titanic Passenger API",
     version="1.0.0",
@@ -66,6 +70,10 @@ app.add_middleware(ObservabilityMiddleware)
 
 # Feature registration — 1 line per feature
 app.include_router(passengers_router)
+
+# SQS pattern
+app.include_router(job_router)
+app.include_router(job_sse_router)
 
 
 @app.get("/health")

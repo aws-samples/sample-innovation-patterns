@@ -1,6 +1,6 @@
 # innovation-patterns Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-03-27
+Auto-generated from all feature plans. Last updated: 2026-04-09
 
 ## Active Technologies
 - Markdown (Claude Code skill format) + Claude Code skill framework, AWS CLI (002-ipa-security-skill)
@@ -17,6 +17,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-27
 - Markdown (Claude Code skill format) — no executable code + Claude Code skill framework, AWS CLI, GNU Make (009-compose-stacks)
 - Filesystem — reads from `.claude/skills/`, `.env`, `infra/cfn/`, `patterns/`; writes to `.claude/skills/ipa.compose/`, `scripts/` (009-compose-stacks)
 - Markdown (Claude Code skill format) + None — Claude Code is the runtime (001-ipa-init-skill)
+- Python 3.12 (backend), TypeScript 5.9 (frontend — no changes needed) + FastAPI, PynamoDB, boto3 (Bedrock + SQS), Pydantic, uvicorn (011-passenger-jobs)
+- DynamoDB (`app_dev_jobs` table — already deployed, `app_dev_passengers` table — existing) (011-passenger-jobs)
 
 ## Project Structure
 
@@ -34,10 +36,9 @@ tests/
 Markdown (Claude Code skill format): Follow standard conventions
 
 ## Recent Changes
+- 011-passenger-jobs: Added Python 3.12 (backend), TypeScript 5.9 (frontend — no changes needed) + FastAPI, PynamoDB, boto3 (Bedrock + SQS), Pydantic, uvicorn
 - makefile-util-scripts: Replaced `utils/` Python CLI with direct AWS CLI commands in generated Makefiles; removed runbook generation
 - 009-compose-stacks: Added incremental composition support to `/ipa.compose`
-- 008-ipa-deploy-skill: Added `/ipa.deploy` process skill
-- 007-simplify-compose: Simplified `/ipa.compose` skill
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -83,4 +83,5 @@ dev = [
     "mkdocs-awesome-nav>=3.3.0",
     "mkdocs-material>=9.7.1",
     "mkdocstrings-python>=2.0.1",
+    "httpx>=0.28.1",
 ]
