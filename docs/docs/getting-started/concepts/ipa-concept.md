@@ -69,33 +69,37 @@ Stacks communicate through CloudFormation output values. Each stack exports outp
 
 Consider how authentication flows through a pattern. The Cognito stack exports `UserPoolArn`, `IssuerUrl`, and `UserPoolClientId`. The Lambda stack consumes `IssuerUrl` and `UserPoolClientId` as environment variables to validate JWT tokens at runtime. The API Gateway stack consumes `UserPoolArn` to configure its Cognito authorizer. The stacks themselves are decoupled — a stack does not need to know which other stacks consume its outputs, only what it exports. The pattern definition is where the wiring between stacks is specified [7][8].
 
-## The Skill Set: Process Skills and Resource Skills
+## The Skill Set
 
-IPA skills fall into two categories: process skills that orchestrate the workflow, and resource skills that define deployable infrastructure [11].
+IPA skills fall into three categories [11]:
 
 ### Process Skills
 
-Process skills are verbs — they drive the lifecycle but do not themselves define infrastructure. There are five process skills [11]:
+Process skills are verbs — they drive the lifecycle but do not themselves define infrastructure [11]:
 
 | Skill | Purpose |
 |-------|---------|
 | `/ipa.init` | Establish project defaults: AWS profile, IAM role ARNs, platform selection |
 | `/ipa.security` | Initialize or update the security posture for the composed pattern |
-| `/ipa.compose` | Select a pattern and generate the default skill, Makefiles, and runbook |
+| `/ipa.compose` | Select a pattern and generate Makefiles and security disposition |
 | `/ipa.deploy` | Build and deploy the composed pattern via Makefiles |
-| `/ipa.codepipeline` | Set up a CI/CD pipeline that executes the same Makefiles |
+| `/ipa.destroy` | Tear down deployed infrastructure in reverse order |
 
 Each process skill does one thing. The builder memorizes a short sequence — not a complex decision tree. `/ipa.security` automatically determines whether it needs to initialize security (first run) or update it (subsequent runs); the builder does not choose between separate init and update commands [11].
 
-### Resource Skills
+### Stack Skills
 
-Resource skills are nouns — they define what gets deployed. They are organized at two levels [11]:
+Stack skills (`/ipa.stack.*`) are nouns — they define what gets deployed. A stack skill wraps a CloudFormation template with skill metadata (SKILL.md, SECURITY.md, TROUBLESHOOT.md) [11].
 
-**Stack skills** (`/ipa.stack.*`) define a single CloudFormation stack wrapping a primary service. Examples include `/ipa.stack.cognito`, `/ipa.stack.dynamodb`, `/ipa.stack.lambda`, and `/ipa.stack.s3`. Each stack skill encapsulates the CloudFormation template path, parameters, expected outputs, and security metadata [11].
+Stack skills span the full spectrum of complexity:
+- **Single-service stacks** wrap one AWS service: `/ipa.stack.cognito`, `/ipa.stack.ecr`. These are typically prepare-lifecycle stacks that survive teardown.
+- **Consolidated tier stacks** bundle related services into a single deployable unit: `/ipa.stack.backend` (Lambda + API Gateway v2 + DynamoDB + CloudWatch), `/ipa.stack.frontend` (S3 + CloudFront + OAC), `/ipa.stack.queue` (SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch). Tier stacks use feature flags to toggle optional resources and internal `!Ref`/`!GetAtt` wiring to connect bundled services.
 
-**Pattern skills** (`/ipa.pattern.*`) compose multiple stack skills into a deployable solution. Examples include `/ipa.pattern.react-rest-lambda` and `/ipa.pattern.sqs-lambda`. A pattern skill defines the deployment order, parameter wiring between stacks, and the solution architecture [11].
+**Pattern definitions** (`.claude/skills/ipa.compose/patterns/`) compose stack skills into deployable solutions. A pattern definition specifies the deployment order, parameter wiring between stacks, and the solution architecture. Pattern definitions are not skills — they are consumed by `/ipa.compose` to generate Makefiles [7][8].
 
-When `/ipa.compose` runs, it selects a pattern from the available resource skill library and writes a concrete, project-specific pattern skill to `.claude/skills/`. This generated skill contains the specific stack sequence, parameter values, naming conventions, and output wiring for the project. The AI agent reads it and follows it [7].
+### Authoring Skills
+
+Authoring skills are meta-skills that create and update stack skills and pattern definitions. The authoring skill `/ipa.author.stack` handles the full spectrum — from single-service prepare stacks to multi-service consolidated tiers to pattern definitions.
 
 ## The Builder Workflow
 
@@ -125,9 +129,9 @@ This behavior is enabled by the agent-native design. Because the AI agent is the
 
 Every time `/ipa.compose` runs, it produces three categories of output [9]:
 
-1. A **pattern skill** in `.claude/skills/` — AI-readable, used by the builder during the engagement. This is not delivered to the customer.
+1. **Pattern definitions** in `.claude/skills/ipa.compose/patterns/` — AI-readable, used by the builder during the engagement. These are not delivered to the customer.
 2. **Makefiles** at `scripts/build.mk`, `scripts/test.mk`, and `scripts/deploy.mk` — executable by humans and CI/CD pipelines. These are delivered to the customer.
-3. A **runbook** at `docs/infra/runbook.md` — a human-readable, step-by-step document. This is the primary customer-facing deliverable.
+3. A **security disposition register** at `scripts/SECURITY-DISPOSITION.md` — documents known security findings and their dispositions.
 
 ### The Runbook
 
@@ -155,7 +159,7 @@ Security in IPA is a precondition, not a phase. The project's first design tenet
 
 A single process skill — `/ipa.security` — manages the entire security lifecycle [11]. It automatically determines whether security needs to be initialized (first run, when no IAM roles exist) or updated (subsequent runs, when the pattern has changed). The builder does not choose between separate initialization and update commands; the skill detects the current state and acts accordingly [11].
 
-`/ipa.security` generates least-privilege IAM policies by reading security metadata embedded in each stack skill used by the composed pattern. Each resource skill carries advisory information describing the permissions its stack requires. For example, a DynamoDB stack skill advises that it requires `dynamodb:PutItem`, `dynamodb:GetItem`, and `dynamodb:Query` on the table ARN. An S3 stack skill advises that it requires `s3:PutObject` and `s3:GetObject` on the bucket ARN, with public access denied. `/ipa.security` composes these individual advisories into a coherent security posture: a Builder Execution Role for local deployments, a CodeBuild Execution Role for pipeline deployments, and per-function execution roles — all scoped to exactly the permissions the pattern requires [11].
+`/ipa.security` generates least-privilege IAM policies by reading security metadata embedded in each stack skill used by the composed pattern. Each stack skill carries advisory information describing the permissions its stack requires. For example, a DynamoDB stack skill advises that it requires `dynamodb:PutItem`, `dynamodb:GetItem`, and `dynamodb:Query` on the table ARN. An S3 stack skill advises that it requires `s3:PutObject` and `s3:GetObject` on the bucket ARN, with public access denied. `/ipa.security` composes these individual advisories into a coherent security posture: a Builder Execution Role for local deployments, a CodeBuild Execution Role for pipeline deployments, and per-function execution roles — all scoped to exactly the permissions the pattern requires [11].
 
 As the pattern evolves — stacks added or removed via `/ipa.compose` — re-running `/ipa.security` automatically recalculates permissions, reducing the blast radius over time [11].
 
@@ -185,7 +189,7 @@ These tenets are design commitments, not aspirations. They constrain every decis
 
 ## What Comes Next
 
-This document establishes the conceptual foundation of the Innovation Patterns Agent. The concepts introduced here — stacks, patterns, process skills, resource skills, the eject workflow, the DSR, and the builder-to-customer handoff — are the vocabulary for the detailed documentation that follows.
+This document establishes the conceptual foundation of the Innovation Patterns Agent. The concepts introduced here — stacks, patterns, process skills, stack skills, authoring skills, the eject workflow, the DSR, and the builder-to-customer handoff — are the vocabulary for the detailed documentation that follows.
 
 Per-pattern reference documentation will describe the specific stacks and wiring for each supported pattern. Usage guides will provide step-by-step instructions for the builder workflow. Infrastructure architecture documents will specify resource-level configurations. Each of these documents builds on the concepts defined here.
 
@@ -203,4 +207,4 @@ The measure of success for IPA is the three value drivers: whether it makes clou
 8. Legacy IPA codebase — pattern files, stack templates, deployment scripts; used as inspiration for the current design
 9. Value proposition — three value drivers, builder-customer relationship, runbook as primary deliverable, Makefile execution model
 10. Legacy DSR implementation — Deliverable Security Review architecture, per-service question banks, compliance matrix output
-11. Skill taxonomy and security model — process skills versus resource skills, unified `/ipa.security`, metadata-driven least privilege, self-diagnosing and self-healing
+11. Skill taxonomy and security model — process skills, stack skills, authoring skills, unified `/ipa.security`, metadata-driven least privilege, self-diagnosing and self-healing
