@@ -8,20 +8,14 @@ import {
   IconCubeSpark,
   IconDashboard,
   IconDatabase,
-  IconDots,
   IconExternalLink,
   IconFileAi,
   IconFileDescription,
-  IconFileWord,
-  IconFolder,
   IconHelp,
   IconMail,
   IconMessageCircle,
-  IconReport,
   IconSearch,
   IconSettings,
-  IconShare3,
-  IconTrash,
   IconUsers,
   IconCreditCard,
   IconDotsVertical,
@@ -53,7 +47,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -73,7 +66,6 @@ const data = {
       icon: IconDatabase,
       flag: 'kb_playground' as const,
     },
-    { title: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark, flag: 'kitchen_sink' as const },
   ],
   navClouds: [
     {
@@ -110,10 +102,9 @@ const data = {
     { title: 'Get Help', url: '#', icon: IconHelp, external: false },
     { title: 'Search', url: '#', icon: IconSearch, external: false },
   ],
-  documents: [
-    { name: 'Data Library', url: '#', icon: IconDatabase },
-    { name: 'Reports', url: '#', icon: IconReport },
-    { name: 'Word Assistant', url: '#', icon: IconFileWord },
+  samples: [
+    { name: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark, flag: 'kitchen_sink' as const },
+    { name: 'Tabler Icons', url: 'https://tabler.io/icons', icon: IconExternalLink, external: true },
   ],
 }
 
@@ -140,7 +131,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} currentPath={pathname} />
-        <NavDocuments items={data.documents} />
+        <NavSamples items={data.samples} currentPath={pathname} />
         <NavSecondary items={data.navSecondary} className="mt-auto" currentPath={pathname} />
       </SidebarContent>
       <SidebarFooter>
@@ -199,56 +190,37 @@ function NavMain({ items, currentPath }: { items: typeof data.navMain; currentPa
   )
 }
 
-function NavDocuments({ items }: { items: typeof data.documents }) {
-  const { isMobile } = useSidebar()
+function NavSamples({
+  items,
+  currentPath,
+}: {
+  items: typeof data.samples
+  currentPath: string
+}) {
+  const visibleItems = items.filter((item) => !('flag' in item) || !item.flag || config.features[item.flag])
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Documents</SidebarGroupLabel>
+      <SidebarGroupLabel>Samples</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild>
-              <a href={item.url}>
-                <item.icon />
-                <span>{item.name}</span>
-              </a>
+            <SidebarMenuButton asChild isActive={'url' in item && !('external' in item) && item.url === currentPath}>
+              {'external' in item && item.external ? (
+                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                  <item.icon />
+                  <span>{item.name}</span>
+                  <IconExternalLink className="ml-auto size-3 text-muted-foreground" />
+                </a>
+              ) : (
+                <Link to={item.url}>
+                  <item.icon />
+                  <span>{item.name}</span>
+                </Link>
+              )}
             </SidebarMenuButton>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuAction showOnHover className="data-[state=open]:bg-accent rounded-sm">
-                  <IconDots />
-                  <span className="sr-only">More</span>
-                </SidebarMenuAction>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-24 rounded-lg"
-                side={isMobile ? 'bottom' : 'right'}
-                align={isMobile ? 'end' : 'start'}
-              >
-                <DropdownMenuItem>
-                  <IconFolder />
-                  <span>Open</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <IconShare3 />
-                  <span>Share</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive">
-                  <IconTrash />
-                  <span>Delete</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </SidebarMenuItem>
         ))}
-        <SidebarMenuItem>
-          <SidebarMenuButton className="text-sidebar-foreground/70">
-            <IconDots className="text-sidebar-foreground/70" />
-            <span>More</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
   )
