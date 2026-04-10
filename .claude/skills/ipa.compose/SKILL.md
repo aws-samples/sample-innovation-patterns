@@ -137,6 +137,7 @@ Extract these sections:
   - **Parse Config**: Extract parameter overrides from the `Config:` line (e.g., `FunctionName=fn EnablePassengersTable=true`). These become `--parameter-overrides` entries in the deploy target.
 - **Deploy Ordering**: If the pattern declares explicit deploy ordering constraints (e.g., "Queue deploys before backend"), record these for enforcement during multi-pattern merge.
 - **Shared Stacks** (compose-only patterns): List of stacks from other patterns that are modified by this pattern. Extract the additional parameter overrides (e.g., `EnableSqsIntegration=true` applied to backend by sqs-lambda).
+- **Shared Post-Deploy** (compose-only patterns): List of post-deploy steps from other patterns that are modified by this pattern. Extract additional CLI arguments (e.g., `--enable-feature jobs` appended to `configure-frontend` by sqs-lambda). Each entry names the target step and the arguments to append.
 - **Teardown Sequence**: Reverse-order list for teardown targets. Prepare-classified stacks are excluded from teardown.
 - **Known Deferrals** (optional): Security deferrals for the disposition register.
 - **Post-Deploy** (optional): Ordered list of operational steps that run after all stacks deploy. Extract: step names, dependencies (within post-deploy), stack output references, commands. If absent, post-deploy.mk will be a no-op.
@@ -163,6 +164,7 @@ When composing multiple patterns (e.g., `react-rest-lambda + sqs-lambda`):
 3. **Combine wiring**: Union of all wiring entries from all patterns. Consolidated stacks have distinct parameter names, so no wiring conflicts occur.
 4. **Merge parameter overrides**: When multiple patterns configure the same stack (e.g., backend gets `EnablePassengersTable=true` from react-rest-lambda and `EnableSqsIntegration=true` from sqs-lambda), combine all parameter overrides into a single `--parameter-overrides` line.
 5. **Apply shared stack modifications**: Compose-only patterns declare modifications to shared stacks (e.g., sqs-lambda adds `EnableSqsIntegration=true` to backend). Apply these as additional parameter overrides on the shared stack's deploy target.
+6. **Apply shared post-deploy modifications**: Compose-only patterns may declare modifications to existing post-deploy steps via `## Shared Post-Deploy`. For each declared modification, record the target step name and the additional CLI arguments to append. These are applied during post-deploy.mk generation (Step 6b) — the arguments are appended to the target step's command line.
 
 Run validation procedures V2 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 

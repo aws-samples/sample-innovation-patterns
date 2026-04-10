@@ -531,16 +531,10 @@ To maximize auto-wiring success: name wirable parameters to match their upstream
 
 Reference for understanding the current ecosystem and avoiding naming or suffix collisions.
 
-| Stack | Suffix | Capabilities | Parameters | Outputs | Lifecycle |
-|-------|--------|-------------|------------|---------|-----------|
-| ipa.stack.cognito | cognito | none | 6 | 8 | prepare |
-| ipa.stack.ecr | ecr | none | 2 | 2 | prepare |
-| ipa.stack.dynamodb | ddb[-{model}] | none | 5 | 1 | deploy |
-| ipa.stack.lambda | {fn-name} | CAPABILITY_NAMED_IAM | 11 | 3 | deploy |
-| ipa.stack.apigw | apigw | none | 7 | 2 | deploy |
-| ipa.stack.apigwv2 | apigwv2 | none | 8 | 2 | deploy |
-| ipa.stack.s3 | s3 | none | 4 | 3 | deploy |
-| ipa.stack.cloudfront | cf | none | 7 | 3 | deploy |
-| ipa.stack.app-cloudwatch | cw | none | 8 | 1 | deploy |
-| ipa.stack.sqs | sqs | none | 8 | 5 | deploy |
-| ipa.stack.sqs-esm | esm | none | 7 | 0 | deploy |
+| Stack | Suffix | Capabilities | Lifecycle | Notes |
+|-------|--------|-------------|-----------|-------|
+| ipa.stack.cognito | cognito | none | prepare | Authentication provider |
+| ipa.stack.ecr | ecr | none | prepare | Container registry |
+| ipa.stack.frontend | frontend | none | deploy | Consolidated: S3 + CloudFront + OAC |
+| ipa.stack.backend | backend | CAPABILITY_NAMED_IAM | deploy | Consolidated: Lambda + API GW v2 + DynamoDB + CloudWatch |
+| ipa.stack.queue | queue | CAPABILITY_NAMED_IAM | deploy | Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch |

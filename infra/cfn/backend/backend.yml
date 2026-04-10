@@ -206,6 +206,23 @@ Resources:
                     - sqs:GetQueueAttributes
                   Resource: !Split [',', !Ref SqsSendQueueArns]
           - !Ref 'AWS::NoValue'
+        # DynamoDB jobs table (cross-tier) — convention-based ARN, only when SQS integration is enabled
+        - !If
+          - HasSqsIntegration
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb-jobs'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                    - dynamodb:GetItem
+                    - dynamodb:Query
+                    - dynamodb:Scan
+                    - dynamodb:DeleteItem
+                    - dynamodb:UpdateItem
+                  Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Namespace}_${Environment}_jobs'
+          - !Ref 'AWS::NoValue'
         # ECR image pull — explicit for auditability (container-packaged Lambda)
         - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
           PolicyDocument:
@@ -262,7 +279,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       MemorySize: !Ref MemorySize
       Timeout: !Ref Timeout
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: 50
       Environment:
         Variables:
           AUTH_ISSUER: !Ref AuthIssuer

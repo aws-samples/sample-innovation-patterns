@@ -102,6 +102,15 @@ When this pattern is composed with `react-rest-lambda`, the backend stack receiv
 | SQS-1 | No FIFO queue support | POC scope — standard queue sufficient |
 | SQS-2 | No SSE streaming for job status | Deferred to react-rest-lambda composition (feature flag TBD) |
 
+## Shared Post-Deploy
+
+When this pattern is composed with `react-rest-lambda`, the following post-deploy steps are modified:
+
+### configure-frontend
+
+Additional CLI arguments:
+- `--enable-feature jobs` — Enable the jobs UI for SQS-based background processing
+
 ## Post-Deploy
 
 None — infrastructure-only pattern. No data loading, no frontend configuration, no post-deploy wiring steps.

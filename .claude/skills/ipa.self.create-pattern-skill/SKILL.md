@@ -37,8 +37,10 @@ If pattern-name is omitted, ask the user.
    a. **Architecture overview** — "What does this pattern deploy end-to-end? What is the user-facing application?"
       Example: "A REST API backed by Lambda with DynamoDB storage, Cognito auth, and a React frontend on CloudFront"
 
-   b. **Stack selection** — "Which stack skills should this pattern include?" Present the available stack inventory from REFERENCE.md Section 4 as a numbered list. The user selects by number or name.
-      - For multi-instance stacks (DynamoDB, Lambda), ask how many instances and what suffixes.
+   b. **Stack selection** — "Which stack skills should this pattern include?" Present the available stack inventory from REFERENCE.md Section 4 as a numbered list, with tier stacks listed first (recommended). The user selects by number or name.
+      - **Recommend tier stacks** (backend, frontend, queue) for new patterns. These consolidate related services and minimize inter-stack wiring.
+      - Only suggest individual service stacks (lambda, apigwv2, s3, etc.) for edge cases not covered by tier stacks.
+      - For tier stacks with feature flags, ask which optional resources to enable (see step 6f-ii).
 
    c. **Lifecycle classification** — For each selected stack, determine: prepare or deploy?
       - Recommend `(prepare)` for: authentication providers, container registries, and other foundational resources that should survive teardown.
@@ -51,7 +53,10 @@ If pattern-name is omitted, ask the user.
    e. **Stack suffixes** — Confirm the suffix for each stack. Default to the service name. Flag any collisions.
 
    f. **Config overrides** — For any stack that needs non-default parameter values, collect them.
-      Example: Lambda with `FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300`
+      Example: Backend with `FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300`
+
+      **Feature flags** — For tier stacks (backend, queue), ask which feature flags to enable. Feature flags control conditional resources within the tier (e.g., DynamoDB tables, SQS integration). Defaults are `false` — patterns must explicitly enable them.
+      Example: Backend with `EnablePassengersTable=true`, Queue with `EnableJobsTable=true`
 
    g. **Post-deploy steps** — "Are there operational steps needed after all stacks deploy?" (e.g., frontend config generation, data loading, CORS updates, Cognito callback wiring).
 
@@ -76,12 +81,16 @@ If pattern-name is omitted, ask the user.
 10. Read each selected stack's SKILL.md to extract:
     - Parameters table and Parameter Classification (identify all Wirable — Required and Wirable — Optional parameters).
     - Outputs table (identify all exported outputs).
+    - For tier stacks: also read the Feature Flags table and Wirable Parameters table (which pre-documents expected sources).
+    - Note internal connections within tier stacks — these do NOT need wiring entries (e.g., Lambda↔API Gateway, Lambda↔DynamoDB within backend tier are handled by `!GetAtt`/`!Ref` inside the template).
 
 11. For each Wirable parameter in a target stack, find the source:
+    - **Tier stacks pre-document their expected sources** in the Wirable Parameters table. Use this as a starting point — it lists the expected source stack and output for each wirable parameter.
     - Check if a source stack in the pattern exports a matching output.
     - When names match exactly (e.g., `BucketArn` output -> `BucketArn` parameter), note as auto-wirable.
     - When names differ (e.g., `IssuerUrl` output -> `AuthIssuer` parameter), the wiring entry must provide the explicit mapping.
     - For Wirable — Optional parameters: wire only if the source stack is included in the pattern. If not, leave unwired (the target stack handles the empty case).
+    - For feature-flag-gated parameters (e.g., `SqsQueueUrl` gated by `EnableSqsIntegration`): wire only when the feature flag is enabled in the Config.
     - For unresolved wirable parameters: ask the user which source to use, or confirm the parameter should remain unresolved.
 
 12. Assemble the complete wiring list as source/target/notes entries. Present to the user for confirmation:
@@ -90,14 +99,21 @@ If pattern-name is omitted, ask the user.
     Wiring Summary:
     | Source Stack | Output | -> Target Stack | Parameter | Type |
     |-------------|--------|-----------------|-----------|------|
-    | ecr | RepositoryUri | fn | ImageUri | explicit |
-    | cognito | IssuerUrl | fn | AuthIssuer | explicit |
-    | s3 | BucketArn | cf | BucketArn | auto |
+    | ecr | RepositoryUri | backend | ImageUri | explicit |
+    | cognito | IssuerUrl | backend | AuthIssuer | explicit |
+    | cognito | UserPoolClientId | backend | AuthAudience | explicit |
+    | security | LogBucketName | frontend | LogBucketDomainName | explicit |
+
+    Internal (no wiring entries needed):
+    - backend: Lambda↔API Gateway v2, Lambda↔DynamoDB, Lambda↔CloudWatch
+    - frontend: S3↔CloudFront OAC
     ```
 
     Ask: "Does this wiring look correct? Any connections to add or remove?"
 
-13. Identify convention-based connections (stacks that connect by naming convention, not wiring). Document these as YAML comments.
+13. Identify convention-based and internal connections. Document these as YAML comments in the Wiring section:
+    - **Internal connections** within tier stacks (handled by `!GetAtt`/`!Ref` in the template).
+    - **Convention-based connections** (e.g., DynamoDB table names resolved at runtime via `PynamodbUtil.env_table_name()`).
 
 ### Phase 4: Collect Deferrals and Post-Deploy
 
@@ -164,10 +180,14 @@ If pattern-name is omitted, ask the user.
 
 - Pattern names are lowercase with hyphens (e.g., `react-rest-lambda`, `api-worker-queue`).
 - Only reference stack skills that exist in `.claude/skills/ipa.stack.*/`. Do not reference stacks that have not been created yet.
+- **Prefer tier stacks** (backend, frontend, queue) over individual service stacks for new patterns. Tier stacks consolidate related services and minimize inter-stack wiring. Only use service stacks for edge cases not covered by tier stacks.
+- **Feature flags default to `false`** in tier stacks. Patterns must explicitly enable them via Config (e.g., `EnablePassengersTable=true`). Do not assume feature flags are enabled.
+- **Deploy ordering for queue + backend**: Queue deploys before backend. Backend receives queue outputs (SqsQueueUrl, SqsSendQueueArns) via wirable parameters and requires `EnableSqsIntegration=true`.
 - Stack Sequence must satisfy topological ordering — no stack may depend on a stack that appears after it.
 - Teardown Sequence must be the exact reverse of deploy-lifecycle stacks. No reordering.
 - Wiring references use stack suffixes (not full `ipa.stack.{service}` names) for both source and target.
 - Every Wirable — Required parameter should have a wiring entry unless the user explicitly accepts it as unresolved.
+- **Internal tier connections** (Lambda↔API Gateway, Lambda↔DynamoDB, S3↔CloudFront, SQS↔worker Lambda, etc.) do not need wiring entries — they are handled by `!GetAtt`/`!Ref` within the tier template. Document them as YAML comments.
 - Convention-based connections are documented as YAML comments in the Wiring section, not as wiring entries.
 - Known Deferral IDs use `{STACK_PREFIX}-{N}` format and must be unique within the pattern.
 - Post-Deploy steps that update existing CloudFormation stacks must note "passes ALL original parameters plus updated parameter."

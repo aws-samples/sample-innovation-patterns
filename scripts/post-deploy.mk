@@ -41,6 +41,7 @@ configure-frontend:
 		--oidc-client-id "$(OIDC_CLIENT_ID)" \
 		--oidc-redirect-uri "$(APP_URL)/authentication/callback" \
 		--oidc-end-session-endpoint "$(OIDC_END_SESSION_ENDPOINT)" \
+		--enable-feature jobs \
 		--output web-client/dist/config.js
 
 upload-frontend: configure-frontend

@@ -33,9 +33,9 @@ All parameters are **Configuration** type — sourced from `.env` or defaults. N
 | Output | Description | Export Convention | Used By |
 |--------|-------------|------------------|---------|
 | UserPoolId | ID of the Cognito User Pool | `{StackName}-UserPoolId` | Admin operations |
-| UserPoolArn | ARN of the Cognito User Pool | `{StackName}-UserPoolArn` | ipa.stack.apigwv2 (CognitoUserPoolArn) |
-| UserPoolClientId | ID of the App Client | `{StackName}-UserPoolClientId` | ipa.stack.lambda (AuthAudience) |
-| IssuerUrl | OIDC Issuer base URL | `{StackName}-IssuerUrl` | ipa.stack.lambda (AuthIssuer) |
+| UserPoolArn | ARN of the Cognito User Pool | `{StackName}-UserPoolArn` | ipa.stack.backend (JWT authorizer), ipa.stack.queue (JWT authorizer) |
+| UserPoolClientId | ID of the App Client | `{StackName}-UserPoolClientId` | ipa.stack.backend (AuthAudience), ipa.stack.queue (AuthAudience) |
+| IssuerUrl | OIDC Issuer base URL | `{StackName}-IssuerUrl` | ipa.stack.backend (AuthIssuer), ipa.stack.queue (AuthIssuer) |
 | EndSessionEndpoint | Cognito logout base URL | `{StackName}-EndSessionEndpoint` | Frontend OIDC config |
 | HostedUIURL | Full Cognito login URL | `{StackName}-HostedUIURL` | Runbook reference |
 | CognitoDomain | Domain prefix value | `{StackName}-CognitoDomain` | Frontend OIDC authority |

@@ -59,7 +59,7 @@ tests/
 4. Routes: FastAPI `APIRouter(prefix="/api/v1", tags=["your_feature"])`
 5. Register in `common/app.py`: import router + `app.include_router(your_router)`
 6. Add tests in `tests/features/{name}/`
-7. If DynamoDB table needed: add stack via `/ipa.stack.dynamodb`
+7. If DynamoDB table needed: enable via feature flag in tier stack (e.g., `EnablePassengersTable=true` on backend, `EnableJobsTable=true` on queue)
 
 ## Coding Standards
 

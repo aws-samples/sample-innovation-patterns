@@ -113,11 +113,11 @@ global_settings:
     - rule_id: 'dockerfile.security.missing-user.missing-user'
       path: 'infra/containers/rest-lambda/Dockerfile'
       reason: 'Not applicable — Lambda container images run inside Lambda execution sandbox; USER directive has no security impact'
-    # path-to-regexp 0.1.12 — transitive dep pinned by express (used by Docusaurus dev server).
-    # No fix available; express has not updated this dependency. Docs site only, not production-facing.
+    # path-to-regexp — FIXED: upgraded to 0.1.13 via npm audit fix (2026-04-10)
+    # Suppression retained in case lockfile regeneration temporarily reverts.
     - rule_id: 'GHSA-37ch-88jc-xwx2-path-to-regexp'
       path: 'docs/package-lock.json'
-      reason: 'No fix available — pinned by express in Docusaurus; docs site only, not production-facing'
+      reason: 'Fixed — upgraded to 0.1.13 via npm audit fix; suppression retained as safety net'
       expiration: '2026-06-30'
     # Dockerfile HEALTHCHECK — not applicable for Lambda container images.
     # Lambda manages function health internally; Docker HEALTHCHECK is ignored by the Lambda runtime.
@@ -234,33 +234,16 @@ global_settings:
       path: 'infra/cfn/queue/queue.yml'
       reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
     # ========================================================================
-    # lodash / lodash-es 4.17.23 — transitive dependencies pinned by upstream
-    # packages (Docusaurus, recharts, oazapfts, @chevrotain). lodash 4.18.x
-    # exists but upstream has not updated yet. Not direct dependencies.
+    # lodash / lodash-es — docs/ fixed to 4.18.1 via npm audit fix (2026-04-10).
+    # web-client/ still on 4.17.23 — transitive dep pinned by recharts/oazapfts.
     # ========================================================================
     - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash'
-      path: 'docs/package-lock.json'
-      reason: 'Transitive dep pinned by Docusaurus; lodash 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash'
       path: 'web-client/package-lock.json'
       reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash-es'
-      path: 'docs/package-lock.json'
-      reason: 'Transitive dep pinned by @chevrotain (Docusaurus); lodash-es 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash'
-      path: 'docs/package-lock.json'
-      reason: 'Transitive dep pinned by Docusaurus; lodash 4.18.x available but upstream has not updated'
       expiration: '2026-06-26'
     - rule_id: 'GHSA-f23m-r3pf-42rh-lodash'
       path: 'web-client/package-lock.json'
       reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash-es'
-      path: 'docs/package-lock.json'
-      reason: 'Transitive dep pinned by @chevrotain (Docusaurus); lodash-es 4.18.x available but upstream has not updated'
       expiration: '2026-06-26'
     # ========================================================================
     # unsafe-formatstring — template literal in console.error, not a format string.

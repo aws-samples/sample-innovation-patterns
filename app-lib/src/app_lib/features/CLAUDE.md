@@ -111,7 +111,7 @@ Create `tests/features/{name}/` mirroring the feature structure with `__init__.p
 
 ### Step 7: Infrastructure (if needed)
 
-Deploy a DynamoDB table: `/ipa.stack.dynamodb` with your table name.
+Enable a DynamoDB table via feature flag in the appropriate tier stack (e.g., `EnablePassengersTable=true` on backend, `EnableJobsTable=true` on queue).
 
 ## Firewall Rule
 

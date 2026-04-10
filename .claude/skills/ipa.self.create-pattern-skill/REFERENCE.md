@@ -310,7 +310,139 @@ For `ipa.compose` to process a pattern, it must pass V2 (pattern validation) and
 
 Stack skills available for pattern composition. Use this to select stacks and plan wiring.
 
-### ipa.stack.cognito (Lifecycle: prepare)
+**Stack types:**
+- **Tier stacks** — Consolidated stacks that bundle related AWS services into a single deployable unit with feature flags for optional resources. **Recommended for new patterns.** Tier stacks internalize many cross-service wiring connections (e.g., Lambda↔API Gateway, Lambda↔DynamoDB, Lambda↔CloudWatch are all handled within the tier template), resulting in dramatically simpler inter-stack wiring.
+- **Prepare stacks** — One-time prerequisite resources that survive teardown.
+- **Service stacks** — Single-service building blocks. These exist for backward compatibility and edge cases. For new patterns, prefer tier stacks over composing individual service stacks.
+
+### Tier Stacks (Recommended for New Patterns)
+
+#### ipa.stack.backend (Lifecycle: deploy)
+
+**Suffix**: `backend` | **Capabilities**: CAPABILITY_NAMED_IAM | **Tier**: backend
+
+Consolidated backend tier: Lambda + API Gateway v2 (JWT authorizer, CORS, SSE streaming) + DynamoDB (feature-flagged) + CloudWatch dashboard.
+
+**Parameters** (beyond Namespace/Environment):
+
+| Parameter | Classification | Default | Description |
+|-----------|---------------|---------|-------------|
+| ImageUri | Wirable — Required | — | ECR image URI with tag |
+| AuthIssuer | Wirable — Required | — | Cognito OIDC issuer URL |
+| AuthAudience | Wirable — Required | — | Cognito app client ID |
+| FunctionName | Config | `fn` | Lambda function name |
+| InvokeMode | Config | `RESPONSE_STREAM` | Lambda invocation mode |
+| MemorySize | Config | `512` | Lambda memory (MB) |
+| Timeout | Config | `300` | Lambda timeout (seconds) |
+| ImageCommand | Config | *(empty)* | Override container CMD |
+| EnablePassengersTable | Feature Flag | `false` | Create passengers DynamoDB table |
+| EnableSqsIntegration | Feature Flag | `false` | Enable SQS send permissions + env var |
+| SqsQueueUrl | Wirable — Optional | *(empty)* | SQS queue URL (when EnableSqsIntegration=true) |
+| SqsSendQueueArns | Wirable — Optional | *(empty)* | SQS queue ARNs for send policy (when EnableSqsIntegration=true) |
+| AlarmSnsTopicArn | Wirable — Optional | *(empty)* | SNS topic for alarm actions |
+
+**Feature Flags:**
+
+| Flag | Default | Controls |
+|------|---------|----------|
+| EnablePassengersTable | `false` | PassengersTable resource, DynamoDB IAM policy, PassengersTableArn output |
+| EnableSqsIntegration | `false` | SQS_QUEUE_URL env var, SQS send IAM policy |
+
+**Outputs**:
+
+| Output | Typical Consumers |
+|--------|------------------|
+| ApiUrl | Post-deploy (configure-frontend, update-backend-cors) |
+| FunctionArn | Monitoring |
+| FunctionName | Monitoring, invoke commands |
+| DashboardUrl | Observability |
+| PassengersTableArn | Conditional (HasPassengersTable) |
+
+**Internal composition** (no external wiring needed): Lambda↔API Gateway v2, Lambda↔DynamoDB, Lambda↔CloudWatch — all connected via `!GetAtt` and `!Ref` within the template.
+
+---
+
+#### ipa.stack.frontend (Lifecycle: deploy)
+
+**Suffix**: `frontend` | **Capabilities**: none | **Tier**: frontend
+
+Consolidated frontend tier: S3 static hosting + CloudFront distribution + OAC.
+
+**Parameters** (beyond Namespace/Environment):
+
+| Parameter | Classification | Default | Description |
+|-----------|---------------|---------|-------------|
+| LogBucketDomainName | Wirable — Required | — | Log bucket domain name for access logs |
+| BucketNameSuffix | Config | `web` | Suffix for S3 bucket name |
+
+**Outputs**:
+
+| Output | Typical Consumers |
+|--------|------------------|
+| AppUrl | Post-deploy (configure-frontend, update-cognito-callback, update-backend-cors) |
+| DistributionId | Post-deploy (invalidate-cf) |
+| DistributionDomainName | Reference |
+| BucketName | Post-deploy (upload-frontend) |
+
+**Internal composition**: S3↔CloudFront OAC, bucket policy scoped to distribution ARN — all within the template.
+
+---
+
+#### ipa.stack.queue (Lifecycle: deploy)
+
+**Suffix**: `queue` | **Capabilities**: CAPABILITY_NAMED_IAM | **Tier**: queue
+
+Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch dashboard.
+
+**Parameters** (beyond Namespace/Environment):
+
+| Parameter | Classification | Default | Description |
+|-----------|---------------|---------|-------------|
+| ImageUri | Wirable — Required | — | ECR image URI with tag |
+| AuthIssuer | Wirable — Required | — | Cognito OIDC issuer URL |
+| AuthAudience | Wirable — Required | — | Cognito app client ID |
+| QueueName | Config | `jobs` | Logical queue name |
+| VisibilityTimeout | Config | `300` | Message visibility timeout (seconds) |
+| MessageRetentionPeriod | Config | `345600` | Message retention (seconds, default 4 days) |
+| MaxReceiveCount | Config | `3` | Attempts before DLQ |
+| CreateDLQ | Feature Flag | `true` | Create dead-letter queue |
+| FunctionName | Config | `fn-worker` | Worker Lambda name |
+| MemorySize | Config | `512` | Worker Lambda memory (MB) |
+| Timeout | Config | `300` | Worker Lambda timeout (seconds) |
+| ImageCommand | Config | `python,-m,sqs_handler` | Worker container CMD |
+| EnableJobsTable | Feature Flag | `false` | Create jobs DynamoDB table |
+| AlarmSnsTopicArn | Wirable — Optional | *(empty)* | SNS topic for alarm actions |
+
+**Feature Flags:**
+
+| Flag | Default | Controls |
+|------|---------|----------|
+| EnableJobsTable | `false` | JobsTable resource, DynamoDB IAM policy, JobsTableArn output |
+| CreateDLQ | `true` | DeadLetterQueue resource, DlqUrl/DlqArn outputs, DLQ depth alarm |
+
+**Outputs**:
+
+| Output | Typical Consumers |
+|--------|------------------|
+| QueueUrl | ipa.stack.backend (SqsQueueUrl) |
+| QueueArn | ipa.stack.backend (SqsSendQueueArns) |
+| QueueName | Reference |
+| WorkerFunctionArn | Monitoring |
+| WorkerFunctionName | Monitoring |
+| DlqUrl | Conditional (HasDLQ) |
+| DlqArn | Conditional (HasDLQ) |
+| JobsTableArn | Conditional (HasJobsTable) |
+| DashboardUrl | Observability |
+
+**Internal composition**: SQS↔worker Lambda ESM, Lambda↔DynamoDB, Lambda↔CloudWatch, SQS↔DLQ — all connected within the template.
+
+**Deploy ordering**: Queue deploys **before** backend (backend receives queue outputs via wirable parameters).
+
+---
+
+### Prepare Stacks
+
+#### ipa.stack.cognito (Lifecycle: prepare)
 
 **Suffix**: `cognito` | **Capabilities**: none
 
@@ -321,12 +453,13 @@ Stack skills available for pattern composition. Use this to select stacks and pl
 - DeletionProtection (Config, default: INACTIVE)
 
 **Outputs**:
+
 | Output | Typical Consumers |
 |--------|------------------|
 | UserPoolId | Admin operations |
-| UserPoolArn | ipa.stack.apigw (CognitoUserPoolArn) |
-| UserPoolClientId | ipa.stack.lambda (AuthAudience), ipa.stack.apigwv2 (UserPoolClientId) |
-| IssuerUrl | ipa.stack.lambda (AuthIssuer), ipa.stack.apigwv2 (IssuerUrl) |
+| UserPoolArn | Security policy scoping |
+| UserPoolClientId | ipa.stack.backend (AuthAudience), ipa.stack.queue (AuthAudience) |
+| IssuerUrl | ipa.stack.backend (AuthIssuer), ipa.stack.queue (AuthIssuer) |
 | EndSessionEndpoint | Frontend OIDC config |
 | HostedUIURL | Runbook reference |
 | CognitoDomain | Frontend OIDC authority |
@@ -334,114 +467,41 @@ Stack skills available for pattern composition. Use this to select stacks and pl
 
 ---
 
-### ipa.stack.ecr (Lifecycle: prepare)
+#### ipa.stack.ecr (Lifecycle: prepare)
 
 **Suffix**: `ecr` | **Capabilities**: none
 
 **Parameters**: Namespace, Environment only.
 
 **Outputs**:
+
 | Output | Typical Consumers |
 |--------|------------------|
-| RepositoryUri | ipa.stack.lambda (ImageUri) |
+| RepositoryUri | ipa.stack.backend (ImageUri), ipa.stack.queue (ImageUri) |
 | RepositoryArn | Security policy scoping |
 
 ---
 
-### ipa.stack.dynamodb (Lifecycle: deploy)
-
-**Suffix**: `ddb` or `ddb-{model}` (multi-instance) | **Capabilities**: none
-
-**Parameters** (beyond Namespace/Environment):
-- TableName (Pattern-provided, from `APP_DDB_TABLE_{MODEL}`)
-- PartitionKey (Config, default: `id`)
-- BillingMode (Config, default: `PAY_PER_REQUEST`)
-
-**Outputs**:
-| Output | Typical Consumers |
-|--------|------------------|
-| TableArn | ipa.stack.lambda (DynamoDbTableArns) |
-
----
-
-### ipa.stack.lambda (Lifecycle: deploy)
-
-**Suffix**: `{fn-name}` (e.g., `fn`, `fn-stream`) | **Capabilities**: CAPABILITY_NAMED_IAM
-
-**Parameters** (beyond Namespace/Environment):
-- FunctionName (Pattern-provided)
-- InvokeMode (Config: `BUFFERED` or `RESPONSE_STREAM`)
-- MemorySize (Config, default: 512)
-- Timeout (Config, default: 30)
-- LogBucketName (Wirable — Optional, from ipa.security)
-- ImageUri (Wirable — Required, from ecr RepositoryUri)
-- AuthIssuer (Wirable — Required, from cognito IssuerUrl)
-- AuthAudience (Wirable — Required, from cognito UserPoolClientId)
-- DynamoDbTableArns (Wirable — Optional, from dynamodb TableArn)
-
-**Outputs**:
-| Output | Typical Consumers |
-|--------|------------------|
-| FunctionArn | ipa.stack.apigw/apigwv2 (LambdaFunctionArn) |
-| FunctionName | Monitoring, invoke commands |
-| ExecutionRoleArn | Security auditing |
-
-**Build Requirements**: container image from ECR (Dockerfile path in skill).
-
----
-
-### ipa.stack.apigw (Lifecycle: deploy)
-
-**Suffix**: `apigw` | **Capabilities**: none
-
-REST API Gateway v1 with Cognito authorizer.
-
-**Key Wirable Parameters**: CognitoUserPoolArn, LambdaFunctionArn, StreamingLambdaFunctionArn (optional)
-**Key Outputs**: ApiUrl, ApiId
-
----
-
-### ipa.stack.apigwv2 (Lifecycle: deploy)
-
-**Suffix**: `apigwv2` | **Capabilities**: none
-
-HTTP API Gateway v2 with JWT authorizer and SSE streaming routes.
-
-**Key Wirable Parameters**: LambdaFunctionArn, IssuerUrl, UserPoolClientId, StreamingLambdaFunctionArn (optional)
-**Key Outputs**: ApiUrl, ApiId
-
----
-
-### ipa.stack.s3 (Lifecycle: deploy)
-
-**Suffix**: `s3` | **Capabilities**: none
-
-**Key Wirable Parameters**: LogBucketName (from ipa.security)
-**Key Outputs**: BucketName, BucketArn, BucketDomainName
-
----
-
-### ipa.stack.cloudfront (Lifecycle: deploy)
-
-**Suffix**: `cf` | **Capabilities**: none
-
-**Key Wirable Parameters**: S3BucketDomainName, S3BucketArn, S3BucketName, ApiGatewayUrl (optional), LogBucketName (optional)
-**Key Outputs**: DistributionId, DistributionDomainName, AppUrl
-
----
-
-### ipa.stack.app-cloudwatch (Lifecycle: deploy)
-
-**Suffix**: `cw` or `app-cloudwatch` | **Capabilities**: none
-
-Convention-based — reads log group names from Namespace + Environment. No explicit wiring needed for standard deployments.
-
-**Key Config Parameters**: LambdaFunctionNames, ApiGatewayName, various thresholds
-**Key Outputs**: DashboardName
-
 ---
 
 ## 5. Wiring Design Guidance
+
+### Tier Stacks and Internal Wiring
+
+Tier stacks (backend, frontend, queue) internalize many connections that previously required explicit wiring between separate stacks. When using tier stacks:
+
+- **Internal connections require no wiring entries.** Lambda↔API Gateway, Lambda↔DynamoDB, Lambda↔CloudWatch, SQS↔worker Lambda, S3↔CloudFront — these are all handled via `!GetAtt` and `!Ref` within the tier template.
+- **External wiring is only needed for cross-stack connections** — typically prepare stacks wiring into tier stacks (e.g., ECR→backend for ImageUri, Cognito→backend for AuthIssuer) and cross-tier connections (e.g., queue→backend for SqsQueueUrl).
+- **Feature flags replace separate stack instances.** Instead of composing a standalone `ipa.stack.dynamodb` for each table, enable DynamoDB via feature flags (e.g., `EnablePassengersTable=true` on backend, `EnableJobsTable=true` on queue). This eliminates DynamoDB→Lambda wiring entirely.
+- **CloudWatch is embedded.** Backend and queue tiers include their own CloudWatch dashboards. No separate `ipa.stack.app-cloudwatch` or wiring needed.
+
+Document internal connections as YAML comments for clarity:
+
+~~~yaml
+  # --- Internal wiring (within backend template) ---
+  # Lambda↔API Gateway v2, Lambda↔DynamoDB, Lambda↔CloudWatch
+  # all connected via !GetAtt and !Ref within infra/cfn/backend/backend.yml
+~~~
 
 ### Auto-Wiring vs Explicit Wiring
 
@@ -456,19 +516,30 @@ Convention-based — reads log group names from Namespace + Environment. No expl
 ### Convention-Based Connections
 
 Some stacks connect by naming convention rather than explicit wiring:
-- **App CloudWatch** constructs log group names from `Namespace + Environment` — no wiring entry needed.
-- **DynamoDB runtime access** — Lambda resolves table names via `PynamodbUtil.env_table_name()` convention. The wiring only provides `TableArn` for IAM policy scoping, not for table name resolution.
+- **Embedded CloudWatch** in backend and queue tiers constructs log group names internally — no wiring entry needed.
+- **DynamoDB runtime access** — Lambda resolves table names via `PynamodbUtil.env_table_name()` convention. When using tier stack feature flags, IAM policies are also scoped internally via `!GetAtt Table.Arn` — no external wiring needed.
+- **Cross-tier DynamoDB access** uses convention-based ARN construction, not wiring parameters (K2:B decision from 012-tier-stack-consolidation).
 
 Document convention-based connections as YAML comments in the Wiring section:
 
 ~~~yaml
-  # Lambda → App CloudWatch — no explicit wiring needed
-  # App CloudWatch constructs log group names by convention from Namespace + Environment
+  # Worker Lambda → Jobs DDB: table name resolved at runtime via PynamodbUtil.env_table_name('jobs')
+  # IAM policy scoped internally via !GetAtt within queue template
 ~~~
+
+### Cross-Tier Wiring (queue → backend)
+
+When a pattern includes both queue and backend tiers, the queue tier provides outputs that wire into the backend's SQS integration:
+
+- Queue deploys **before** backend (backend receives queue outputs via wirable parameters).
+- Backend requires `EnableSqsIntegration=true` plus `SqsQueueUrl` and `SqsSendQueueArns` from queue outputs.
+- This is the primary cross-tier wiring pattern. See `sqs-lambda` pattern for a concrete example.
 
 ### Multi-Instance Stack Wiring
 
-When a stack is deployed multiple times (e.g., multiple DynamoDB tables):
+When a service stack is deployed multiple times (e.g., multiple standalone DynamoDB tables):
 - Each instance has a unique suffix (e.g., `ddb-passengers`, `ddb-jobs`).
 - Wiring entries reference the specific suffix, not the generic stack name.
-- If multiple instances wire to the same target parameter (e.g., multiple TableArns → Lambda DynamoDbTableArns), compose concatenates the values with commas.
+- If multiple instances wire to the same target parameter, compose concatenates the values with commas.
+
+> **Note**: With tier stacks, multi-instance DynamoDB is typically handled via feature flags rather than multiple standalone stacks. Multi-instance wiring remains relevant only for service stacks.

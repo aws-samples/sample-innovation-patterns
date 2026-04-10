@@ -259,6 +259,19 @@ Resources:
                     - dynamodb:UpdateItem
                   Resource: !GetAtt JobsTable.Arn
           - !Ref 'AWS::NoValue'
+        # DynamoDB passengers table (cross-tier) — convention-based ARN, for analysis jobs
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb-passengers'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Namespace}_${Environment}_passengers'
         # ECR image pull
         - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
           PolicyDocument:

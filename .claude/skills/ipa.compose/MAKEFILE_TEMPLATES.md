@@ -348,6 +348,20 @@ configure-frontend:
 		--output web-client/dist/config.js
 ```
 
+When compose-only patterns declare `## Shared Post-Deploy` modifications targeting `configure-frontend`,
+append their `--enable-feature {flag}` arguments to the command. For example, when sqs-lambda is composed:
+
+```makefile
+	python3 scripts/util/configure_frontend.py \
+		--api-base-url "$(API_URL)" \
+		--oidc-authority "$(OIDC_ISSUER)" \
+		--oidc-client-id "$(OIDC_CLIENT_ID)" \
+		--oidc-redirect-uri "$(APP_URL)/authentication/callback" \
+		--oidc-end-session-endpoint "$(OIDC_END_SESSION_ENDPOINT)" \
+		--enable-feature jobs \
+		--output web-client/dist/config.js
+```
+
 ### Per-Step Target — upload-frontend
 
 ```makefile

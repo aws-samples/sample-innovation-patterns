@@ -26,6 +26,12 @@ def main():
     parser.add_argument("--oidc-redirect-uri", required=True)
     parser.add_argument("--oidc-end-session-endpoint", required=True)
     parser.add_argument("--output", required=True, help="Output file path")
+    parser.add_argument(
+        "--enable-feature",
+        action="append",
+        default=[],
+        help="Enable a feature flag (repeatable, e.g. --enable-feature jobs)",
+    )
     args = parser.parse_args()
 
     # Fail early if dist/ doesn't contain a built frontend (Q2:A)
@@ -47,7 +53,16 @@ def main():
         "OIDC_SCOPE": "openid profile email",
         "OIDC_END_SESSION_ENDPOINT": args.oidc_end_session_endpoint,
         "LOG_LEVEL": "debug",
+        "features": {
+            "chat": False,
+            "jobs": False,
+            "playground": True,
+            "kb_playground": False,
+            "kitchen_sink": True,
+        },
     }
+    for feat in args.enable_feature:
+        config["features"][feat] = True
     output.write_text(
         f"window.__CONFIG__ = {json.dumps(config, indent=2)};\n"
     )
