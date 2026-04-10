@@ -60,7 +60,7 @@ export function PlaygroundPage() {
 
     try {
       // eslint-disable-next-line no-restricted-globals -- SSE streaming requires raw fetch
-      const response = await fetch(`${API_BASE_URL}/api/v1/sse/playground/converse`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sse/inference/converse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
