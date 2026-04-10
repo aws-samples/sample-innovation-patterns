@@ -22,7 +22,22 @@ Requires Python 3.12+ (stdlib tomllib). No external dependencies.
 import os
 import subprocess
 import sys
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        import re as _re, sys as _sys2
+        # Minimal fallback: parse version from pyproject.toml without tomllib
+        def _fallback_load(f):
+            text = f.read().decode()
+            m = _re.search(r'^version\s*=\s*"([^"]+)"', text, _re.MULTILINE)
+            if m:
+                return {"project": {"version": m.group(1)}}
+            raise KeyError("project.version")
+        tomllib = type(_sys2)("_fallback_tomllib")  # type: ignore[assignment]
+        tomllib.load = _fallback_load  # type: ignore[attr-defined]
 from pathlib import Path
 
 PYPROJECT_PATH = Path(__file__).resolve().parents[2] / "app-lib" / "pyproject.toml"

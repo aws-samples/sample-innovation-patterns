@@ -65,7 +65,7 @@ Resources:
     Type: 'AWS::SQS::Queue'
     Properties:
       QueueName: !Sub '${Namespace}-${Environment}-${QueueName}'
-      VisibilityTimeoutSeconds: !Ref VisibilityTimeout
+      VisibilityTimeout: !Ref VisibilityTimeout
       MessageRetentionPeriod: !Ref MessageRetentionPeriod
       SqsManagedSseEnabled: !If [HasKmsKey, false, true]
       KmsMasterKeyId: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
