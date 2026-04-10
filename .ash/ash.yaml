@@ -40,7 +40,7 @@ global_settings:
       reason: 'False positive — AdvancedSecurityMode is already set to ENFORCED on the CognitoUserPool resource'
     # Jinja2 direct use — renders YAML/text templates, not HTML served to a browser; no XSS vector
     - rule_id: 'python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2'
-      path: 'app-lib/src/app_lib/util/jinja_util.py'
+      path: 'app-lib/src/app_lib/common/util/jinja_util.py'
       reason: 'JinjaUtil renders YAML/text templates for code generation, not HTML served in a browser — no XSS vector'
     # DynamoDB PITR not needed for test fixture
     - rule_id: 'AwsSolutions-DDB3'
@@ -219,3 +219,53 @@ global_settings:
     - rule_id: 'CKV_AWS_117'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
+    # ========================================================================
+    # CKV_AWS_45 — Lambda env vars contain no secrets; only literals are
+    # configuration values (AWS_LWA_REMOVE_BASE_PATH: '/prod', APP_INVOKE_MODE: 'BUFFERED').
+    # All sensitive values are injected via CloudFormation !Ref / !If at deploy time.
+    # ========================================================================
+    - rule_id: 'CKV_AWS_45'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
+    - rule_id: 'CKV_AWS_45'
+      path: 'infra/cfn/lambda/lambda.yml'
+      reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
+    - rule_id: 'CKV_AWS_45'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
+    # ========================================================================
+    # lodash / lodash-es 4.17.23 — transitive dependencies pinned by upstream
+    # packages (Docusaurus, recharts, oazapfts, @chevrotain). lodash 4.18.x
+    # exists but upstream has not updated yet. Not direct dependencies.
+    # ========================================================================
+    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash'
+      path: 'docs/package-lock.json'
+      reason: 'Transitive dep pinned by Docusaurus; lodash 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash'
+      path: 'web-client/package-lock.json'
+      reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash-es'
+      path: 'docs/package-lock.json'
+      reason: 'Transitive dep pinned by @chevrotain (Docusaurus); lodash-es 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash'
+      path: 'docs/package-lock.json'
+      reason: 'Transitive dep pinned by Docusaurus; lodash 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash'
+      path: 'web-client/package-lock.json'
+      reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash-es'
+      path: 'docs/package-lock.json'
+      reason: 'Transitive dep pinned by @chevrotain (Docusaurus); lodash-es 4.18.x available but upstream has not updated'
+      expiration: '2026-06-26'
+    # ========================================================================
+    # unsafe-formatstring — template literal in console.error, not a format string.
+    # The component name is interpolated as data, not as a format specifier.
+    # ========================================================================
+    - rule_id: 'javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring'
+      path: 'web-client/src/pages/sink/components/component-wrapper.tsx'
+      reason: 'False positive — template literal in console.error; component name is data interpolation, not a format specifier'

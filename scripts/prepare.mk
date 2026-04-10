@@ -20,8 +20,6 @@ APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
 .PHONY: prepare prepare-cognito prepare-cognito-env prepare-ecr teardown-prepare teardown-ecr teardown-cognito
 
-# === PREPARE (deployment order) ===
-
 prepare: prepare-cognito prepare-cognito-env prepare-ecr
 
 prepare-cognito:

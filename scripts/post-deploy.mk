@@ -92,12 +92,12 @@ update-backend-cors: update-cognito-callback
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval QUEUE_URL := $(shell aws cloudformation describe-stacks \
+	$(eval SQS_QUEUE_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval QUEUE_ARN := $(shell aws cloudformation describe-stacks \
+	$(eval SQS_QUEUE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueArn`].OutputValue' \
 		--output text \
@@ -109,10 +109,8 @@ update-backend-cors: update-cognito-callback
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
 			ImageUri=$(REPO_URI):$(IMAGE_TAG) \
 			AuthIssuer=$(OIDC_ISSUER) AuthAudience=$(OIDC_CLIENT_ID) \
+			AllowedOrigin=$(APP_URL) \
 			FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300 \
 			EnablePassengersTable=true \
-			EnableSqsIntegration=true \
-			SqsQueueUrl=$(QUEUE_URL) \
-			SqsSendQueueArns=$(QUEUE_ARN) \
-			AllowedOrigin=$(APP_URL) \
+			EnableSqsIntegration=true SqsQueueUrl=$(SQS_QUEUE_URL) SqsSendQueueArns=$(SQS_QUEUE_ARN) \
 		--no-fail-on-empty-changeset

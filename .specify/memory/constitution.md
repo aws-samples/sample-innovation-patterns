@@ -1,21 +1,34 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: N/A (template) → 1.0.0 (initial population)
-  Modified principles: N/A (first fill)
-  Added sections:
-    - 7 Core Principles (I–VII)
-    - Constraints (security, code quality, scope)
-    - Development Workflow (testing, naming, KISS)
-    - Governance rules
+  Version change: 1.0.0 → 1.1.0
+  Amendment rationale: spec 012-tier-stack-consolidation resolved
+    JUSTIFIED VIOLATION of Principle II by expanding the principle to
+    support tier-based consolidation alongside single-service stacks.
+  Modified principles:
+    - II. Composability — materially expanded: two stack models (prepare
+      stacks + tier stacks), feature flag composability, internal wiring
+    - VII. Makefile as Contract — corrected: utils/ removed, now direct
+      AWS CLI + scripts/util/ helpers
+  Modified sections:
+    - Code Quality Constraints — stack naming updated for {identifier},
+      unit test reference corrected from utils/ to app-lib/tests/
+    - Naming Conventions — tier template paths added, skill file path
+      corrected to directory structure
+    - Builder Workflow — expanded from 4 to 6 steps (added /ipa.prepare
+      and /ipa.destroy)
+    - Testing Discipline — corrected utils/ reference, added
+      validate-template, updated DSR language for tier-based templates
+    - KISS Principle — step count updated from four to six
+  Added sections: None
   Removed sections: None
   Templates requiring updates:
-    - .specify/templates/plan-template.md — ✅ compatible (Constitution Check
-      section is a generic gate; no updates needed)
-    - .specify/templates/spec-template.md — ✅ compatible (requirements and
-      success criteria align with accuracy/security principles)
-    - .specify/templates/tasks-template.md — ✅ compatible (phase structure
-      and test-first guidance align with principles III and VI)
+    - .specify/templates/plan-template.md — ✅ compatible (Constitution
+      Check section is a generic gate; no updates needed)
+    - .specify/templates/spec-template.md — ✅ compatible (requirements
+      and success criteria align with accuracy/security principles)
+    - .specify/templates/tasks-template.md — ✅ compatible (phase
+      structure and test-first guidance align with principles III/VI)
     - .specify/templates/checklist-template.md — ✅ compatible
     - .specify/templates/agent-file-template.md — ✅ compatible
   Follow-up TODOs: None
@@ -45,17 +58,31 @@ generated artifact — not a bolt-on phase.
 
 ### II. Composability
 
-Infrastructure MUST be composed from independent, modular stacks. Each
-stack wraps one primary AWS service. Patterns compose stacks into
-deployable solutions.
+Infrastructure MUST be composed from independent, modular stacks.
+Patterns compose stacks into deployable solutions. IPA uses two stack
+models:
 
-- Stacks communicate exclusively through CloudFormation output exports.
-- A stack MUST NOT reference another stack's internals — only exported
-  values.
+- **Prepare stacks** wrap one primary AWS service (ECR, Cognito,
+  Security). They are deployed once and shared across patterns.
+- **Tier stacks** consolidate related services into a single deployable
+  unit (frontend, backend, queue). Each tier is independently deployable
+  and atomically updatable. Services within a tier wire together via
+  `!Ref` and `!GetAtt` — internal wiring is an implementation detail
+  not exposed through outputs.
+
+Rules:
+
+- Cross-stack communication (whether prepare-to-tier or tier-to-tier)
+  uses CloudFormation output exports exclusively. A stack MUST NOT
+  reference another stack's internals — only exported values.
+- Feature flags within tier templates (`Enable*Table`,
+  `Enable*Integration`) MUST default to disabled. Patterns explicitly
+  enable the resources they need via parameter overrides at composition
+  time.
 - Pattern definitions encode deployment order, parameter wiring, and
   inter-stack dependencies.
-- Adding or removing a stack from a pattern MUST NOT require modifying
-  other stacks.
+- Adding or removing a stack or tier from a pattern MUST NOT require
+  modifying other stacks or tiers.
 
 ### III. Human Control (Eject Capability)
 
@@ -129,8 +156,9 @@ pipelines MUST all execute the same targets.
   compose time, no runtime `.env` dependency.
 - Makefiles work identically on the builder's machine, in the AI
   agent's context, and in CodePipeline.
-- Makefiles invoke Python utilities in `utils/` via `uv run` for AWS
-  API operations.
+- Makefiles invoke AWS CLI commands directly for CloudFormation
+  operations. Small Python helper scripts in `scripts/util/` handle
+  non-CloudFormation tasks (versioning, frontend configuration).
 
 ## Constraints
 
@@ -150,10 +178,12 @@ pipelines MUST all execute the same targets.
   Python.
 - CloudFormation templates MUST be valid standalone — no IPA-specific
   extensions or custom macros.
-- All stack names MUST follow `{namespace}-{app_env}-{service}`
-  convention.
-- Unit tests required for `utils/` Python utilities; test files
-  co-located (`module.py` -> `test_module.py`).
+- All stack names MUST follow `{namespace}-{app_env}-{identifier}`
+  convention, where `{identifier}` is a service name for prepare stacks
+  (e.g., `ecr`, `cognito`) or a tier name for consolidated stacks
+  (e.g., `frontend`, `backend`, `queue`).
+- Unit tests required for `app-lib/` Python application code; test
+  files in `app-lib/tests/` mirror the source directory structure.
 - CloudFormation templates MUST pass cfn-lint validation.
 
 ### Scope Constraints
@@ -172,23 +202,30 @@ pipelines MUST all execute the same targets.
 
 ### Builder Workflow
 
-The core path is four steps, executed in sequence:
+The core path is six steps, executed in sequence:
 
 1. `/ipa.init` — configure project defaults (.env, AWS profile, region)
 2. `/ipa.security` — provision or update IAM roles (auto-detects mode)
-3. `/ipa.compose` — select pattern, generate skill + Makefiles + runbook
-4. `/ipa.deploy` — build and deploy via `scripts/build.mk` and
+3. `/ipa.compose` — select pattern, generate Makefiles + runbook
+4. `/ipa.prepare` — deploy prerequisite stacks (ECR, Cognito) via
+   `scripts/prepare.mk`
+5. `/ipa.deploy` — build and deploy via `scripts/build.mk` and
    `scripts/deploy.mk`
+6. `/ipa.destroy` — tear down composed infrastructure via
+   `scripts/deploy.mk` teardown targets
 
 Each skill does one thing. The builder does not choose between init and
-update modes — skills auto-detect.
+update modes — skills auto-detect. Prepare runs once per environment;
+destroy is used when tearing down.
 
 ### Testing Discipline
 
-- pytest for all Python tests in `utils/`.
-- CloudFormation templates validated with cfn-lint.
+- pytest for all Python tests in `app-lib/tests/`.
+- CloudFormation templates validated with
+  `aws cloudformation validate-template` and cfn-lint.
 - ASH (Automated Security Helper) scanning in CI pipeline.
-- DSR evaluates templates against per-service security question banks.
+- DSR evaluates templates (both prepare and tier-based) against
+  security question banks.
 - Integration tests (deploy-and-verify) run manually, not as mandatory
   gates.
 
@@ -196,16 +233,18 @@ update modes — skills auto-detect.
 
 - Prefer simple Make targets over complex orchestration.
 - Start simple; do not design for hypothetical future requirements.
-- Four-step workflow — complexity is hidden from the builder.
+- Six-step workflow — complexity is hidden from the builder.
 - Stack teardown follows reverse deployment order to respect
   cross-stack references.
 
 ### Naming Conventions
 
-- Stack names: `{namespace}-{app_env}-{service}`
+- Stack names: `{namespace}-{app_env}-{identifier}` (service name or
+  tier name)
 - CloudFormation exports: `${AWS::StackName}-OutputKey`
-- Skill files: `.claude/skills/ipa.{type}.{name}.md`
-- Templates: `infra/cfn/{service}.yml`
+- Skill files: `.claude/skills/ipa.{type}.{name}/SKILL.md`
+- Templates (prepare): `infra/cfn/{service}/{service}.yml`
+- Templates (tier): `infra/cfn/{tier}/{tier}.yml`
 - Makefiles: `scripts/{purpose}.mk`
 
 ## Governance
@@ -233,4 +272,4 @@ seven principles before work begins. Re-check after design phase.
 coding context and `.context/aicode-technical.md` for architectural
 details.
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-25 | **Last Amended**: 2026-03-25
+**Version**: 1.1.0 | **Ratified**: 2026-03-25 | **Last Amended**: 2026-04-10

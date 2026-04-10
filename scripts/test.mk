@@ -18,11 +18,11 @@ test-validate:
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/ecr/ecr.yml
 	aws cloudformation validate-template \
-		--template-body file://infra/cfn/frontend/frontend.yml
+		--template-body file://infra/cfn/queue/queue.yml
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/backend/backend.yml
 	aws cloudformation validate-template \
-		--template-body file://infra/cfn/queue/queue.yml
+		--template-body file://infra/cfn/frontend/frontend.yml
 
 test-security:
 	ash --source-dir infra/

@@ -7,14 +7,14 @@
 
 | ID | Finding | Disposition | Rationale |
 |----|---------|-------------|-----------|
-| DEF-001 | CORS origin `*` during initial deploy window | Accepted — POC scope | CloudFront domain unknown at API deploy time; auto-wired in post-deploy |
-| DEF-002 | No bucket versioning (S3) | Accepted — POC scope | POC scope |
-| DEF-003 | No custom domain / ACM certificate (CloudFront) | Accepted — POC scope | POC uses *.cloudfront.net |
-| DEF-004 | No WAF (CloudFront) | Accepted — POC scope | POC scope + HTTP API v2 does not support WAF |
-| DEF-005 | PriceClass_100 only (CloudFront) | Accepted — POC scope | POC — US/Canada/Europe only |
-| DEF-006 | Short DefaultTTL 300s (CloudFront) | Accepted — POC scope | POC — production should tune per content type |
-| DEF-007 | No FIFO queue support | Accepted — POC scope | POC scope — standard queue sufficient |
-| DEF-008 | No SSE streaming for job status | Accepted — POC scope | Deferred to react-rest-lambda composition (feature flag TBD) |
+| S3-1 | No bucket versioning | Accepted — POC scope | POC scope |
+| CF-1 | No custom domain / ACM certificate | Accepted — POC scope | POC uses *.cloudfront.net |
+| CF-2 | No WAF | Accepted — POC scope | POC scope + HTTP API v2 does not support WAF |
+| CF-3 | PriceClass_100 only | Accepted — POC scope | POC — US/Canada/Europe only |
+| CF-4 | Short DefaultTTL (300s) | Accepted — POC scope | POC — production should tune per content type |
+| APIGW-1 | CORS origin `*` during initial deploy | Accepted — POC scope | CloudFront domain unknown at API deploy time; auto-wired in post-deploy |
+| SQS-1 | No FIFO queue support | Accepted — POC scope | POC scope — standard queue sufficient |
+| SQS-2 | No SSE streaming for job status | Accepted — POC scope | Deferred to react-rest-lambda composition (feature flag TBD) |
 
 ## Custom Dispositions
 
@@ -24,3 +24,15 @@
 ### ECR Pull / CloudWatch PutMetricData — Resource: '*'
 
 Both backend and queue Lambda execution roles use `Resource: '*'` for ECR `BatchGetImage`/`GetDownloadUrlForLayer` and CloudWatch `PutMetricData`. This is an AWS API limitation — these services do not support resource-scoped ARNs. Documented inline in both templates.
+
+### CKV_AWS_45 — Lambda environment variables (backend, lambda, queue)
+
+Checkov flags hardcoded strings in Lambda `Environment.Variables`. The only literals are configuration values (`AWS_LWA_REMOVE_BASE_PATH: '/prod'`, `APP_INVOKE_MODE: 'BUFFERED'`). All sensitive values (`AUTH_ISSUER`, `AUTH_AUDIENCE`, `SQS_QUEUE_URL`, etc.) are injected via CloudFormation `!Ref` / `!If` at deploy time. No actual secrets are hardcoded.
+
+### lodash / lodash-es 4.17.23 (docs, web-client)
+
+Transitive dependency pinned by upstream packages (Docusaurus, recharts, oazapfts, @chevrotain). lodash 4.18.x exists but upstream has not updated. Not a direct dependency in either project. Suppressed with expiration 2026-06-26.
+
+### unsafe-formatstring — component-wrapper.tsx
+
+Semgrep flags `console.error(\`Error in component ${this.props.name}:\`, error, errorInfo)` as an unsafe format string. This is a template literal with data interpolation, not a printf-style format string. The component name is rendered as a literal string — no format specifier injection vector exists.
