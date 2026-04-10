@@ -50,14 +50,19 @@ deploy-ddb-passengers:
 			TableName=passengers \
 		--no-fail-on-empty-changeset
 
-deploy-fn: deploy-ddb-passengers deploy-sqs
+deploy-fn: deploy-ddb-passengers deploy-ddb-jobs deploy-sqs
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
+	$(eval PASSENGERS_TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb-passengers \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval JOBS_TABLE_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb-jobs \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
@@ -93,7 +98,7 @@ deploy-fn: deploy-ddb-passengers deploy-sqs
 			FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300 \
 			ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) \
 			AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
-			DynamoDbTableArns=$(TABLE_ARN) \
+			DynamoDbTableArns=$(PASSENGERS_TABLE_ARN),$(JOBS_TABLE_ARN) \
 			LogBucketName=$(LOG_BUCKET_NAME) \
 			SqsQueueUrl=$(QUEUE_URL) \
 			SqsSendQueueArns=$(QUEUE_ARN) \
@@ -176,7 +181,7 @@ deploy-cf: deploy-s3
 			LogBucketDomainName=$(LOG_BUCKET_NAME).s3.amazonaws.com \
 		--no-fail-on-empty-changeset
 
-deploy-fn-worker: deploy-sqs deploy-ddb-jobs
+deploy-fn-worker: deploy-sqs deploy-ddb-jobs deploy-ddb-passengers
 	$(eval REPOSITORY_URI := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
@@ -187,8 +192,13 @@ deploy-fn-worker: deploy-sqs deploy-ddb-jobs
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueArn`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval TABLE_ARN := $(shell aws cloudformation describe-stacks \
+	$(eval JOBS_TABLE_ARN := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb-jobs \
+		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval PASSENGERS_TABLE_ARN := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ddb-passengers \
 		--query 'Stacks[0].Outputs[?OutputKey==`TableArn`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
@@ -209,7 +219,7 @@ deploy-fn-worker: deploy-sqs deploy-ddb-jobs
 			FunctionName=fn-worker InvokeMode=BUFFERED Timeout=300 \
 			ImageUri=$(REPOSITORY_URI):$(IMAGE_TAG) \
 			AuthIssuer=$(ISSUER_URL) AuthAudience=$(USER_POOL_CLIENT_ID) \
-			DynamoDbTableArns=$(TABLE_ARN) \
+			DynamoDbTableArns=$(JOBS_TABLE_ARN),$(PASSENGERS_TABLE_ARN) \
 			SqsReceiveQueueArns=$(QUEUE_ARN) \
 			ImageCommand=python,-m,sqs_handler \
 		--capabilities CAPABILITY_NAMED_IAM \
