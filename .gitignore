@@ -26,3 +26,6 @@ specs/
 infra/cfn/generated/
 
 .secrets.baseline
+
+# ASH scan output (regenerated on each scan)
+.ash/ash_output/

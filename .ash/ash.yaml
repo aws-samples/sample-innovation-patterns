@@ -84,9 +84,6 @@ global_settings:
     - rule_id: 'CKV_AWS_158'
       path: 'infra/cfn/lambda/lambda.yml'
       reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
-    - rule_id: 'CKV_AWS_158'
-      path: 'infra/cfn/apigateway/apigateway.yml'
-      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
     # DynamoDB KMS CMK encryption — out of scope for POC; table uses default AWS-owned encryption (SSEEnabled: true).
     # Customers can add SSEType: KMS with a KMSMasterKeyId when productionizing.
     - rule_id: 'CKV_AWS_119'
@@ -127,15 +124,6 @@ global_settings:
     - rule_id: 'CKV_DOCKER_2'
       path: 'infra/containers/rest-lambda/Dockerfile'
       reason: 'Not applicable — Lambda container images; Docker HEALTHCHECK is ignored by the Lambda runtime'
-    # API Gateway caching — not applicable; all routes are authenticated (user-specific responses)
-    # and include SSE streaming. Customers can enable per-route caching when productionizing.
-    - rule_id: 'CKV_AWS_120'
-      path: 'infra/cfn/apigateway/apigateway.yml'
-      reason: 'Not applicable — all routes return user-specific responses behind Cognito auth and include SSE streaming; caching would serve stale/wrong data. Customers can enable per-route caching when productionizing.'
-    # API Gateway X-Ray tracing — out of scope for POC; customers can enable TracingEnabled: true when productionizing.
-    - rule_id: 'CKV_AWS_73'
-      path: 'infra/cfn/apigateway/apigateway.yml'
-      reason: 'Out of scope for POC — customers can add TracingEnabled: true to the Stage when productionizing'
     # Dockerfile container user — not applicable for Lambda container images.
     # Lambda runs inside its own execution sandbox; the container user has no security impact.
     - rule_id: 'CKV_DOCKER_3'
@@ -175,3 +163,59 @@ global_settings:
     - rule_id: 'CKV_AWS_158'
       path: 'infra/cfn/apigateway-v2/apigateway-v2.yml'
       reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
+    # ========================================================================
+    # Consolidated tier templates (frontend, backend, queue)
+    # These are the same finding categories as the per-service templates above.
+    # Consolidated tiers combine multiple services into single templates.
+    # ========================================================================
+    # --- frontend.yml (S3 + CloudFront + OAC) ---
+    # S3 versioning — static web assets rebuilt from source (same as s3.yml)
+    - rule_id: 'CKV_AWS_21'
+      path: 'infra/cfn/frontend/frontend.yml'
+      reason: 'Out of scope for POC — static web assets are rebuilt from source; versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.'
+    # CloudFront TLS — false positive; MinimumProtocolVersion: TLSv1.2_2021 is set (same as cloudfront.yml)
+    - rule_id: 'CKV_AWS_174'
+      path: 'infra/cfn/frontend/frontend.yml'
+      reason: 'False positive — ViewerCertificate.MinimumProtocolVersion is set to TLSv1.2_2021; checkov fails to detect it'
+    # CloudFront WAF — out of scope for POC (same as cloudfront.yml)
+    - rule_id: 'CKV_AWS_68'
+      path: 'infra/cfn/frontend/frontend.yml'
+      reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach WebACLId when productionizing'
+    # --- backend.yml (Lambda + API Gateway v2 + DynamoDB + CloudWatch) ---
+    # CloudWatch Log Group KMS — out of scope for POC (same as lambda.yml); backend has Lambda + API GW log groups
+    - rule_id: 'CKV_AWS_158'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
+    # Lambda DLQ — Lambda is invoked synchronously via API Gateway (same as lambda.yml)
+    - rule_id: 'CKV_AWS_116'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'Not applicable — Lambda is invoked synchronously via API Gateway; DLQ only triggers on async invocations'
+    # Lambda env var KMS — out of scope for POC (same as lambda.yml)
+    - rule_id: 'CKV_AWS_173'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
+    # Lambda VPC — out of scope for POC (same as lambda.yml)
+    - rule_id: 'CKV_AWS_117'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
+    # --- queue.yml (SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch) ---
+    # SQS KMS encryption — queue and DLQ use SqsManagedSseEnabled (SSE-SQS) instead of CMK; out of scope for POC
+    - rule_id: 'CKV_AWS_27'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Out of scope for POC — SQS uses SSE-SQS (SqsManagedSseEnabled: true); customers can add KMS CMK when productionizing'
+    # CloudWatch Log Group KMS — out of scope for POC (same as lambda.yml)
+    - rule_id: 'CKV_AWS_158'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
+    # Lambda DLQ — worker Lambda is invoked synchronously by SQS ESM; ESM handles retries and routes to SQS DLQ
+    - rule_id: 'CKV_AWS_116'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Not applicable — worker Lambda is invoked synchronously by SQS Event Source Mapping; retries and DLQ routing handled by SQS, not Lambda DLQ'
+    # Lambda env var KMS — out of scope for POC (same as lambda.yml)
+    - rule_id: 'CKV_AWS_173'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
+    # Lambda VPC — out of scope for POC (same as lambda.yml)
+    - rule_id: 'CKV_AWS_117'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'

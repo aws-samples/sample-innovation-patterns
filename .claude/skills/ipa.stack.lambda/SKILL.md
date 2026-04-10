@@ -68,7 +68,7 @@ No `TABLE_NAME` environment variable is needed. The convention is the contract b
 
 | Output | Description | Export Convention | Used By |
 |--------|-------------|------------------|---------|
-| FunctionArn | Lambda function ARN | `{StackName}-FunctionArn` | ipa.stack.apigw (integration target) |
+| FunctionArn | Lambda function ARN | `{StackName}-FunctionArn` | ipa.stack.apigwv2 (integration target) |
 | FunctionName | Lambda function name | `{StackName}-FunctionName` | Monitoring, invoke commands |
 | ExecutionRoleArn | Lambda execution role ARN | `{StackName}-ExecutionRoleArn` | Security auditing |
 

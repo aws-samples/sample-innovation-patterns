@@ -33,7 +33,7 @@ All parameters are **Configuration** type — sourced from `.env` or defaults. N
 | Output | Description | Export Convention | Used By |
 |--------|-------------|------------------|---------|
 | UserPoolId | ID of the Cognito User Pool | `{StackName}-UserPoolId` | Admin operations |
-| UserPoolArn | ARN of the Cognito User Pool | `{StackName}-UserPoolArn` | ipa.stack.apigw (CognitoUserPoolArn) |
+| UserPoolArn | ARN of the Cognito User Pool | `{StackName}-UserPoolArn` | ipa.stack.apigwv2 (CognitoUserPoolArn) |
 | UserPoolClientId | ID of the App Client | `{StackName}-UserPoolClientId` | ipa.stack.lambda (AuthAudience) |
 | IssuerUrl | OIDC Issuer base URL | `{StackName}-IssuerUrl` | ipa.stack.lambda (AuthIssuer) |
 | EndSessionEndpoint | Cognito logout base URL | `{StackName}-EndSessionEndpoint` | Frontend OIDC config |

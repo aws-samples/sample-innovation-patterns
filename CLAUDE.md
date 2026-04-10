@@ -1,6 +1,6 @@
 # innovation-patterns Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-09
+Auto-generated from all feature plans. Last updated: 2026-04-10
 
 ## Active Technologies
 - Markdown (Claude Code skill format) + Claude Code skill framework, AWS CLI (002-ipa-security-skill)
@@ -19,12 +19,25 @@ Auto-generated from all feature plans. Last updated: 2026-04-09
 - Markdown (Claude Code skill format) + None — Claude Code is the runtime (001-ipa-init-skill)
 - Python 3.12 (backend), TypeScript 5.9 (frontend — no changes needed) + FastAPI, PynamoDB, boto3 (Bedrock + SQS), Pydantic, uvicorn (011-passenger-jobs)
 - DynamoDB (`app_dev_jobs` table — already deployed, `app_dev_passengers` table — existing) (011-passenger-jobs)
+- YAML (CloudFormation templates), Markdown (skill files, CLAUDE.md) + AWS CloudFormation, AWS CLI, GNU Make (012-tier-stack-consolidation)
 
 ## Project Structure
 
 ```text
-src/
-tests/
+infra/cfn/
+  frontend/frontend.yml    # Consolidated: S3 + CloudFront + OAC
+  backend/backend.yml      # Consolidated: Lambda + API GW v2 + DynamoDB + CloudWatch
+  queue/queue.yml          # Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch
+  cognito/cognito.yml      # Prepare stack (unchanged)
+  ecr/ecr.yml              # Prepare stack (unchanged)
+.claude/skills/
+  ipa.stack.frontend/      # Stack skill for frontend tier
+  ipa.stack.backend/       # Stack skill for backend tier
+  ipa.stack.queue/         # Stack skill for queue tier
+  ipa.compose/patterns/    # Pattern definitions (react-rest-lambda, sqs-lambda)
+app-lib/                   # Python backend library
+web-client/                # React frontend SPA
+scripts/                   # Generated Makefiles (deploy.mk, prepare.mk, etc.)
 ```
 
 ## Commands
@@ -36,9 +49,9 @@ tests/
 Markdown (Claude Code skill format): Follow standard conventions
 
 ## Recent Changes
+- 012-tier-stack-consolidation: Consolidated 10 per-service CFN stacks into 3 tier-based stacks (frontend, backend, queue). Removed add-stacks/add-pattern compose modes. Updated pattern definitions and MAKEFILE_TEMPLATES.md for consolidated stack names.
 - 011-passenger-jobs: Added Python 3.12 (backend), TypeScript 5.9 (frontend — no changes needed) + FastAPI, PynamoDB, boto3 (Bedrock + SQS), Pydantic, uvicorn
 - makefile-util-scripts: Replaced `utils/` Python CLI with direct AWS CLI commands in generated Makefiles; removed runbook generation
-- 009-compose-stacks: Added incremental composition support to `/ipa.compose`
 
 
 <!-- MANUAL ADDITIONS START -->

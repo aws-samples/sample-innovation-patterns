@@ -1,140 +1,106 @@
 # Pattern: sqs-lambda
 
-Event-driven background processing add-on to `react-rest-lambda`. Deploys an SQS queue with DLQ, a jobs DynamoDB table, a worker Lambda (SQS consumer with Bedrock access), and an event source mapping connecting SQS to the worker. Also wires the existing REST Lambda (fn) with SQS send permissions and queue URL for job submission.
+Event-driven background processing add-on to `react-rest-lambda`. Deploys a queue tier (SQS + DLQ + worker Lambda + ESM + DynamoDB feature-flagged + CloudWatch) and wires the existing backend Lambda with SQS send permissions for job submission.
 
-**Compose-only pattern** — requires `react-rest-lambda` to be deployed first. Shares cognito, ecr, and fn stacks from the base pattern.
+**Compose-only pattern** — requires `react-rest-lambda` to be deployed first. Shares cognito and ecr prepare stacks from the base pattern.
 
 ## Stack Sequence
 
-1. ipa.stack.sqs — SQS queue + DLQ
-   - Depends on: none
-   - Suffix: sqs
+1. ipa.stack.queue (deploy) — Queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch
+   - Depends on: ipa.stack.ecr (shared), ipa.stack.cognito (shared)
+   - Suffix: queue
+   - Config: FunctionName=fn-worker InvokeMode=BUFFERED Timeout=300 ImageCommand=python,-m,sqs_handler EnableJobsTable=true
 
-2. ipa.stack.dynamodb — Jobs tracking table
-   - Depends on: none
-   - Suffix: ddb-jobs
-
-3. ipa.stack.lambda — Worker Lambda (SQS consumer + Bedrock)
-   - Depends on: ipa.stack.ecr (shared), ipa.stack.cognito (shared), ipa.stack.sqs, ipa.stack.dynamodb (ddb-jobs)
-   - Suffix: fn-worker
-   - Config: FunctionName=fn-worker InvokeMode=BUFFERED Timeout=300 ImageCommand=python,-m,sqs_handler
-
-4. ipa.stack.sqs-esm — Event source mapping (SQS -> fn-worker)
-   - Depends on: ipa.stack.lambda (fn-worker), ipa.stack.sqs
-   - Suffix: esm
+**Deploy ordering**: Queue deploys **before** backend (S2:B). Backend receives queue outputs via wirable parameters.
 
 **Shared stacks** (from react-rest-lambda — not deployed by this pattern):
 - ipa.stack.cognito (suffix: cognito) — AuthIssuer, AuthAudience for fn-worker
 - ipa.stack.ecr (suffix: ecr) — ImageUri for fn-worker
-- ipa.stack.lambda (suffix: fn) — updated with SqsQueueUrl, SqsSendQueueArns from sqs
+- ipa.stack.backend (suffix: backend) — updated with EnableSqsIntegration=true, SqsQueueUrl, SqsSendQueueArns from queue
 
 ## Teardown Sequence
 
-1. ipa.stack.sqs-esm (suffix: esm)
-2. ipa.stack.lambda (suffix: fn-worker)
-3. ipa.stack.dynamodb (suffix: ddb-jobs)
-4. ipa.stack.sqs (suffix: sqs)
+1. ipa.stack.queue (suffix: queue)
+
+Note: Backend is NOT torn down by this pattern — it belongs to react-rest-lambda.
 
 ## Wiring
 
 ```yaml
 wiring:
-  # --- Internal wiring (within sqs-lambda pattern) ---
+  # --- Internal wiring (within queue template) ---
+  # All SQS→worker, DDB→worker, and ESM connections are handled internally
+  # via !GetAtt and !Ref within infra/cfn/queue/queue.yml.
 
-  # SQS -> Worker Lambda — queue ARN for receive IAM policy
-  - source:
-      stack: sqs
-      output: QueueArn
-    target:
-      stack: fn-worker
-      parameter: SqsReceiveQueueArns
-    notes: "SQS queue ARN for worker Lambda receive permissions"
+  # --- Cross-stack wiring (prepare → queue) ---
 
-  # DynamoDB (jobs) -> Worker Lambda — table ARN for IAM policy
-  - source:
-      stack: ddb-jobs
-      output: TableArn
-    target:
-      stack: fn-worker
-      parameter: DynamoDbTableArns
-    notes: "Jobs table ARN for worker Lambda CRUD permissions"
-
-  # Worker Lambda -> ESM — function ARN for event source
-  - source:
-      stack: fn-worker
-      output: FunctionArn
-    target:
-      stack: esm
-      parameter: FunctionArn
-    notes: "Worker Lambda ARN for SQS event source mapping"
-
-  # SQS -> ESM — queue ARN for event source
-  - source:
-      stack: sqs
-      output: QueueArn
-    target:
-      stack: esm
-      parameter: QueueArn
-    notes: "SQS queue ARN for event source mapping"
-
-  # --- Cross-pattern wiring (to existing react-rest-lambda stacks) ---
-
-  # ECR -> Worker Lambda — container image
+  # ECR → Queue — container image for worker Lambda
   - source:
       stack: ecr
       output: RepositoryUri
     target:
-      stack: fn-worker
+      stack: queue
       parameter: ImageUri
-    notes: "Container image URI — compose appends :$(IMAGE_TAG)"
+    notes: "Container image URI — compose appends :$(IMAGE_TAG) (resolved from scripts/util/version.py at build/deploy time)"
 
-  # Cognito -> Worker Lambda — OIDC issuer
+  # Cognito → Queue — OIDC issuer for worker Lambda
   - source:
       stack: cognito
       output: IssuerUrl
     target:
-      stack: fn-worker
+      stack: queue
       parameter: AuthIssuer
     notes: "Cognito OIDC issuer URL for JWT validation"
 
-  # Cognito -> Worker Lambda — client ID
+  # Cognito → Queue — client ID for worker Lambda
   - source:
       stack: cognito
       output: UserPoolClientId
     target:
-      stack: fn-worker
+      stack: queue
       parameter: AuthAudience
     notes: "Cognito app client ID for JWT audience validation"
 
-  # SQS -> REST Lambda (fn) — queue URL as env var
+  # --- Cross-pattern wiring (queue → backend) ---
+
+  # Queue → Backend — queue URL as env var
   - source:
-      stack: sqs
+      stack: queue
       output: QueueUrl
     target:
-      stack: fn
+      stack: backend
       parameter: SqsQueueUrl
-    notes: "SQS queue URL -> SQS_QUEUE_URL env var for job submission"
+    notes: "SQS queue URL → SQS_QUEUE_URL env var for job submission"
 
-  # SQS -> REST Lambda (fn) — queue ARN for send permissions
+  # Queue → Backend — queue ARN for send permissions
   - source:
-      stack: sqs
+      stack: queue
       output: QueueArn
     target:
-      stack: fn
+      stack: backend
       parameter: SqsSendQueueArns
     notes: "SQS queue ARN for REST Lambda send permissions"
 
   # Convention-based connections (not wired):
-  # - Worker Lambda -> Jobs DDB: table name resolved at runtime via PynamodbUtil.env_table_name('jobs')
+  # - Worker Lambda → Jobs DDB: table name resolved at runtime via PynamodbUtil.env_table_name('jobs')
 ```
+
+## Backend Updates
+
+When this pattern is composed with `react-rest-lambda`, the backend stack receives additional parameters:
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| EnableSqsIntegration | `true` | Enables SQS send IAM policy + SQS_QUEUE_URL env var |
+| SqsQueueUrl | `$(eval ...)` | From queue stack QueueUrl output |
+| SqsSendQueueArns | `$(eval ...)` | From queue stack QueueArn output |
 
 ## Known Deferrals
 
 | ID | Finding | Rationale |
 |----|---------|-----------|
-| SQS-1 | No DLQ CloudWatch alarm | POC scope — add before production |
-| SQS-2 | No FIFO queue support | POC scope — standard queue sufficient |
-| SQS-3 | No SSE streaming for job status | Deferred to react-rest-lambda composition (feature flag TBD) |
+| SQS-1 | No FIFO queue support | POC scope — standard queue sufficient |
+| SQS-2 | No SSE streaming for job status | Deferred to react-rest-lambda composition (feature flag TBD) |
 
 ## Post-Deploy
 

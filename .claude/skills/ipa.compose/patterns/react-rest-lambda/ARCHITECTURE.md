@@ -22,7 +22,7 @@ Layer 0:  [ECR]  [DynamoDB (ddb-passengers)]  [Cognito]  [S3]
 | ipa.stack.s3 | 0 | Static asset hosting | Pending (Spec 6) |
 | ipa.stack.lambda-fn | 1 | Buffered request handler | **Implemented** |
 | ipa.stack.lambda-fn-stream | 1 | Streaming response handler | **Implemented** |
-| ipa.stack.apigw | 2 | REST API with Cognito authorizer | Pending (Spec 5) |
+| ipa.stack.apigwv2 | 2 | HTTP API v2 with JWT authorizer | **Implemented** |
 | ipa.stack.cloudfront | 3 | CDN distribution | Pending (Spec 7) |
 
 ## Deployment Order

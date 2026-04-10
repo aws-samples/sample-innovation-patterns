@@ -18,21 +18,11 @@ test-validate:
 	aws cloudformation validate-template \
 		--template-body file://infra/cfn/ecr/ecr.yml
 	aws cloudformation validate-template \
-		--template-body file://infra/cfn/dynamodb/dynamodb.yml
+		--template-body file://infra/cfn/frontend/frontend.yml
 	aws cloudformation validate-template \
-		--template-body file://infra/cfn/lambda/lambda.yml
+		--template-body file://infra/cfn/backend/backend.yml
 	aws cloudformation validate-template \
-		--template-body file://infra/cfn/apigateway-v2/apigateway-v2.yml
-	aws cloudformation validate-template \
-		--template-body file://infra/cfn/app-cloudwatch/app-cloudwatch.yml
-	aws cloudformation validate-template \
-		--template-body file://infra/cfn/s3/s3.yml
-	aws cloudformation validate-template \
-		--template-body file://infra/cfn/cloudfront/cloudfront.yml
-	aws cloudformation validate-template \
-		--template-body file://infra/cfn/sqs/sqs.yml
-	aws cloudformation validate-template \
-		--template-body file://infra/cfn/sqs-esm/sqs-esm.yml
+		--template-body file://infra/cfn/queue/queue.yml
 
 test-security:
 	ash --source-dir infra/

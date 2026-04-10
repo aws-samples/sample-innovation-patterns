@@ -1,0 +1,669 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Backend tier — Lambda + API Gateway v2 + DynamoDB (feature-flagged) + CloudWatch.
+  Consolidates lambda.yml, apigateway-v2.yml, dynamodb.yml, and app-cloudwatch.yml
+  into a single tier template with internal wiring via !Ref/!GetAtt.
+
+# ============================================================================
+# SECTION 1: PARAMETERS
+# ============================================================================
+Parameters:
+  # --- Core parameters (sourced from .env) ---
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace - 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Project namespace prefix for resource naming'
+
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
+  # --- Wirable parameters (required — from upstream stacks) ---
+  ImageUri:
+    Type: String
+    Description: 'Full ECR image URI including tag (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/repo:latest)'
+
+  AuthIssuer:
+    Type: String
+    Description: 'OIDC issuer URL for JWT validation (from Cognito IssuerUrl output)'
+
+  AuthAudience:
+    Type: String
+    Description: 'OIDC client ID for JWT audience validation (from Cognito UserPoolClientId output)'
+
+  # --- Lambda configuration ---
+  FunctionName:
+    Type: String
+    Default: 'fn'
+    AllowedPattern: '^[a-z][a-z0-9-]{0,23}$'
+    ConstraintDescription: 'Must be 1-24 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Logical function name for the backend Lambda'
+
+  InvokeMode:
+    Type: String
+    Default: 'RESPONSE_STREAM'
+    AllowedValues: ['BUFFERED', 'RESPONSE_STREAM']
+    Description: 'Lambda invocation mode — tag and env var only'
+
+  MemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: 'Lambda memory allocation in MB'
+
+  Timeout:
+    Type: Number
+    Default: 300
+    MinValue: 1
+    MaxValue: 900
+    Description: 'Lambda timeout in seconds'
+
+  ImageCommand:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: 'Override container CMD (e.g., "python,-m,handler"). Leave empty to use Dockerfile CMD.'
+
+  # --- DynamoDB feature flags (defaults to false — patterns must explicitly enable) ---
+  # CUSTOMIZE: To add a new table, copy the EnablePassengersTable parameter and
+  # create matching Condition, Resource, IAM policy, and Output sections below.
+  # See infra/cfn/backend/CLAUDE.md for the full 4-touchpoint workflow.
+  EnablePassengersTable:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Feature flag: create DynamoDB passengers table (K3:B — default false)'
+
+  # --- SQS integration (wired when queue tier is composed) ---
+  EnableSqsIntegration:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Feature flag: enable SQS send permissions and env var injection'
+
+  SqsQueueUrl:
+    Type: String
+    Default: ''
+    Description: 'SQS queue URL injected as SQS_QUEUE_URL env var (from queue stack QueueUrl output)'
+
+  SqsSendQueueArns:
+    Type: String
+    Default: ''
+    Description: 'Comma-separated SQS queue ARNs for send permissions (from queue stack QueueArn output)'
+
+  # --- CloudWatch ---
+  AlarmSnsTopicArn:
+    Type: String
+    Default: ''
+    Description: 'SNS topic ARN for alarm actions. Leave empty to keep alarms disabled.'
+
+# ============================================================================
+# SECTION 2: CONDITIONS
+# ============================================================================
+Conditions:
+  HasPassengersTable: !Equals [!Ref EnablePassengersTable, 'true']
+  HasSqsIntegration: !Equals [!Ref EnableSqsIntegration, 'true']
+  HasSqsQueueUrl: !Not [!Equals [!Ref SqsQueueUrl, '']]
+  HasImageCommand: !Not [!Equals [!Select [0, !Ref ImageCommand], '']]
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmSnsTopicArn, '']]
+
+# ============================================================================
+# SECTION 3: DYNAMODB TABLES
+# ============================================================================
+# CUSTOMIZE: Each table follows the pattern:
+#   - Parameter: Enable{Name}Table (default: 'false')
+#   - Condition: Has{Name}Table
+#   - Resource: {Name}Table (Condition: Has{Name}Table)
+#   - IAM: Conditional DynamoDB policy in LambdaExecutionRole (Section 4)
+#   - Output: {Name}TableArn (Condition: Has{Name}Table)
+#
+# NAMING CONTRACT: TableName = {Namespace}_{Environment}_{suffix}
+# This MUST match PynamodbUtil.env_table_name("{suffix}") in app-lib.
+#
+# To RENAME passengers to products:
+#   1. Change table suffix here: passengers → products
+#   2. Update PynamoDB model: env_table_name("passengers") → env_table_name("products")
+#   3. Update Makefile: EnablePassengersTable → EnableProductsTable
+#   4. Update app registration: passengers router → products router
+#
+# To ADD a new table (e.g., orders):
+#   1. Copy PassengersTable resource below, rename to OrdersTable
+#   2. Add EnableOrdersTable parameter + HasOrdersTable condition
+#   3. Add conditional DynamoDB IAM policy in LambdaExecutionRole
+#   4. Add OrdersTableArn output
+# ============================================================================
+Resources:
+  PassengersTable:
+    Type: AWS::DynamoDB::Table
+    Condition: HasPassengersTable
+    Properties:
+      TableName: !Sub '${Namespace}_${Environment}_passengers'
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: IPA
+
+  # ==========================================================================
+  # SECTION 4: LAMBDA FUNCTION
+  # ==========================================================================
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-${FunctionName}-exec'
+      Description: !Sub 'Execution role for ${Namespace}-${Environment}-${FunctionName} Lambda function'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        # CUSTOMIZE: When adding a new DynamoDB table, add a matching IAM policy here.
+        # Copy the PassengersTable policy block, update the condition and !GetAtt reference.
+        - !If
+          - HasPassengersTable
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb-passengers'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                    - dynamodb:GetItem
+                    - dynamodb:Query
+                    - dynamodb:Scan
+                    - dynamodb:DeleteItem
+                    - dynamodb:UpdateItem
+                  Resource: !GetAtt PassengersTable.Arn
+          - !Ref 'AWS::NoValue'
+        # SQS Send — only created when SQS integration is enabled
+        - !If
+          - HasSqsIntegration
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-sqs-send'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                    - sqs:GetQueueAttributes
+                  Resource: !Split [',', !Ref SqsSendQueueArns]
+          - !Ref 'AWS::NoValue'
+        # ECR image pull — explicit for auditability (container-packaged Lambda)
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: '*'
+        # Bedrock model invocation — always included
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-bedrock'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+        # CloudWatch custom metrics — always included (observability module)
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-cloudwatch-metrics'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': !Sub '${Namespace}/${Environment}'
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Sub 'Execution role for ${FunctionName} Lambda function'
+
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: LambdaLogGroup
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-${FunctionName}'
+      Description: !Sub '${Namespace} ${Environment} ${FunctionName} — InvokeMode: ${InvokeMode}'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      ImageConfig: !If
+        - HasImageCommand
+        - Command: !Ref ImageCommand
+        - !Ref 'AWS::NoValue'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      ReservedConcurrentExecutions: 10
+      Environment:
+        Variables:
+          AUTH_ISSUER: !Ref AuthIssuer
+          AUTH_AUDIENCE: !Ref AuthAudience
+          APP_INVOKE_MODE: !Ref InvokeMode
+          APP_NAMESPACE: !Ref Namespace
+          APP_ENV: !Ref Environment
+          AWS_LWA_REMOVE_BASE_PATH: '/prod'
+          SQS_QUEUE_URL: !If [HasSqsQueueUrl, !Ref SqsQueueUrl, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: InvokeMode
+          Value: !Ref InvokeMode
+        - Key: Purpose
+          Value: !Sub '${FunctionName} Lambda function for ${Namespace}-${Environment}'
+
+  LambdaLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Namespace}-${Environment}-${FunctionName}'
+      RetentionInDays: 30
+
+  # ==========================================================================
+  # SECTION 5: API GATEWAY V2
+  # ==========================================================================
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${Namespace}-${Environment}-api'
+      Description: !Sub 'HTTP API for ${Namespace}-${Environment} backend tier'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      Name: CognitoJwtAuthorizer
+      JwtConfiguration:
+        # Internal wiring: uses parameters directly instead of cross-stack imports
+        Issuer: !Ref AuthIssuer
+        Audience:
+          - !Ref AuthAudience
+
+  BufferedIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      Description: Buffered Lambda integration (standard routes)
+      IntegrationType: AWS_PROXY
+      # Internal wiring: !GetAtt replaces cross-stack LambdaFunctionArn parameter
+      IntegrationUri: !Sub >-
+        arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
+      IntegrationMethod: POST
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 30000
+
+  StreamingIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      Description: Streaming Lambda integration (SSE routes, 5-min timeout)
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub >-
+        arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
+      IntegrationMethod: POST
+      PayloadFormatVersion: '2.0'
+      TimeoutInMillis: 30000
+
+  GetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  PostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  PutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: PUT /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  DeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: DELETE /{proxy+}
+      Target: !Sub integrations/${BufferedIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  SseRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /api/v1/sse/{proxy+}
+      Target: !Sub integrations/${StreamingIntegration}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: prod
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp",
+          "requestTime":"$context.requestTime","httpMethod":"$context.httpMethod",
+          "routeKey":"$context.routeKey","status":"$context.status",
+          "protocol":"$context.protocol","responseLength":"$context.responseLength",
+          "integrationError":"$context.integrationErrorMessage"}
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      # Internal wiring: !GetAtt replaces cross-stack LambdaFunctionArn parameter
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${Namespace}-${Environment}-apigwv2'
+      RetentionInDays: 30
+
+  # ==========================================================================
+  # SECTION 6: CLOUDWATCH OBSERVABILITY
+  # ==========================================================================
+
+  # Metric filter: ApplicationErrors — matches ERROR log lines
+  ApplicationErrorsFilter:
+    Type: 'AWS::Logs::MetricFilter'
+    Properties:
+      # Internal wiring: references LambdaLogGroup directly
+      LogGroupName: !Ref LambdaLogGroup
+      FilterName: !Sub '${Namespace}-${Environment}-application-errors'
+      FilterPattern: 'ERROR'
+      MetricTransformations:
+        - MetricNamespace: !Sub '${Namespace}/${Environment}'
+          MetricName: ApplicationErrorCount
+          MetricValue: '1'
+          DefaultValue: 0
+
+  # Metric filter: UnhandledExceptions — matches structured JSON or Python tracebacks
+  UnhandledExceptionsFilter:
+    Type: 'AWS::Logs::MetricFilter'
+    Properties:
+      LogGroupName: !Ref LambdaLogGroup
+      FilterName: !Sub '${Namespace}-${Environment}-unhandled-exceptions'
+      FilterPattern: '?"\"exception\":" ?Traceback'
+      MetricTransformations:
+        - MetricNamespace: !Sub '${Namespace}/${Environment}'
+          MetricName: UnhandledExceptionCount
+          MetricValue: '1'
+          DefaultValue: 0
+
+  # Alarm: HighErrorRate — fires when ApplicationErrorCount >= 5 in 5 minutes
+  HighErrorRateAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub '${Namespace}-${Environment}-high-error-rate'
+      AlarmDescription: !Sub >-
+        Application error rate threshold for ${Namespace}-${Environment}.
+        Fires when ApplicationErrorCount >= 5 in a 5-minute period.
+      Namespace: !Sub '${Namespace}/${Environment}'
+      MetricName: ApplicationErrorCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: !If [HasAlarmTopic, true, false]
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+      OKActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+
+  # Alarm: HighExceptionRate — fires when UnhandledExceptionCount >= 5 in 5 minutes
+  HighExceptionRateAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub '${Namespace}-${Environment}-high-exception-rate'
+      AlarmDescription: !Sub >-
+        Unhandled exception rate threshold for ${Namespace}-${Environment}.
+        Fires when UnhandledExceptionCount >= 5 in a 5-minute period.
+      Namespace: !Sub '${Namespace}/${Environment}'
+      MetricName: UnhandledExceptionCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: !If [HasAlarmTopic, true, false]
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+      OKActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+
+  # Dashboard: Application observability — errors, Lambda health, API Gateway, Bedrock
+  AppDashboard:
+    Type: 'AWS::CloudWatch::Dashboard'
+    Properties:
+      DashboardName: !Sub '${Namespace}-${Environment}-backend-dashboard'
+      DashboardBody: !Sub
+        - |
+          {
+            "widgets": [
+              {
+                "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
+                "properties": { "markdown": "# Application Errors\nCustom metric filters on Lambda log groups." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 1, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [[ "${MetricNs}", "ApplicationErrorCount", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Application Errors (5-min)",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              },
+              {
+                "type": "metric", "x": 12, "y": 1, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [[ "${MetricNs}", "UnhandledExceptionCount", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Unhandled Exceptions (5-min)",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              },
+              {
+                "type": "text", "x": 0, "y": 7, "width": 24, "height": 1,
+                "properties": { "markdown": "# Lambda Health\nInvocations, duration percentiles, errors, and throttles." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [[ "AWS/Lambda", "Invocations", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocations"
+                }
+              },
+              {
+                "type": "metric", "x": 8, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p50", "period": 300, "label": "p50" } ],
+                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p90", "period": 300, "label": "p90" } ],
+                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p99", "period": 300, "label": "p99" } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Duration (p50/p90/p99)"
+                }
+              },
+              {
+                "type": "metric", "x": 16, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/Lambda", "Errors", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ],
+                    [ "AWS/Lambda", "Throttles", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Errors + Throttles"
+                }
+              },
+              {
+                "type": "text", "x": 0, "y": 14, "width": 24, "height": 1,
+                "properties": { "markdown": "# API Gateway\nRequest count, latency, and HTTP error rates." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 15, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [[ "AWS/ApiGateway", "Count", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Requests"
+                }
+              },
+              {
+                "type": "metric", "x": 8, "y": 15, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/ApiGateway", "Latency", "ApiId", "${ApiId}", { "stat": "p50", "period": 300 } ],
+                    [ "AWS/ApiGateway", "Latency", "ApiId", "${ApiId}", { "stat": "p90", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Latency (p50/p90)"
+                }
+              },
+              {
+                "type": "metric", "x": 16, "y": 15, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/ApiGateway", "4xx", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ],
+                    [ "AWS/ApiGateway", "5xx", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "4xx + 5xx Errors"
+                }
+              },
+              {
+                "type": "text", "x": 0, "y": 21, "width": 24, "height": 1,
+                "properties": { "markdown": "# Bedrock Usage\nToken counts, latency, and throttling." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 22, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InputTokenCount\"', 'Sum', 300)", "id": "e1", "label": "InputTokens" } ],
+                    [ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"OutputTokenCount\"', 'Sum', 300)", "id": "e2", "label": "OutputTokens" } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Token Usage"
+                }
+              },
+              {
+                "type": "metric", "x": 8, "y": 22, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [[ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InvocationLatency\"', 'Average', 300)", "id": "e1" } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocation Latency"
+                }
+              },
+              {
+                "type": "metric", "x": 16, "y": 22, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [[ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InvocationThrottles\"', 'Sum', 300)", "id": "e1" } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocation Throttles"
+                }
+              }
+            ]
+          }
+        - MetricNs: !Sub '${Namespace}/${Environment}'
+          FnName: !Sub '${Namespace}-${Environment}-${FunctionName}'
+          ApiId: !Ref HttpApi
+
+# ============================================================================
+# SECTION 7: OUTPUTS
+# ============================================================================
+Outputs:
+  ApiUrl:
+    Description: HTTP API invoke URL (application entry point)
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt LambdaFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'
+
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionName'
+
+  DashboardUrl:
+    Description: Direct URL to the CloudWatch dashboard
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/${Namespace}-${Environment}-backend-dashboard'
+    Export:
+      Name: !Sub '${AWS::StackName}-DashboardUrl'
+
+  PassengersTableArn:
+    Description: DynamoDB passengers table ARN (only when EnablePassengersTable=true)
+    Condition: HasPassengersTable
+    Value: !GetAtt PassengersTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PassengersTableArn'
