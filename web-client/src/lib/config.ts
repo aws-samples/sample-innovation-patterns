@@ -4,20 +4,18 @@
  * Reads environment-specific config from window.__CONFIG__, which is set by
  * public/config.js (loaded via <script> tag in index.html before the app bundle).
  *
- * In local dev, copy config.template.js to config.js. Values are empty/default —
- * the Vite proxy handles API routing. For local auth testing, create config.local.js
- * with OIDC_AUTHORITY and OIDC_CLIENT_ID (see docs/docs/solution/web-client/LOCAL_AUTH.md).
+ * config.js is committed with local-dev defaults — no setup required.
+ * For local auth testing, create public/config.local.js with OIDC_AUTHORITY
+ * and OIDC_CLIENT_ID (loaded only on localhost, gitignored).
  *
  * In production, config_helper.py or the configure-web-client MCP tool writes
  * the real values into dist/config.js at deploy time.
  *
  * To add a new config value:
- *   1. Add the key to public/config.template.js with a default
+ *   1. Add the key to public/config.js and public/config.production-example.js
  *   2. Add the key to the AppConfig interface below
  *   3. Add the key to the fallback object below
  *   4. Import { config } from '@/lib/config' and use config.YOUR_KEY
- *
- * See: docs/docs/solution/web-client/CONFIG.md
  */
 
 interface FeatureFlags {

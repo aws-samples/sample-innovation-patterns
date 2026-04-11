@@ -20,7 +20,7 @@ build: build-fn build-frontend
 
 build-fn:
 	$(call ecr-login)
-	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-fn,infra/containers/rest-lambda/Dockerfile,.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr,$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
+	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-fn,infra/containers/rest-lambda/Dockerfile,.,$(ECR_REPO_URI),$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
 
 build-frontend:
 	cd web-client && npm ci && npm run build

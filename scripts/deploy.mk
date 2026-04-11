@@ -24,48 +24,18 @@ APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 deploy: deploy-queue deploy-backend deploy-frontend
 
 deploy-queue:
-	$(eval REPO_URI := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval AUTH_ISSUER := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval AUTH_AUDIENCE := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
 		--template-file infra/cfn/queue/queue.yml \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			ImageUri=$(REPO_URI):$(IMAGE_TAG) \
-			AuthIssuer=$(AUTH_ISSUER) AuthAudience=$(AUTH_AUDIENCE) \
+			ImageUri=$(ECR_REPO_URI):$(IMAGE_TAG) \
+			AuthIssuer=$(OIDC_ISSUER) AuthAudience=$(OIDC_CLIENT_ID) \
 			FunctionName=fn-worker InvokeMode=BUFFERED Timeout=300 \
 			ImageCommand=python,-m,sqs_handler EnableJobsTable=true \
 		--no-fail-on-empty-changeset
 
 deploy-backend: deploy-queue
-	$(eval REPO_URI := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval AUTH_ISSUER := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval AUTH_AUDIENCE := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval SQS_QUEUE_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueUrl`].OutputValue' \
@@ -81,8 +51,8 @@ deploy-backend: deploy-queue
 		--template-file infra/cfn/backend/backend.yml \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			ImageUri=$(REPO_URI):$(IMAGE_TAG) \
-			AuthIssuer=$(AUTH_ISSUER) AuthAudience=$(AUTH_AUDIENCE) \
+			ImageUri=$(ECR_REPO_URI):$(IMAGE_TAG) \
+			AuthIssuer=$(OIDC_ISSUER) AuthAudience=$(OIDC_CLIENT_ID) \
 			FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300 \
 			EnablePassengersTable=true \
 			EnableSqsIntegration=true SqsQueueUrl=$(SQS_QUEUE_URL) SqsSendQueueArns=$(SQS_QUEUE_ARN) \

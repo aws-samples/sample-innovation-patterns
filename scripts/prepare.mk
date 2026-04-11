@@ -18,9 +18,9 @@
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
-.PHONY: prepare prepare-cognito prepare-cognito-env prepare-ecr teardown-prepare teardown-ecr teardown-cognito
+.PHONY: prepare prepare-cognito prepare-cognito-env prepare-ecr prepare-ecr-env teardown-prepare teardown-ecr teardown-cognito
 
-prepare: prepare-cognito prepare-cognito-env prepare-ecr
+prepare: prepare-cognito prepare-cognito-env prepare-ecr prepare-ecr-env
 
 prepare-cognito:
 	aws cloudformation deploy \
@@ -72,6 +72,18 @@ prepare-ecr: prepare-cognito-env
 		--template-file infra/cfn/ecr/ecr.yml \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
 		--no-fail-on-empty-changeset
+
+prepare-ecr-env: prepare-ecr
+	$(eval ECR_REPO_URI_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing ECR configuration to .env..."
+	@grep -v '^ECR_REPO_URI\|^# ECR Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# ECR Configuration (written by /ipa.prepare after ecr deploy)" >> .env
+	@echo "ECR_REPO_URI=$(ECR_REPO_URI_VAL)" >> .env
 
 # === TEARDOWN (manual only — never auto-deleted by /ipa.destroy) ===
 

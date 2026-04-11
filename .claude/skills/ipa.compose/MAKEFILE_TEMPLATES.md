@@ -56,6 +56,16 @@ deploy: deploy-{suffix1} deploy-{suffix2} ... deploy-{suffixN}
 
 List all per-stack deploy targets in deployment order (from pattern's Stack Sequence).
 
+### Variable Resolution Convention
+
+Deploy targets resolve cross-stack values from two sources depending on the stack's lifecycle:
+
+- **Prepare-stack outputs** (ECR, Cognito) — resolved from `.env` variables. These values are written to `.env` by `prepare-*-env` targets in `scripts/prepare.mk` and are stable after initial deployment. Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`. No `$(eval)` needed.
+
+- **Deploy-stack outputs** (SQS queue, frontend, security) — resolved via `$(eval)` at deploy time. These stacks are created or updated during the same deploy cycle, so their outputs aren't available in `.env`. Use the standard `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern.
+
+This convention eliminates redundant CloudFormation API calls for immutable prepare-stack outputs while keeping dynamic resolution for deploy-stack outputs that may change between runs.
+
 ### Per-Stack Deploy Target — No Dependencies
 
 For stacks with "Depends on: none" in the Stack Sequence:
@@ -253,7 +263,27 @@ prepare-cognito-env: prepare-cognito
 
 **Why `_VAL` suffix on eval vars**: Prevents collision with the `.env`-sourced variables of the same name that `-include .env` loads. Without the suffix, `$(eval OIDC_ISSUER := ...)` would shadow the variable from `.env` on re-runs, causing self-referential evaluation.
 
-**Chaining**: The aggregate `prepare:` target chains: `prepare-cognito → prepare-cognito-env → prepare-ecr`. All subsequent prepare targets depend on `prepare-cognito-env` (not `prepare-cognito`).
+### ECR Environment Variable Target
+
+When the prepare stack list includes `ecr`, generate a `prepare-ecr-env` target that depends on `prepare-ecr`. This target extracts the ECR repository URI and writes it to `.env`:
+
+```makefile
+prepare-ecr-env: prepare-ecr
+	$(eval ECR_REPO_URI_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing ECR configuration to .env..."
+	@grep -v '^ECR_REPO_URI\|^# ECR Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# ECR Configuration (written by /ipa.prepare after ecr deploy)" >> .env
+	@echo "ECR_REPO_URI=$(ECR_REPO_URI_VAL)" >> .env
+```
+
+Same `_VAL` suffix convention as `prepare-cognito-env` to prevent collision with the `.env`-sourced `ECR_REPO_URI`.
+
+**Chaining**: The aggregate `prepare:` target chains: `prepare-cognito → prepare-cognito-env → prepare-ecr → prepare-ecr-env`. All subsequent prepare targets depend on `prepare-cognito-env` (not `prepare-cognito`). The `prepare-ecr-env` target is always the final step in the prepare chain.
 
 ### Aggregate Teardown Target
 
@@ -414,7 +444,7 @@ update-cognito-callback: invalidate-cf
 
 ### Per-Step Target — update-backend-cors
 
-OIDC variables (`OIDC_ISSUER`, `OIDC_CLIENT_ID`) come from `.env` via `-include .env` — no `$(eval)` needed for Cognito outputs. Re-deploys the consolidated backend stack with the CloudFront URL as `AllowedOrigin`. Must pass ALL original `deploy-backend` parameters plus the updated `AllowedOrigin`.
+Prepare-stack outputs (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `ECR_REPO_URI`) come from `.env` via `-include .env` — no `$(eval)` needed. Deploy-stack outputs (`APP_URL`, `SQS_QUEUE_URL`, `SQS_QUEUE_ARN`) are queried via `$(eval)` since they come from stacks deployed in the same cycle. Re-deploys the consolidated backend stack with the CloudFront URL as `AllowedOrigin`. Must pass ALL original `deploy-backend` parameters plus the updated `AllowedOrigin`.
 
 ```makefile
 update-backend-cors: update-cognito-callback
@@ -423,23 +453,18 @@ update-backend-cors: update-cognito-callback
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval REPO_URI := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-backend \
 		--template-file infra/cfn/backend/backend.yml \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			ImageUri=$(REPO_URI):$(IMAGE_TAG) \
+			ImageUri=$(ECR_REPO_URI):$(IMAGE_TAG) \
 			AuthIssuer=$(OIDC_ISSUER) AuthAudience=$(OIDC_CLIENT_ID) \
 			AllowedOrigin=$(APP_URL) \
 		--no-fail-on-empty-changeset
 ```
 
-Note: When sqs-lambda is composed, the `update-backend-cors` target must also include the SQS integration parameters (`EnableSqsIntegration=true`, `SqsQueueUrl`, `SqsSendQueueArns`) from the queue stack — same as the `deploy-backend` target.
+Note: When sqs-lambda is composed, the `update-backend-cors` target must also include the SQS integration parameters (`EnableSqsIntegration=true`, `SqsQueueUrl`, `SqsSendQueueArns`) from the queue stack (queried via `$(eval)`) — same as the `deploy-backend` target.
 
 ### No Post-Deploy Steps
 
@@ -489,8 +514,10 @@ When a stack skill's Build Requirements has `Type: container`. The `{dockerfile-
 ```makefile
 build-{function-name}:
 	$(call ecr-login)
-	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},{dockerfile-path},.,$(ECR_REGISTRY)/$(APP_NAMESPACE)-$(APP_ENV)-ecr,$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
+	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},{dockerfile-path},.,$(ECR_REPO_URI),$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
 ```
+
+`$(ECR_REPO_URI)` comes from `.env` (written by `prepare-ecr-env` in `scripts/prepare.mk`). `ecr-login` uses `$(ECR_REGISTRY)` from `scripts/util/docker.mk` for Docker authentication (registry domain only, without repo name).
 
 **Note**: build.mk must include `scripts/util/docker.mk` at the top (after `-include .env`) to provide `ecr-login` and `docker-build-push` functions.
 

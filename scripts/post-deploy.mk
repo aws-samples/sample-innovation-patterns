@@ -88,11 +88,6 @@ update-backend-cors: update-cognito-callback
 		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval REPO_URI := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	$(eval SQS_QUEUE_URL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueUrl`].OutputValue' \
@@ -108,7 +103,7 @@ update-backend-cors: update-cognito-callback
 		--template-file infra/cfn/backend/backend.yml \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			ImageUri=$(REPO_URI):$(IMAGE_TAG) \
+			ImageUri=$(ECR_REPO_URI):$(IMAGE_TAG) \
 			AuthIssuer=$(OIDC_ISSUER) AuthAudience=$(OIDC_CLIENT_ID) \
 			AllowedOrigin=$(APP_URL) \
 			FunctionName=fn InvokeMode=RESPONSE_STREAM Timeout=300 \

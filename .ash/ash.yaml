@@ -42,6 +42,10 @@ global_settings:
     - rule_id: 'python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2'
       path: 'app-lib/src/app_lib/common/util/jinja_util.py'
       reason: 'JinjaUtil renders YAML/text templates for code generation, not HTML served in a browser — no XSS vector'
+    # Same finding from GitLab Advanced SAST (different rule ID, same root cause)
+    - rule_id: 'python-jinja2-xss-autoescape-false-atomic'
+      path: 'app-lib/src/app_lib/common/util/jinja_util.py'
+      reason: 'JinjaUtil renders YAML/text templates for code generation, not HTML served in a browser — no XSS vector'
     # DynamoDB PITR not needed for test fixture
     - rule_id: 'AwsSolutions-DDB3'
       path: 'utils/tests/fixtures/*'

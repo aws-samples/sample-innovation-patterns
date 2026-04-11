@@ -1,18 +1,20 @@
 # web-client
 
-A Vite + React 19 + TypeScript web application that uses RTK Query with OpenAPI codegen to auto-generate a typed API client from a FastAPI backend.
+React 19 + TypeScript SPA with Vite, RTK Query, and OpenAPI codegen. Consumes the FastAPI backend (`app-lib/`) via REST and SSE.
 
 ## Prerequisites
 
 - Node.js 22+
-- The FastAPI backend running on port 8000:
+- For full-stack dev: backend running on port 8000 — see the [Quickstart](/getting-started/quickstart) or run `make dev-backend` from the project root
+
+## Quick Start
 
 ```bash
-cd app-lib
-pip install -e ".[rest]"
-cd src/app_lib/rest
-make run
+npm install         # Install dependencies
+npm run dev         # Vite dev server on :8080 (proxies /api → :8000)
 ```
+
+Or from the project root: `make dev` starts both backend and frontend.
 
 ## Commands
 
@@ -26,14 +28,27 @@ make run
 | `make lint` | Format + lint with auto-fix (local development) |
 | `make lint-cicd` | Check format + lint without fixing (CI gate) |
 
-## Format & Lint
+## Runtime Config
 
-The project uses Prettier for formatting and ESLint with type-aware rules for linting.
+`public/config.js` is committed with local-dev defaults — no setup needed. Auth is disabled and the Vite proxy handles API routing.
 
-- `make lint` — Run during development. Formats all files with Prettier, then runs ESLint with `--fix`.
-- `make lint-cicd` — Run in CI. Checks formatting and lint without modifying files. Exits non-zero on violations.
+| File | Purpose | Tracked |
+|------|---------|---------|
+| `config.js` | Local-dev defaults (committed) | Yes |
+| `config.local.js` | Optional OIDC overrides for localhost auth testing | No (gitignored) |
+| `config.production-example.js` | Reference for production deploy-time values | Yes |
 
-VS Code users: install `dbaeumer.vscode-eslint` and `rvest.vs-code-prettier-eslint`, then copy `.vscode/settings.json.example` to `.vscode/settings.json` for format-on-save.
+To test with Cognito auth locally, create `public/config.local.js`:
+
+```javascript
+window.__CONFIG__ = {
+  ...window.__CONFIG__,
+  OIDC_AUTHORITY: "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_XXXX",
+  OIDC_CLIENT_ID: "your-client-id",
+};
+```
+
+This file is loaded only when `location.hostname === 'localhost'` and is gitignored.
 
 ## Codegen Pipeline
 
@@ -47,26 +62,35 @@ The generated file contains typed endpoints, React hooks, and TypeScript types f
 > [!CAUTION]
 > Do not edit `generated.ts` manually. It is overwritten on every codegen run.
 
-The codegen config must be `.cjs` (CommonJS) because the `@rtk-query/codegen-openapi` CLI does not support ESM.
+The backend **must be running** at localhost:8000 for `npm run codegen` to work. The `generated.ts` file is committed — codegen is only needed when backend routes change.
+
+## Format & Lint
+
+The project uses Prettier for formatting and ESLint with type-aware rules for linting.
+
+- `make lint` — Run during development. Formats all files with Prettier, then runs ESLint with `--fix`.
+- `make lint-cicd` — Run in CI. Checks formatting and lint without modifying files. Exits non-zero on violations.
+
+VS Code users: install `dbaeumer.vscode-eslint` and `rvest.vs-code-prettier-eslint`, then copy `.vscode/settings.json.example` to `.vscode/settings.json` for format-on-save.
 
 ## Directory Layout
 
 ```
 src/
-├── auth/           # OIDC auth module (config + provider)
-├── components/     # Shared UI components (components/ui/ for shadcn primitives)
-├── hooks/          # Shared React hooks
-├── layouts/        # Structural shells with <Outlet /> for react-router
-├── lib/            # Framework-agnostic utilities (config, logging)
-├── pages/          # Route-level page components (one per route)
-├── providers/      # React context providers (Redux, future auth)
-├── services/api/   # RTK Query base API, generated code, custom endpoints
-├── store/          # Redux store, typed hooks, error middleware
-├── main.tsx        # Entry point
-└── routes.ts       # Route table (plain .ts, RouteObject[])
+├── main.tsx            # Entry point: setupLogging, createRoot, provider tree
+├── routes.ts           # Route table (plain .ts, RouteObject[])
+├── index.css           # Global styles
+├── auth/               # OIDC auth module (config + provider)
+├── components/         # Shared UI components
+│   └── ui/             # shadcn/ui primitives (Button, Card, etc.)
+├── hooks/              # Shared React hooks used by 2+ pages
+├── layouts/            # Structural shells with <Outlet /> for react-router
+├── lib/                # Framework-agnostic utilities (no React imports)
+├── pages/              # Route-level page components (one per route)
+├── providers/          # React context providers (Redux, future auth)
+├── services/api/       # RTK Query API layer (see services/api/README.md)
+└── store/              # Redux store, typed hooks, error middleware
 ```
-
-See `AGENTS.md` for placement rules and conventions. See `src/services/api/README.md` for RTK Query architecture details.
 
 ## Extending
 
