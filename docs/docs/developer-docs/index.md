@@ -14,6 +14,5 @@ For concepts that span multiple directories — such as composing stacks or depl
 - **[infra/](infra/)** — CloudFormation infrastructure-as-code templates
 - **[scripts/](scripts/)** — Generated Makefiles for deployment and operations
 - **[docs/](docs/)** — Documentation site structure, authoring guides
+- **[skills/](skills/)** — IPA skill reference: process skills, stack skills, and author skills
 - **[contributing/](contributing/)** — How to author new stacks and pattern skills
-
-> This section is meant to be extended with `/aicode.docs.dev`.
