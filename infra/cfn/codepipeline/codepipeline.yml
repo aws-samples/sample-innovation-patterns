@@ -102,7 +102,19 @@ Resources:
       ServiceRole: !Ref CodeBuildRoleArn
       Source:
         Type: CODEPIPELINE
-        BuildSpec: buildspec.yml
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.12
+                nodejs: 22
+              commands:
+                - pip install uv
+                - cd app-lib && uv sync && cd ..
+            build:
+              commands:
+                - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -131,6 +143,12 @@ Resources:
             Type: PLAINTEXT
           - Name: OIDC_END_SESSION_ENDPOINT
             Value: !Ref OidcEndSessionEndpoint
+            Type: PLAINTEXT
+          - Name: IPA_MAKEFILE
+            Value: build.mk
+            Type: PLAINTEXT
+          - Name: IPA_TARGET
+            Value: build
             Type: PLAINTEXT
       EncryptionKey: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
       Tags:
@@ -168,6 +186,20 @@ Resources:
               OutputArtifacts:
                 - Name: SourceOutput
               RunOrder: 1
+        - Name: Test
+          Actions:
+            - Name: TestAction
+              ActionTypeId:
+                Category: Test
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+                EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"test.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"test","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
         - Name: Build
           Actions:
             - Name: BuildAction
@@ -178,10 +210,39 @@ Resources:
                 Version: '1'
               Configuration:
                 ProjectName: !Ref CodeBuildProject
+                EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"build.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"build","type":"PLAINTEXT"}]'
               InputArtifacts:
                 - Name: SourceOutput
               OutputArtifacts:
                 - Name: BuildOutput
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: DeployAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+                EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"deploy","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+        - Name: PostDeploy
+          Actions:
+            - Name: PostDeployAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+                EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"post-deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"post-deploy","type":"PLAINTEXT"}]'
+              InputArtifacts:
+                - Name: SourceOutput
               RunOrder: 1
       Tags:
         - Key: Purpose

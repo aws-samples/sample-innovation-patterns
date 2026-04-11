@@ -8,7 +8,7 @@
 | 2 | Artifact bucket naming conflict | Stack creation fails with "BucketAlreadyExists" or "BucketAlreadyOwnedByYou" | S3 bucket names are globally unique. Another account or project owns `{namespace}-{env}-pipeline-artifacts-{account_id}`. | Change `APP_NAMESPACE` via `/ipa.init` to produce a different bucket name. Or delete the existing bucket if it's unused. |
 | 3 | Source repository not found | Pipeline fails on first execution with "Repository not found" in Source stage | The CodeCommit repository referenced by `SourceRepoName` does not exist, or the codecommit stack failed to deploy. | Verify the codecommit stack deployed successfully: `source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {namespace}-{env}-codecommit`. Re-run `/ipa.codepipeline` if the codecommit stack is missing. |
 | 4 | Privileged mode denied | CodeBuild execution fails with Docker permission errors ("Cannot connect to the Docker daemon") | Account-level CodeBuild settings may restrict privileged mode, or the CodeBuild service role lacks required permissions. | Check AWS Organizations SCPs or CodeBuild account settings. Verify the CodeBuild execution role has the necessary permissions for Docker operations. |
-| 5 | Pipeline triggers on first creation | Pipeline runs immediately after stack creation before any code is pushed | This is expected behavior — EventBridge may trigger on initial repository state. The build will fail at `pre_build` because no source code exists. | Push code to the CodeCommit repository. The next pipeline run will succeed. The initial auto-trigger failure is harmless and can be ignored. |
+| 5 | Pipeline triggers on first creation | Pipeline runs immediately after stack creation before any code is pushed | This is expected behavior — EventBridge may trigger on initial repository state. The Test stage will fail because no source code exists. | Push code to the CodeCommit repository. The next pipeline run will succeed. The initial auto-trigger failure is harmless and can be ignored. |
 | 6 | IAM role creation fails | Stack creation fails with "AccessDenied" on PipelineRole or EventRuleRole | The builder's credentials lack `iam:CreateRole` or `iam:PassRole` permissions. | Verify the deployment role (from `/ipa.security`) has IAM permissions. The stack requires `CAPABILITY_NAMED_IAM`. |
 
 ## Additional Troubleshooting
@@ -29,13 +29,13 @@
 
 **Recovery**: Re-run `/ipa.codepipeline` to update the pipeline stack. The process skill re-queries prepare-stack outputs and passes them as updated template parameters.
 
-### Build fails at install phase
+### Stage fails at install phase
 
-**Symptom**: CodeBuild fails during `pip install uv` or `uv sync`.
+**Symptom**: Any pipeline stage (Test, Build, Deploy, or PostDeploy) fails during `pip install uv` or `uv sync`.
 
-**Root Cause**: Network connectivity issues in CodeBuild VPC configuration, or pip/PyPI is temporarily unavailable.
+**Root Cause**: Network connectivity issues in CodeBuild VPC configuration, or pip/PyPI is temporarily unavailable. Each stage runs its own install phase independently.
 
-**Recovery**: Retry the build. If persistent, check CodeBuild VPC settings (if configured) and ensure outbound internet access is available.
+**Recovery**: Retry the failed stage. If persistent, check CodeBuild VPC settings (if configured) and ensure outbound internet access is available.
 
 ### Missing execution role — run /ipa.security
 

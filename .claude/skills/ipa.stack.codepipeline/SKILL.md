@@ -51,6 +51,10 @@ Set on the CodeBuild project, inherited by Make targets at runtime:
 | `OIDC_ISSUER` | Parameter `OidcIssuer` |
 | `OIDC_CLIENT_ID` | Parameter `OidcClientId` |
 | `OIDC_END_SESSION_ENDPOINT` | Parameter `OidcEndSessionEndpoint` |
+| `IPA_MAKEFILE` | Pipeline action override (default: `build.mk`) |
+| `IPA_TARGET` | Pipeline action override (default: `build`) |
+
+Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Make target to run. The buildspec is inline in the template.
 
 ## Outputs
 

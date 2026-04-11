@@ -53,20 +53,14 @@ Check if `scripts/deploy.mk` exists at the project root:
 
 **If missing**: STOP with: "Cannot proceed — `scripts/deploy.mk` not found. Run `/ipa.compose` first to generate Makefiles."
 
-### 1.4 Verify Buildspec
-
-Check if `buildspec.yml` exists at the project root:
-
-**If missing**: STOP with: "Cannot proceed — `buildspec.yml` not found at the repository root. Create it before setting up the pipeline. See the IPA documentation for the standard buildspec template."
-
-### 1.5 Detect Existing Pipeline Configuration
+### 1.4 Detect Existing Pipeline Configuration
 
 Check if `.env` contains `PIPELINE_STACK_NAME`:
 
 - **If present** → route to the **Update Flow** (Step U1).
-- **If absent** → continue to Step 1.6.
+- **If absent** → continue to Step 1.5.
 
-### 1.6 Check CloudFormation Stack Status
+### 1.5 Check CloudFormation Stack Status
 
 Compute the stack name: `{APP_NAMESPACE}-{APP_ENV}-codepipeline`
 
@@ -284,8 +278,9 @@ Push instructions:
   git push codecommit main
 
 Note: The pipeline will trigger automatically on the first push.
-The build executes: test → build → deploy → post-deploy
-(same Make targets as local deployment)
+The pipeline runs 4 stages: Test → Build → Deploy → PostDeploy
+Each stage executes the corresponding Make target (same as local deployment).
+The buildspec is inline in the CloudFormation template — no buildspec.yml file needed.
 ```
 
 Written to `.env`:
@@ -302,7 +297,7 @@ Written to `.env`:
 
 ## Re-Run / Update Flow
 
-This flow runs when pre-flight checks detect existing pipeline configuration (Step 1.5 or 1.6).
+This flow runs when pre-flight checks detect existing pipeline configuration (Step 1.4 or 1.5).
 
 ### U1: Read Current Configuration
 
@@ -395,7 +390,6 @@ If the CloudFormation stack exists but `.env` doesn't have `PIPELINE_STACK_NAME`
 | `.env` init vars | "Run `/ipa.init` first to configure project defaults." |
 | `APP_CODEBUILD_ROLE_ARN` | "Run `/ipa.security` first to provision the CodeBuild execution role." |
 | `scripts/deploy.mk` | "Run `/ipa.compose` first to generate Makefiles." |
-| `buildspec.yml` | "Create `buildspec.yml` at the repository root." |
 | ECR stack | "Run `/ipa.prepare` first to deploy prerequisite stacks." |
 | Cognito stack | "Run `/ipa.prepare` first to deploy prerequisite stacks." |
 
