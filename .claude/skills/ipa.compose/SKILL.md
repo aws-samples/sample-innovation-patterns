@@ -396,11 +396,7 @@ If no stacks have build requirements, write a no-op `build` target.
 
 Write `scripts/test.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
-Always include:
-- `test-validate`: one `aws cloudformation validate-template --template-body file://{path}` per CloudFormation template referenced by stacks in the pattern
-- `test-security`: `ash --source-dir infra/`
-
-Aggregate target: `test: test-validate test-security`.
+Generate a stub `test` target with a no-op echo. Test content will be added later.
 
 ---
 
