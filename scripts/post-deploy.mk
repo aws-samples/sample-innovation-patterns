@@ -17,9 +17,13 @@ IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
-.PHONY: post-deploy load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-backend-cors
+.PHONY: post-deploy update-env load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-backend-cors
 
-post-deploy: load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-backend-cors
+post-deploy: update-env load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-backend-cors
+
+# Sync stack outputs to .env (local dev only). CI/CD has no .env file.
+update-env:
+	@if [ -f ./.env ]; then $(MAKE) -f scripts/env.mk update-env; fi
 
 load-data:
 	cd app-lib && uv run python -m app_lib.features.passengers.util.load_dynamodb_util

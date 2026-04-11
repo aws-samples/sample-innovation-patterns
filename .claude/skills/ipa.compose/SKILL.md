@@ -226,6 +226,7 @@ Artifacts to generate:
   - scripts/deploy.mk
   - scripts/build.mk
   - scripts/post-deploy.mk                      (post-deploy Makefile — always generated)
+  - scripts/env.mk                              (environment variable sync — always generated)
   - scripts/test.mk
   - scripts/SECURITY-DISPOSITION.md
 ```
@@ -291,15 +292,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 4. **Aggregate teardown target**: `teardown-prepare: teardown-{sfxN} ... teardown-{sfx1}` in reverse order.
 5. **Per-stack teardown targets**: `aws cloudformation delete-stack` + `wait stack-delete-complete`.
 
-#### Cognito OIDC Environment Variable Target
-
-If the prepare stack list includes `cognito`:
-
-1. Generate a `prepare-cognito-env` target that depends on `prepare-cognito`
-2. This target extracts Cognito OIDC outputs and writes them to `.env`
-3. All subsequent prepare targets depend on `prepare-cognito-env` (not `prepare-cognito`)
-4. The aggregate `prepare:` target chains: `prepare-cognito → prepare-cognito-env → prepare-ecr`
-5. Load the `prepare-cognito-env` target template from MAKEFILE_TEMPLATES.md
+**Note**: Environment variable writes (OIDC, ECR, SQS) are no longer generated in prepare.mk. They are consolidated in `env.mk` (see Step 6c). The prepare chain is simplified to: `prepare-cognito → prepare-ecr` (direct dependency, no env targets).
 
 **Critical rules**:
 - Same naming/variable conventions as deploy.mk
@@ -336,7 +329,18 @@ When generating post-deploy targets that reference Cognito outputs (IssuerUrl, U
 - `$(OIDC_CLIENT_ID)` instead of fetching UserPoolClientId
 - `$(OIDC_END_SESSION_ENDPOINT)` instead of fetching EndSessionEndpoint
 
-These variables are written to `.env` by `prepare-cognito-env` in prepare.mk.
+These variables are written to `.env` by `update-env-cognito` in env.mk (invoked from post-deploy.mk).
+
+#### update-env Target
+
+Always generate an `update-env` target as the **first step** in the `post-deploy:` chain. This target invokes `env.mk` conditionally:
+
+```makefile
+update-env:
+	@if [ -f ./.env ]; then $(MAKE) -f scripts/env.mk update-env; fi
+```
+
+This ensures CI/CD (no `.env` file) skips the env sync. The `update-env` target must appear in the `.PHONY` declaration and as the first prerequisite of the aggregate `post-deploy:` target.
 
 **Critical rules**:
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
@@ -344,6 +348,34 @@ These variables are written to `.env` by `prepare-cognito-env` in prepare.mk.
 - Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{suffix}`.
 - The `update-cognito-callback` target must pass ALL parameters that `prepare-cognito` passes, plus the updated `CallbackURL`.
 - `$(eval ... $(shell ...))` lines MUST use conditional profile/region.
+
+---
+
+### Step 6c: Generate env.mk
+
+Always generate `scripts/env.mk`. This file consolidates all `.env` writes — syncing deployed stack outputs to `.env` for local dev.
+
+Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) env.mk template. Generate:
+
+1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
+2. **Aggregate target**: `update-env: update-env-{sfx1} update-env-{sfx2} ...` listing all per-stack env targets.
+3. **Per-stack env targets**: For each stack in the composition that has `.env`-relevant outputs:
+   - **cognito** → `update-env-cognito` (writes OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_DISCOVERY_URL, OIDC_END_SESSION_ENDPOINT, OIDC_USER_POOL_ID)
+   - **ecr** → `update-env-ecr` (writes ECR_REPO_URI)
+   - **queue** → `update-env-sqs` (writes SQS_QUEUE_URL)
+
+Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo` to idempotently write to `.env`.
+
+**Stack presence rules**:
+- Generate `update-env-cognito` when the composition includes `cognito` (any lifecycle)
+- Generate `update-env-ecr` when the composition includes `ecr` (any lifecycle)
+- Generate `update-env-sqs` when the composition includes `queue` (any lifecycle)
+- If no stacks with env outputs are present, generate a no-op: `update-env: @echo "No environment variables to sync"`
+
+**Critical rules**:
+- All `$(eval)` variables use `_VAL` suffix to prevent collision with `.env`-sourced variables
+- `$(eval ... $(shell ...))` lines MUST use conditional profile/region
+- All targets are `.PHONY`
 
 ---
 
@@ -425,6 +457,7 @@ Generated artifacts:
   ✓ scripts/deploy.mk                          (deployment Makefile)
   ✓ scripts/build.mk                           (build Makefile)
   ✓ scripts/post-deploy.mk                     (post-deploy Makefile)
+  ✓ scripts/env.mk                             (environment variable sync — .env writes)
   ✓ scripts/test.mk                            (test Makefile)
   ✓ scripts/SECURITY-DISPOSITION.md              (security disposition register)
 

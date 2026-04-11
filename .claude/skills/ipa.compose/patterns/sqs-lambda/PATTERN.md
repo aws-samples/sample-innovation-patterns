@@ -113,4 +113,8 @@ Additional CLI arguments:
 
 ## Post-Deploy
 
-None — infrastructure-only pattern. No data loading, no frontend configuration, no post-deploy wiring steps.
+1. update-env — Sync stack outputs to .env (conditional: only if .env exists)
+   - Depends on: none
+   - Invokes: `scripts/env.mk` update-env target
+   - Writes: SQS_QUEUE_URL to .env (idempotent grep-v + append)
+   - Notes: `update-env-cognito` and `update-env-ecr` are contributed by the base pattern (`react-rest-lambda`). This pattern contributes `update-env-sqs` only.

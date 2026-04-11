@@ -74,6 +74,16 @@ Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-f
 
 Queue deploys **before** backend (S2:B). Backend receives queue outputs via wirable parameters.
 
+## Local Dev Environment
+
+After deployment, the `update-env-sqs` target in `scripts/env.mk` writes `SQS_QUEUE_URL` to `.env`:
+
+| Variable | Source Output | Description |
+|----------|--------------|-------------|
+| SQS_QUEUE_URL | QueueUrl | SQS queue URL for job submission |
+
+This enables the local FastAPI backend (`load_dotenv()`) to submit jobs to the deployed queue without manual `.env` configuration. The target runs as part of `post-deploy.mk`'s `update-env` step, gated by `.env` existence (skipped in CI/CD).
+
 ## Deploy Command
 
 ```bash
