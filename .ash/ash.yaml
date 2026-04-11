@@ -233,18 +233,7 @@ global_settings:
     - rule_id: 'CKV_AWS_45'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
-    # ========================================================================
-    # lodash / lodash-es — docs/ fixed to 4.18.1 via npm audit fix (2026-04-10).
-    # web-client/ still on 4.17.23 — transitive dep pinned by recharts/oazapfts.
-    # ========================================================================
-    - rule_id: 'GHSA-r5fr-rjxr-66jc-lodash'
-      path: 'web-client/package-lock.json'
-      reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-f23m-r3pf-42rh-lodash'
-      path: 'web-client/package-lock.json'
-      reason: 'Transitive dep pinned by recharts/oazapfts; lodash 4.18.x available but upstream has not updated'
-      expiration: '2026-06-26'
+    # lodash / lodash-es — FIXED in both docs/ and web-client/ via npm audit fix (2026-04-10)
     # ========================================================================
     # unsafe-formatstring — template literal in console.error, not a format string.
     # The component name is interpolated as data, not as a format specifier.
