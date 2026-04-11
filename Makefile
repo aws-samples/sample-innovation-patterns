@@ -15,9 +15,9 @@ dev:
 	  $(MAKE) dev-frontend & \
 	  wait
 
-# FastAPI backend with auto-reload
+# FastAPI backend with auto-reload (uv run finds the .venv automatically)
 dev-backend:
-	cd app-lib && $(MAKE) run
+	cd app-lib && uv run uvicorn app_lib.common.app:app --reload --port 8000
 
 # Vite dev server (proxies /api to backend)
 dev-frontend:

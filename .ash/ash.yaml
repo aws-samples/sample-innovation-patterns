@@ -46,6 +46,11 @@ global_settings:
     - rule_id: 'python-jinja2-xss-autoescape-false-atomic'
       path: 'app-lib/src/app_lib/common/util/jinja_util.py'
       reason: 'JinjaUtil renders YAML/text templates for code generation, not HTML served in a browser — no XSS vector'
+    # CRLF injection — false positive; header value is str(len(response_body)), always a non-negative integer.
+    # No user input flows into the header; an integer string cannot contain CRLF characters.
+    - rule_id: 'python-httpserver-crlfi-taint'
+      path: 'app-lib/src/app_lib/common/lambda/lambda_handler.py'
+      reason: 'False positive — Content-Length header value is str(len(bytes)), always a non-negative integer; no user input in header values'
     # DynamoDB PITR not needed for test fixture
     - rule_id: 'AwsSolutions-DDB3'
       path: 'utils/tests/fixtures/*'
@@ -83,35 +88,7 @@ global_settings:
       path: 'docs/package-lock.json'
       reason: 'No fix available — 1.1.13 is the latest v1.x release; transitive dep pinned by minimatch@3 in @docusaurus/core'
       expiration: '2026-06-26'
-    # CloudWatch Log Group KMS encryption — out of scope for POC; uses default encryption.
-    # Customers can add a KmsKeyId property to the LogGroup when productionizing.
-    - rule_id: 'CKV_AWS_158'
-      path: 'infra/cfn/lambda/lambda.yml'
-      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
-    # DynamoDB KMS CMK encryption — out of scope for POC; table uses default AWS-owned encryption (SSEEnabled: true).
-    # Customers can add SSEType: KMS with a KMSMasterKeyId when productionizing.
-    - rule_id: 'CKV_AWS_119'
-      path: 'infra/cfn/dynamodb/dynamodb.yml'
-      reason: 'Out of scope for POC — DynamoDB uses default AWS-owned encryption (SSEEnabled: true); customers can add KMS CMK when productionizing'
-    # Lambda DLQ — DLQs only apply to asynchronous invocations; this Lambda is invoked
-    # synchronously via API Gateway, so a DLQ would never receive messages.
-    - rule_id: 'CKV_AWS_116'
-      path: 'infra/cfn/lambda/lambda.yml'
-      reason: 'Not applicable — Lambda is invoked synchronously via API Gateway; DLQ only triggers on async invocations'
-    # DynamoDB PITR — out of scope for POC; customers can enable PointInTimeRecoverySpecification when productionizing.
-    - rule_id: 'CKV_AWS_28'
-      path: 'infra/cfn/dynamodb/dynamodb.yml'
-      reason: 'Out of scope for POC — customers can enable PointInTimeRecoverySpecification when productionizing'
-    # Lambda env var KMS encryption — out of scope for POC; uses default AWS-managed encryption.
-    # Customers can add a KmsKeyArn on the Lambda function when productionizing.
-    - rule_id: 'CKV_AWS_173'
-      path: 'infra/cfn/lambda/lambda.yml'
-      reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
-    # Lambda VPC configuration — out of scope for POC; requires VPC, subnets, and security groups.
-    # Customers can add VpcConfig when productionizing.
-    - rule_id: 'CKV_AWS_117'
-      path: 'infra/cfn/lambda/lambda.yml'
-      reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
+    # (Removed: lambda.yml, dynamodb.yml suppressions — templates deleted in tier consolidation)
     # Dockerfile USER directive — not applicable for Lambda container images.
     # Lambda runs inside its own execution sandbox; the container USER has no security impact.
     - rule_id: 'dockerfile.security.missing-user.missing-user'
@@ -149,56 +126,37 @@ global_settings:
     - rule_id: 'B603'
       path: 'scripts/util/version.py'
       reason: 'Build utility calls git with hardcoded list arguments (no shell, no user input)'
-    # CloudFront WAF — out of scope for POC; requires provisioning a separate WebACL.
-    # Customers can attach a WebACLId to the distribution when productionizing.
-    - rule_id: 'CKV_AWS_68'
-      path: 'infra/cfn/cloudfront/cloudfront.yml'
-      reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach WebACLId when productionizing'
-    # S3 versioning — static web assets bucket; content is rebuilt from source, not user-uploaded.
-    # Versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.
-    - rule_id: 'CKV_AWS_21'
-      path: 'infra/cfn/s3/s3.yml'
-      reason: 'Out of scope for POC — static web assets are rebuilt from source; versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.'
-    # CloudFront TLS — false positive; ViewerCertificate with MinimumProtocolVersion: TLSv1.2_2021
-    # is already set on the distribution. Checkov does not correctly detect the setting.
-    - rule_id: 'CKV_AWS_174'
-      path: 'infra/cfn/cloudfront/cloudfront.yml'
-      reason: 'False positive — ViewerCertificate.MinimumProtocolVersion is set to TLSv1.2_2021; checkov fails to detect it'
-    - rule_id: 'CKV_AWS_158'
-      path: 'infra/cfn/apigateway-v2/apigateway-v2.yml'
-      reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
+    # (Removed: cloudfront.yml, s3.yml, apigateway-v2.yml suppressions — templates deleted in tier consolidation)
     # ========================================================================
     # Consolidated tier templates (frontend, backend, queue)
-    # These are the same finding categories as the per-service templates above.
-    # Consolidated tiers combine multiple services into single templates.
     # ========================================================================
     # --- frontend.yml (S3 + CloudFront + OAC) ---
-    # S3 versioning — static web assets rebuilt from source (same as s3.yml)
+    # S3 versioning — static web assets rebuilt from source
     - rule_id: 'CKV_AWS_21'
       path: 'infra/cfn/frontend/frontend.yml'
       reason: 'Out of scope for POC — static web assets are rebuilt from source; versioning adds storage cost with no recovery benefit. Customers can enable when productionizing.'
-    # CloudFront TLS — false positive; MinimumProtocolVersion: TLSv1.2_2021 is set (same as cloudfront.yml)
+    # CloudFront TLS — false positive; MinimumProtocolVersion: TLSv1.2_2021 is set
     - rule_id: 'CKV_AWS_174'
       path: 'infra/cfn/frontend/frontend.yml'
       reason: 'False positive — ViewerCertificate.MinimumProtocolVersion is set to TLSv1.2_2021; checkov fails to detect it'
-    # CloudFront WAF — out of scope for POC (same as cloudfront.yml)
+    # CloudFront WAF — out of scope for POC
     - rule_id: 'CKV_AWS_68'
       path: 'infra/cfn/frontend/frontend.yml'
       reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach WebACLId when productionizing'
     # --- backend.yml (Lambda + API Gateway v2 + DynamoDB + CloudWatch) ---
-    # CloudWatch Log Group KMS — out of scope for POC (same as lambda.yml); backend has Lambda + API GW log groups
+    # CloudWatch Log Group KMS — out of scope for POC; backend has Lambda + API GW log groups
     - rule_id: 'CKV_AWS_158'
       path: 'infra/cfn/backend/backend.yml'
       reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
-    # Lambda DLQ — Lambda is invoked synchronously via API Gateway (same as lambda.yml)
+    # Lambda DLQ — Lambda is invoked synchronously via API Gateway
     - rule_id: 'CKV_AWS_116'
       path: 'infra/cfn/backend/backend.yml'
       reason: 'Not applicable — Lambda is invoked synchronously via API Gateway; DLQ only triggers on async invocations'
-    # Lambda env var KMS — out of scope for POC (same as lambda.yml)
+    # Lambda env var KMS — out of scope for POC
     - rule_id: 'CKV_AWS_173'
       path: 'infra/cfn/backend/backend.yml'
       reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
-    # Lambda VPC — out of scope for POC (same as lambda.yml)
+    # Lambda VPC — out of scope for POC
     - rule_id: 'CKV_AWS_117'
       path: 'infra/cfn/backend/backend.yml'
       reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
@@ -207,7 +165,7 @@ global_settings:
     - rule_id: 'CKV_AWS_27'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Out of scope for POC — SQS uses SSE-SQS (SqsManagedSseEnabled: true); customers can add KMS CMK when productionizing'
-    # CloudWatch Log Group KMS — out of scope for POC (same as lambda.yml)
+    # CloudWatch Log Group KMS — out of scope for POC
     - rule_id: 'CKV_AWS_158'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Out of scope for POC — CloudWatch Log Group uses default encryption; customers can add KmsKeyId when productionizing'
@@ -215,11 +173,11 @@ global_settings:
     - rule_id: 'CKV_AWS_116'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Not applicable — worker Lambda is invoked synchronously by SQS Event Source Mapping; retries and DLQ routing handled by SQS, not Lambda DLQ'
-    # Lambda env var KMS — out of scope for POC (same as lambda.yml)
+    # Lambda env var KMS — out of scope for POC
     - rule_id: 'CKV_AWS_173'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Out of scope for POC — Lambda env vars use default AWS-managed encryption; customers can add KmsKeyArn when productionizing'
-    # Lambda VPC — out of scope for POC (same as lambda.yml)
+    # Lambda VPC — out of scope for POC
     - rule_id: 'CKV_AWS_117'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'Out of scope for POC — VPC configuration requires VPC, subnets, and security groups; customers can add VpcConfig when productionizing'
@@ -232,9 +190,6 @@ global_settings:
       path: 'infra/cfn/backend/backend.yml'
       reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
     - rule_id: 'CKV_AWS_45'
-      path: 'infra/cfn/lambda/lambda.yml'
-      reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
-    - rule_id: 'CKV_AWS_45'
       path: 'infra/cfn/queue/queue.yml'
       reason: 'False positive — no hardcoded secrets; env var literals are config values (path prefix, mode enum), sensitive values use !Ref/!If'
     # lodash / lodash-es — FIXED in both docs/ and web-client/ via npm audit fix (2026-04-10)
@@ -245,3 +200,46 @@ global_settings:
     - rule_id: 'javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring'
       path: 'web-client/src/pages/sink/components/component-wrapper.tsx'
       reason: 'False positive — template literal in console.error; component name is data interpolation, not a format specifier'
+    # dangerouslySetInnerHTML in shadcn/ui ChartStyle — injects scoped CSS custom properties
+    # (theme colors) from developer-defined ChartConfig, not user input. Standard shadcn/ui pattern.
+    - rule_id: 'javascript-react-xss-dangerouslysetinnerhtml-atomic'
+      path: 'web-client/src/components/ui/chart.tsx'
+      reason: 'False positive — shadcn/ui ChartStyle component injects CSS custom properties from developer-defined ChartConfig; no user input flows into the style tag'
+    # CloudFront logging IS configured (Logging.Bucket, IncludeCookies, Prefix at lines 107-110).
+    # KICS cannot resolve the !Ref LogBucketDomainName intrinsic and reports the property as missing.
+    - rule_id: 'CloudFront Logging Disabled'
+      path: 'infra/cfn/frontend/frontend.yml'
+      reason: 'False positive — Logging is configured at lines 107-110 with Bucket: !Ref LogBucketDomainName; KICS cannot resolve CloudFormation intrinsic functions'
+    # API Gateway V2 Stage — AccessLogSettings IS defined with DestinationArn + Format.
+    # KICS cannot resolve !GetAtt ApiGatewayLogGroup.Arn and reports the property as missing.
+    - rule_id: 'API Gateway V2 Stage Access Logging Settings Not Defined'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'False positive — AccessLogSettings is configured with DestinationArn: !GetAtt ApiGatewayLogGroup.Arn and JSON format string; KICS cannot resolve intrinsic functions'
+    # CloudFront Without WAF — same finding as CKV_AWS_68 but from KICS scanner (different rule ID)
+    - rule_id: 'CloudFront Without WAF'
+      path: 'infra/cfn/frontend/frontend.yml'
+      reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach WebACLId when productionizing'
+    # ========================================================================
+    # codepipeline.yml (ArtifactBucket + PipelineRole)
+    # ========================================================================
+    # S3 access logging — out of scope for POC; artifact bucket is internal-only
+    - rule_id: 'AwsSolutions-S1'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'Out of scope for POC — pipeline artifact bucket is internal-only; customers can add LoggingConfiguration when productionizing'
+    - rule_id: 'CKV_AWS_18'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'Out of scope for POC — pipeline artifact bucket is internal-only; customers can add LoggingConfiguration when productionizing'
+    # IAM wildcard — false positive; s3:::${ArtifactBucket}/* is scoped to a specific bucket,
+    # not a wildcard resource. The /* suffix is required for S3 object-level access.
+    - rule_id: 'AwsSolutions-IAM5'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'False positive — s3:::${ArtifactBucket}/* is scoped to a specific named bucket; /* suffix is required for object-level GetObject/PutObject access'
+    # S3 SSE — false positive; BucketEncryption IS configured with conditional KMS/AES256.
+    # Checkov cannot resolve the !If intrinsic and reports SSE as missing.
+    - rule_id: 'CKV_AWS_19'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'False positive — SSE is configured via BucketEncryption with !If [HasKmsKey, aws:kms, AES256]; checkov cannot resolve CloudFormation intrinsic functions'
+    # S3 versioning — pipeline artifacts are ephemeral build outputs, not source of truth
+    - rule_id: 'CKV_AWS_21'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'Out of scope for POC — pipeline artifacts are ephemeral build outputs rebuilt from source; versioning adds storage cost with no recovery benefit'

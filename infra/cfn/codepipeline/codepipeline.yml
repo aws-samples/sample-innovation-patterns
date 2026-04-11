@@ -1,0 +1,307 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IPA CodePipeline — CI/CD pipeline with CodeBuild for automated build/test/deploy'
+
+Parameters:
+  Namespace:
+    Type: String
+    Description: 'Project namespace prefix'
+  Environment:
+    Type: String
+    Description: 'Environment name (e.g., dev, staging, prod)'
+  AccountId:
+    Type: String
+    Description: '12-digit AWS account ID'
+    AllowedPattern: '\d{12}'
+    ConstraintDescription: 'Must be a 12-digit AWS account ID'
+  CodeBuildRoleArn:
+    Type: String
+    Description: 'CodeBuild execution role ARN from /ipa.security'
+  SourceRepoName:
+    Type: String
+    Description: 'CodeCommit repository name'
+  SourceBranch:
+    Type: String
+    Default: 'main'
+    Description: 'Branch to track for pipeline triggers'
+  EcrRepoUri:
+    Type: String
+    Description: 'ECR repository URI (from ecr stack output)'
+  OidcIssuer:
+    Type: String
+    Description: 'Cognito OIDC issuer URL (from cognito stack output)'
+  OidcClientId:
+    Type: String
+    Description: 'Cognito app client ID (from cognito stack output)'
+  OidcEndSessionEndpoint:
+    Type: String
+    Description: 'Cognito end session endpoint (from cognito stack output)'
+  BuildImage:
+    Type: String
+    Default: 'aws/codebuild/standard:7.0'
+    Description: 'CodeBuild Docker image'
+  ComputeType:
+    Type: String
+    Default: 'BUILD_GENERAL1_LARGE'
+    Description: 'CodeBuild compute type'
+    AllowedValues:
+      - BUILD_GENERAL1_SMALL
+      - BUILD_GENERAL1_MEDIUM
+      - BUILD_GENERAL1_LARGE
+  KmsKeyArn:
+    Type: String
+    Default: ''
+    Description: 'Optional KMS key ARN for encryption at rest'
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, '']]
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Namespace}-${Environment}-pipeline-artifacts-${AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKmsKey, 'aws:kms', 'AES256']
+              KMSMasterKeyID: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Purpose
+          Value: !Sub 'Pipeline artifacts for ${Namespace}-${Environment}'
+        - Key: ManagedBy
+          Value: IPA
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyNonSSL
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !Sub 'arn:aws:s3:::${ArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${ArtifactBucket}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub '${Namespace}-${Environment}-build'
+      Description: !Sub 'IPA build project for ${Namespace}-${Environment}'
+      ServiceRole: !Ref CodeBuildRoleArn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: !Ref ComputeType
+        Image: !Ref BuildImage
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: APP_NAMESPACE
+            Value: !Ref Namespace
+            Type: PLAINTEXT
+          - Name: APP_ENV
+            Value: !Ref Environment
+            Type: PLAINTEXT
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AccountId
+            Type: PLAINTEXT
+          - Name: ECR_REPO_URI
+            Value: !Ref EcrRepoUri
+            Type: PLAINTEXT
+          - Name: OIDC_ISSUER
+            Value: !Ref OidcIssuer
+            Type: PLAINTEXT
+          - Name: OIDC_CLIENT_ID
+            Value: !Ref OidcClientId
+            Type: PLAINTEXT
+          - Name: OIDC_END_SESSION_ENDPOINT
+            Value: !Ref OidcEndSessionEndpoint
+            Type: PLAINTEXT
+      EncryptionKey: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Purpose
+          Value: !Sub 'Build project for ${Namespace}-${Environment}'
+        - Key: ManagedBy
+          Value: IPA
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${Namespace}-${Environment}-pipeline'
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+        EncryptionKey: !If
+          - HasKmsKey
+          - Id: !Ref KmsKeyArn
+            Type: KMS
+          - !Ref 'AWS::NoValue'
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName: !Ref SourceRepoName
+                BranchName: !Ref SourceBranch
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+      Tags:
+        - Key: Purpose
+          Value: !Sub 'CI/CD pipeline for ${Namespace}-${Environment}'
+        - Key: ManagedBy
+          Value: IPA
+
+  EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub 'Trigger pipeline on CodeCommit push to ${SourceBranch}'
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - 'CodeCommit Repository State Change'
+        resources:
+          - !Sub 'arn:aws:codecommit:${AWS::Region}:${AccountId}:${SourceRepoName}'
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref SourceBranch
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AccountId}:${Pipeline}'
+          Id: CodePipelineTarget
+          RoleArn: !GetAtt EventRuleRole.Arn
+
+  EventRuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-pipeline-event-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: !Sub '${Namespace}-${Environment}-pipeline-event-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'codepipeline:StartPipelineExecution'
+                Resource: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AccountId}:${Pipeline}'
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-pipeline-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: !Sub '${Namespace}-${Environment}-pipeline-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CodeBuildAccess
+                Effect: Allow
+                Action:
+                  - 'codebuild:StartBuild'
+                  - 'codebuild:BatchGetBuilds'
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Sid: ArtifactBucketAccess
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetBucketVersioning'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${ArtifactBucket}'
+                  - !Sub 'arn:aws:s3:::${ArtifactBucket}/*'
+              - Sid: CodeCommitAccess
+                Effect: Allow
+                Action:
+                  - 'codecommit:GetBranch'
+                  - 'codecommit:GetCommit'
+                  - 'codecommit:UploadArchive'
+                  - 'codecommit:GetUploadArchiveStatus'
+                  - 'codecommit:CancelUploadArchive'
+                Resource: !Sub 'arn:aws:codecommit:${AWS::Region}:${AccountId}:${SourceRepoName}'
+              - !If
+                - HasKmsKey
+                - Sid: KmsAccess
+                  Effect: Allow
+                  Action:
+                    - 'kms:Decrypt'
+                    - 'kms:GenerateDataKey'
+                  Resource: !Ref KmsKeyArn
+                - !Ref 'AWS::NoValue'
+
+Outputs:
+  PipelineName:
+    Description: 'CodePipeline pipeline name'
+    Value: !Ref Pipeline
+    Export:
+      Name: !Sub '${AWS::StackName}-PipelineName'
+  PipelineArn:
+    Description: 'CodePipeline pipeline ARN'
+    Value: !Sub 'arn:aws:codepipeline:${AWS::Region}:${AccountId}:${Pipeline}'
+    Export:
+      Name: !Sub '${AWS::StackName}-PipelineArn'
+  CodeBuildProjectName:
+    Description: 'CodeBuild project name'
+    Value: !Ref CodeBuildProject
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildProjectName'
+  ArtifactBucketName:
+    Description: 'Pipeline artifacts bucket name'
+    Value: !Ref ArtifactBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-ArtifactBucketName'
