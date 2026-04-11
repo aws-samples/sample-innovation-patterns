@@ -108,10 +108,8 @@ Resources:
             pre_build:
               commands:
                 - |
-                  if [ -f .build-sha ]; then
-                    export CODEBUILD_RESOLVED_SOURCE_VERSION=$(cat .build-sha)
-                  else
-                    echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" > .build-sha
+                  if [ -n "${CODEBUILD_SRC_DIR_BuildOutput:-}" ]; then
+                    cp -r "$CODEBUILD_SRC_DIR_BuildOutput/web-client/dist" web-client/dist
                   fi
             install:
               runtime-versions:
@@ -239,7 +237,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: SourceOutput
               RunOrder: 1
         - Name: PostDeploy
           Actions:
@@ -251,8 +249,10 @@ Resources:
                 Version: '1'
               Configuration:
                 ProjectName: !Ref CodeBuildProject
+                PrimarySource: SourceOutput
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"post-deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"post-deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
+                - Name: SourceOutput
                 - Name: BuildOutput
               RunOrder: 1
       Tags:
