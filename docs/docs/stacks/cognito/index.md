@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Cognito
 
-The Cognito stack deploys an Amazon Cognito User Pool configured for OAuth 2.0 authentication with OIDC endpoints and a Managed Login UI. It provisions a User Pool with Advanced Security Mode enforced, an app client restricted to the Authorization Code Grant flow, a custom domain prefix with Managed Login v2, and Cognito-provided login branding. The stack serves as the identity provider for all IPA patterns that require authenticated access.
+The Cognito stack deploys an Amazon Cognito User Pool configured for OAuth 2.0 authentication with OIDC endpoints and a Managed Login UI. It provisions a User Pool with Advanced Security Mode enforced, an app client restricted to the Authorization Code Grant flow, a custom domain prefix with Managed Login v2, and Cognito-provided login branding. The stack serves as the identity provider for all IPA compositions that require authenticated access.
 
 **Template:** `infra/cfn/cognito/cognito.yml`
 **Lifecycle:** prepare (one-time)
@@ -26,7 +26,7 @@ The Cognito stack deploys an Amazon Cognito User Pool configured for OAuth 2.0 a
 
 ## When to Use
 
-This stack provides authentication for any IPA pattern that serves authenticated users. It is included in the prepare phase of the `react-rest-lambda` pattern and is deployed once per environment before the tier stacks.
+This stack provides authentication for any IPA composition that serves authenticated users. It is included in the prepare phase when composing any stack that requires authentication and is deployed once per environment before the tier stacks.
 
 The Cognito stack produces the JWT issuer and audience values consumed by downstream stacks:
 

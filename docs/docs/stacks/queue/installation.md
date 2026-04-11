@@ -7,11 +7,11 @@ sidebar_position: 2
 
 ## Compose
 
-The queue stack is included automatically when composing the `sqs-lambda` pattern alongside `react-rest-lambda`. Run the compose skill and select `sqs-lambda` as an add-on pattern:
+The queue stack is included automatically when selecting the queue stack during `/ipa.compose`. Run the compose skill:
 
     /ipa.compose
 
-The compose step generates Makefile targets, parameter overrides, and cross-stack wiring for the queue tier.
+Select the queue stack when prompted for stacks to include. The compose step generates Makefile targets, parameter overrides, and cross-stack wiring for the queue tier.
 
 ## Configuration
 

@@ -7,11 +7,11 @@ sidebar_position: 2
 
 ## Compose
 
-The frontend stack is included automatically when composing the `react-rest-lambda` pattern. Run the compose skill and select the pattern when prompted:
+The frontend stack is included automatically when selecting the frontend stack during `/ipa.compose`. Run the compose skill:
 
     /ipa.compose
 
-Select `react-rest-lambda` when prompted. The compose process generates the deployment Makefile targets and wires the frontend stack into the correct deploy order.
+Select the frontend stack when prompted for stacks to include. The compose process generates the deployment Makefile targets and wires the frontend stack into the correct deploy order.
 
 ## Configuration
 

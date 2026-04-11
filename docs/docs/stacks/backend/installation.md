@@ -7,11 +7,11 @@ sidebar_position: 2
 
 ## Compose
 
-The backend stack is included automatically when composing the `react-rest-lambda` pattern. Run the compose skill and select the pattern:
+The backend stack is included automatically when selecting the backend stack during `/ipa.compose`. Run the compose skill:
 
     /ipa.compose
 
-Select `react-rest-lambda` when prompted. The compose skill generates the deployment Makefile with all required parameter wiring.
+Select the backend stack when prompted for stacks to include. The compose skill generates the deployment Makefile with all required parameter wiring.
 
 ## Configuration
 
@@ -41,7 +41,7 @@ Select `react-rest-lambda` when prompted. The compose skill generates the deploy
 | Flag | Default | Description |
 |------|---------|-------------|
 | `EnablePassengersTable` | `false` | Creates a DynamoDB table (`{Namespace}_{Environment}_passengers`) for passenger data. Adds a conditional least-privilege IAM policy to the Lambda execution role granting read/write access to the table. |
-| `EnableSqsIntegration` | `false` | Adds SQS `SendMessage` and `GetQueueAttributes` permissions to the Lambda execution role and injects the `SQS_QUEUE_URL` environment variable into the function. Also grants access to the convention-based jobs table (`{Namespace}_{Environment}_jobs`). Enabled automatically when composed with the `sqs-lambda` pattern. |
+| `EnableSqsIntegration` | `false` | Adds SQS `SendMessage` and `GetQueueAttributes` permissions to the Lambda execution role and injects the `SQS_QUEUE_URL` environment variable into the function. Also grants access to the convention-based jobs table (`{Namespace}_{Environment}_jobs`). Enabled automatically when the queue stack is also selected during composition. |
 
 When `EnableSqsIntegration` is set to `true`, the following additional parameters become relevant:
 

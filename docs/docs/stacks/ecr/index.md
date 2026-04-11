@@ -17,4 +17,4 @@ The ECR stack deploys a single Amazon Elastic Container Registry repository for 
 
 ## When to Use
 
-Include the ECR stack when the deployment pattern uses container-packaged Lambda functions. It is provisioned automatically as part of the `react-rest-lambda` pattern's prepare phase. The stack provides the `RepositoryUri` output consumed by the backend and queue tiers to resolve the Lambda `ImageUri` at deploy time. If the application uses only zip-packaged Lambda functions or does not include a Lambda backend, this stack is not needed.
+Include the ECR stack when the deployment uses container-packaged Lambda functions. It is included automatically as a prepare dependency when any stack using container-packaged Lambda is selected during composition. The stack provides the `RepositoryUri` output consumed by the backend and queue tiers to resolve the Lambda `ImageUri` at deploy time. If the application uses only zip-packaged Lambda functions or does not include a Lambda backend, this stack is not needed.

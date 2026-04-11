@@ -14,7 +14,7 @@ IPA is a library of AI-driven skills for [Claude Code](https://docs.anthropic.co
 
 ## What It Deploys
 
-The `react-rest-lambda` pattern deploys a complete serverless web application in a single command:
+A full-stack composition deploys a complete serverless web application in a single session:
 
 - **Frontend** — React SPA on S3 + CloudFront with OAC
 - **Backend** — FastAPI on Lambda + API Gateway v2 with JWT auth
@@ -23,7 +23,7 @@ The `react-rest-lambda` pattern deploys a complete serverless web application in
 - **Container Registry** — ECR for Lambda container images
 - **Observability** — CloudWatch dashboards and alarms
 
-Additional patterns layer on top: `sqs-lambda` adds a queue worker, `bedrock-knowledge-base` adds RAG. Patterns compose — they do not conflict.
+Additional stacks layer on top: the queue stack adds a background worker, and stacks compose without conflict.
 
 ## How It Works
 

@@ -19,7 +19,7 @@ Skills fall into three categories:
 - **Stack skills** define individual CloudFormation stacks — their parameters, outputs, and wiring contracts. Each stack skill corresponds to one template in `infra/cfn/`. Examples include `ipa.stack.backend` and `ipa.stack.frontend`.
 - **Authoring skills** help create new stack skills. The `ipa.author.stack` skill generates a new stack skill directory from a description of the desired infrastructure.
 
-Within the compose skill, **patterns** (stored in `.claude/skills/ipa.compose/patterns/`) define reusable multi-stack architectures. A pattern specifies a stack sequence with dependency ordering, inter-stack wiring, and a teardown sequence. The `react-rest-lambda` pattern, for example, composes Cognito, ECR, Backend, and Frontend stacks into a full-stack serverless web application.
+The `/ipa.compose` skill manages stack composition — it determines deployment order, resolves inter-stack wiring, and generates executable Makefiles from the selected stacks.
 
 ### Infrastructure Templates (`infra/cfn/`)
 

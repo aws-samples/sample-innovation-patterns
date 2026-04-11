@@ -7,11 +7,11 @@ sidebar_position: 2
 
 ## Compose
 
-The Cognito stack is deployed as part of the prepare phase in the `react-rest-lambda` pattern. Run the compose skill and select the pattern:
+The Cognito stack is deployed as a prepare-lifecycle stack via `/ipa.compose` when any stack requiring authentication is selected. Run the compose skill:
 
     /ipa.compose
 
-Select `react-rest-lambda` when prompted. The compose skill generates `scripts/prepare.mk` with all required parameter wiring for the Cognito stack.
+Select the stacks that require authentication (backend, queue) when prompted. The compose skill automatically includes Cognito as a prepare dependency and generates `scripts/prepare.mk` with all required parameter wiring for the Cognito stack.
 
 To deploy the prepare phase (which includes Cognito):
 

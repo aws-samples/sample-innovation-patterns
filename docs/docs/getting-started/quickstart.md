@@ -76,10 +76,10 @@ Select the managed policy path and accept the default `PowerUserAccess` policy f
 Run:
 
 ```
-/ipa.compose react-rest-lambda
+/ipa.compose
 ```
 
-The `react-rest-lambda` pattern is a full-stack serverless web application that includes:
+The compose skill assembles the selected stacks into a full-stack serverless web application:
 
 - **Cognito** — User Pool with OAuth 2.0 Hosted UI (prepare stack)
 - **ECR** — Container image repository (prepare stack)
@@ -167,7 +167,7 @@ All IPA skills are idempotent. Re-run `/ipa.deploy` at any time to update the de
 
 ## Next Steps
 
-- Run `/ipa.compose sqs-lambda` to layer an SQS queue worker onto the existing deployment
+- Re-run `/ipa.compose` and add the queue stack to layer an SQS worker onto the existing deployment
 - Run `/ipa.codepipeline` to set up CI/CD with CodePipeline
 - Explore the [Stacks](/stacks) section for per-stack reference documentation
 - Read the [Developer Docs](/developer-docs) for codebase conventions and contribution guidelines

@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Queue
 
-The queue stack is a consolidated deploy tier for event-driven background processing. It provisions an SQS standard queue with an optional dead-letter queue, a container-packaged worker Lambda triggered through an EventSourceMapping, a feature-flagged DynamoDB table for job tracking, and a full CloudWatch observability layer. The stack is used as an add-on to the `react-rest-lambda` pattern via the `sqs-lambda` pattern, and deploys before the backend tier so that queue outputs can be wired into backend parameters.
+The queue stack is a consolidated deploy tier for event-driven background processing. It provisions an SQS standard queue with an optional dead-letter queue, a container-packaged worker Lambda triggered through an EventSourceMapping, a feature-flagged DynamoDB table for job tracking, and a full CloudWatch observability layer. The stack is included via `/ipa.compose` when the application needs asynchronous processing, and deploys before the backend tier so that queue outputs can be wired into backend parameters.
 
 **Template:** `infra/cfn/queue/queue.yml`
 **Lifecycle:** Deploy (tier)
@@ -26,4 +26,4 @@ The queue stack is a consolidated deploy tier for event-driven background proces
 
 ## When to Use
 
-Include the queue stack when the application requires asynchronous job processing, long-running inference calls, or any work that should execute outside the synchronous API request path. It is part of the `sqs-lambda` pattern, which layers onto `react-rest-lambda`. When both patterns are composed together, the backend tier automatically receives SQS send permissions through wired `QueueUrl` and `QueueArn` parameters. No manual cross-stack configuration is required.
+Include the queue stack when the application requires asynchronous job processing, long-running inference calls, or any work that should execute outside the synchronous API request path. When the queue and backend stacks are both selected during composition, the backend tier automatically receives SQS send permissions through wired `QueueUrl` and `QueueArn` parameters. No manual cross-stack configuration is required.

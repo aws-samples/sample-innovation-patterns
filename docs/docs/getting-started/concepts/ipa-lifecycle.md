@@ -43,7 +43,7 @@ Every stack in a pattern is classified as either `prepare` or `deploy`. This cla
 | `prepare` | `/ipa.prepare` (or auto-triggered by `/ipa.deploy`) | Once per project setup | Manual only: `make -f scripts/prepare.mk teardown-prepare` |
 | `deploy` | `/ipa.deploy` | Every deployment | `/ipa.destroy` or `make -f scripts/deploy.mk teardown` |
 
-In the `react-rest-lambda` pattern, Cognito and ECR are prepare stacks; backend and frontend are deploy stacks. The distinction exists because some infrastructure must be provisioned before build and deploy can run — ECR must exist before container images can be pushed, and Cognito must exist before OIDC configuration can be wired into the backend.
+In a typical full-stack composition, Cognito and ECR are prepare stacks; backend and frontend are deploy stacks. The distinction exists because some infrastructure must be provisioned before build and deploy can run — ECR must exist before container images can be pushed, and Cognito must exist before OIDC configuration can be wired into the backend.
 
 `/ipa.compose` reads the `(prepare)` annotation in each pattern's stack sequence and routes targets to the corresponding Makefile. Prepare stacks go into `prepare.mk`; deploy stacks go into `deploy.mk`. The builder does not need to manage this routing — composition handles it automatically.
 
@@ -63,11 +63,11 @@ Every skill is idempotent. Re-running a skill that has nothing new to do succeed
 
 ### Extending a Deployment
 
-Patterns can be layered. A compose-only pattern such as `sqs-lambda` extends an existing composition without rewriting it. The compose skill merges stack sequences, combines wiring, and applies shared-stack modifications automatically.
+Stacks can be layered. Adding the queue stack extends an existing composition without rewriting it. The compose skill merges stack sequences, combines wiring, and applies shared-stack modifications automatically.
 
 ```
-/ipa.compose react-rest-lambda              # First composition: 4 stacks
-/ipa.compose react-rest-lambda sqs-lambda   # Re-compose: 5 stacks (merged)
+/ipa.compose                                # Compose with frontend + backend stacks
+/ipa.compose                                # Re-compose with queue stack added
 /ipa.deploy                                 # Deploys new queue stack, updates backend with SQS integration
 ```
 
