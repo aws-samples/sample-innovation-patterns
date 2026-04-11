@@ -111,7 +111,7 @@ Resources:
                 nodejs: 22
               commands:
                 - pip install uv
-                - cd app-lib && uv sync && cd ..
+                - cd app-lib && uv sync --all-extras && cd ..
             build:
               commands:
                 - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
