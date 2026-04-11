@@ -1,6 +1,6 @@
 {
-  "label": "infra/",
-  "position": 3,
+  "label": "web-client/",
+  "position": 2,
   "collapsible": true,
   "collapsed": true
 }

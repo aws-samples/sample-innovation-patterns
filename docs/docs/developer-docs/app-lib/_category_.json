@@ -1,6 +1,6 @@
 {
-  "label": "infra/",
-  "position": 3,
+  "label": "app-lib/",
+  "position": 1,
   "collapsible": true,
   "collapsed": true
 }
