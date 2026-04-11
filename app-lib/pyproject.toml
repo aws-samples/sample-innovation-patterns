@@ -71,6 +71,8 @@ python-preference = "only-managed"
 # Floor pins for transitive deps with known vulnerabilities (prevents regression on re-lock)
 constraint-dependencies = [
     "requests>=2.33.0",  # GHSA-gc5v-m9x4-r6x2
+    "pygments>=2.20.0",  # CVE-2026-4539 / GHSA-5239-wwwm-4pmq
+    "cryptography>=46.0.7",  # GHSA-p423-j2cm-9vmq
 ]
 
 [dependency-groups]

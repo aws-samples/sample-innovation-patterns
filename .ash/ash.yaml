@@ -21,14 +21,10 @@ global_settings:
     - rule_id: 'B404'
       path: 'utils/*'
       reason: 'subprocess import is required for CLI tool that wraps docker, pytest, and ASH'
-    # pygments 2.19.2 is latest available; no patched version released yet
+    # pygments — FIXED: upgraded to 2.20.0 in app-lib (2026-04-10). utils/uv.lock retained as safety net.
     - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
       path: 'utils/uv.lock'
-      reason: 'pygments is a dev-only dependency (via pytest), no fix available yet'
-      expiration: '2026-06-26'
-    - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
-      path: 'app-lib/uv.lock'
-      reason: 'pygments is a dev-only dependency (via pytest), no fix available yet'
+      reason: 'pygments is a dev-only dependency (via pytest); upgrade utils/uv.lock separately if still on 2.19.x'
       expiration: '2026-06-26'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
@@ -243,3 +239,14 @@ global_settings:
     - rule_id: 'CKV_AWS_21'
       path: 'infra/cfn/codepipeline/codepipeline.yml'
       reason: 'Out of scope for POC — pipeline artifacts are ephemeral build outputs rebuilt from source; versioning adds storage cost with no recovery benefit'
+    # IAM data exfiltration — false positive; s3:GetObject is scoped to the pipeline's own
+    # artifact bucket (${ArtifactBucket}/*), not a wildcard resource. Pipeline role requires
+    # read/write access to its own artifacts for Source→Build stage handoff.
+    - rule_id: 'IAM policy allows for data exfiltration'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'False positive — s3:GetObject is scoped to the pipeline artifact bucket ARN, not a wildcard resource; required for pipeline stage artifact handoff'
+    # Math.random() in shadcn/ui SidebarMenuSkeleton — generates a random CSS width (50–90%)
+    # for loading placeholder animation. Purely cosmetic; no security or cryptographic purpose.
+    - rule_id: 'javascript-lang-crypto-insecure-random-generator-atomic'
+      path: 'web-client/src/components/ui/sidebar.tsx'
+      reason: 'False positive — Math.random() generates a random CSS width for a loading skeleton animation; no security or cryptographic purpose'
