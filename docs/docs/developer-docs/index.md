@@ -9,10 +9,10 @@ Developer docs are organized around the structure of the repository. If you need
 
 For concepts that span multiple directories — such as composing stacks or deploying infrastructure — see [Guides](/guides) or [Stacks](/stacks).
 
+- **[Skills](skills/)** — IPA skill reference: process skills, stack skills, and author skills
 - **[app-lib/](app-lib/)** — Python backend library: data access, REST API, Lambda handlers, and unit testing
 - **[web-client/](web-client/)** — React frontend SPA: UI components, state management, feature flags, and testing
 - **[infra/](infra/)** — CloudFormation infrastructure-as-code templates
 - **[scripts/](scripts/)** — Generated Makefiles for deployment and operations
 - **[docs/](docs/)** — Documentation site structure, authoring guides
-- **[skills/](skills/)** — IPA skill reference: process skills, stack skills, and author skills
-- **[contributing/](contributing/)** — How to author new stacks and pattern skills
+- **[Contributing](contributing/)** — How to author new stacks and pattern skills

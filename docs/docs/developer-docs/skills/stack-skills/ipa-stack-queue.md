@@ -81,4 +81,4 @@ The Queue stack provides outputs consumed by Backend:
 - [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes queue URL and ARN for SQS integration
 - [/ipa.stack.ecr](./ipa-stack-ecr.md) — Provides the container image URI
 - [/ipa.stack.cognito](./ipa-stack-cognito.md) — Provides auth issuer and audience
-- [/ipa.compose](../ipa-compose.md) — Assembles this stack into deployment patterns
+- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns

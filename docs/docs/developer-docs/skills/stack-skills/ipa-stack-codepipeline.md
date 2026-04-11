@@ -77,6 +77,6 @@ The pipeline injects these environment variables into CodeBuild, which are inher
 
 ## Related Skills
 
-- [/ipa.codepipeline](../ipa-codepipeline.md) — Creates and manages this stack
+- [/ipa.codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
 - [/ipa.stack.codecommit](./ipa-stack-codecommit.md) — Source repository for the pipeline
-- [/ipa.security](../ipa-security.md) — Provides the CodeBuild execution role
+- [/ipa.security](../lifecycle-skills/ipa-security.md) — Provides the CodeBuild execution role

@@ -57,6 +57,6 @@ After deployment, `scripts/post-deploy.mk` performs:
 
 ## Related Skills
 
-- [/ipa.security](../ipa-security.md) — Provides the log bucket for CloudFront access logs
+- [/ipa.security](../lifecycle-skills/ipa-security.md) — Provides the log bucket for CloudFront access logs
 - [/ipa.stack.backend](./ipa-stack-backend.md) — Provides the API URL for frontend configuration
-- [/ipa.compose](../ipa-compose.md) — Assembles this stack into deployment patterns
+- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns

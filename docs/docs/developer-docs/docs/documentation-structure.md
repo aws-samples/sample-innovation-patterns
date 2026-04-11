@@ -67,18 +67,21 @@ docs/docs/
 ├── developer-docs/
 │   ├── index.md
 │   ├── contributing.md
-│   ├── skills/                      # (planned: skill documentation)
+│   ├── skills/
 │   │   ├── index.md
-│   │   ├── ipa-init.md
-│   │   ├── ipa-security.md
-│   │   ├── ipa-compose.md
-│   │   ├── ipa-prepare.md
-│   │   ├── ipa-deploy.md
-│   │   ├── ipa-codepipeline.md
+│   │   ├── lifecycle-skills/
+│   │   │   ├── index.md
+│   │   │   ├── ipa-init.md
+│   │   │   ├── ipa-security.md
+│   │   │   ├── ipa-compose.md
+│   │   │   ├── ipa-prepare.md
+│   │   │   ├── ipa-deploy.md
+│   │   │   ├── ipa-destroy.md
+│   │   │   └── ipa-codepipeline.md
 │   │   ├── stack-skills/
 │   │   │   └── index.md
 │   │   └── author-skills/
-│   │   │   └── index.md
+│   │       └── index.md
 │   ├── docs/
 │   │   ├── index.md
 │   │   └── guide-format-standard.md
@@ -394,30 +397,29 @@ guides/
 
 **Content Conventions:**
 
-All guides must follow the [Guide Format Standard](../developer-docs/docs/guide-format-standard.md), which defines a 9-section template: Title, Overview, When to Use This Guide, Before You Start, Before/Target State, Steps, Verification, Troubleshooting (conditional), and Next Steps [3]. This document does not reproduce that standard.
+All guides must follow the [Guide Format Standard](./guide-format-standard.md), which defines a 9-section template: Title, Overview, When to Use This Guide, Before You Start, Before/Target State, Steps, Verification, Troubleshooting (conditional), and Next Steps [3]. This document does not reproduce that standard.
 
 **Template:** Use the annotated template in the Guide Format Standard [3]. Do not create a separate template for guides.
 
 ### Skills
 
-**Purpose:** One-to-one documentation for each IPA skill — the source of truth for what a skill does, how to invoke it, and what it produces [6].
-
-:::note
-This section does not yet exist. The structure described below is the design intent. Skill documentation will live as a subsection under Developer Docs at `developer-docs/skills/` to avoid requiring new sidebar configuration.
-:::
+**Purpose:** One-to-one documentation for each IPA skill — the source of truth for what a skill does, how to invoke it, and what it produces [6]. Skill documentation lives as a subsection under Developer Docs at `developer-docs/skills/`.
 
 **Intended Structure:**
 
 ```
 developer-docs/skills/
 ├── index.md                       # Skills overview
-├── ipa-init.md                    # /ipa.init
-├── ipa-security.md                # /ipa.security
-├── ipa-compose.md                 # /ipa.compose
-├── ipa-prepare.md                 # /ipa.prepare
-├── ipa-deploy.md                  # /ipa.deploy
-├── ipa-codepipeline.md            # /ipa.codepipeline
-├── stack-skills/
+├── lifecycle-skills/              # Process skills (init → deploy workflow)
+│   ├── index.md
+│   ├── ipa-init.md
+│   ├── ipa-security.md
+│   ├── ipa-compose.md
+│   ├── ipa-prepare.md
+│   ├── ipa-deploy.md
+│   ├── ipa-destroy.md
+│   └── ipa-codepipeline.md
+├── stack-skills/                  # CloudFormation stack definitions
 │   ├── index.md
 │   ├── ipa-stack-backend.md
 │   ├── ipa-stack-codecommit.md
@@ -426,7 +428,7 @@ developer-docs/skills/
 │   ├── ipa-stack-ecr.md
 │   ├── ipa-stack-frontend.md
 │   └── ipa-stack-queue.md
-└── author-skills/
+└── author-skills/                 # Skill authoring tools
     ├── index.md
     └── ipa-author-stack.md
 ```
@@ -435,7 +437,7 @@ developer-docs/skills/
 
 - Each skill page documents: invocation (the `/ipa.*` command), parameters and inputs, outputs and artifacts produced, usage examples, and related skills.
 - Skill documentation should be completable from the skill file itself (located in `.claude/skills/`) without requiring information that exists only in a human author's memory.
-- Process skills (ipa.init, ipa.compose, etc.) and stack skills (ipa.stack.*) are documented separately because they serve different purposes: process skills orchestrate workflows, while stack skills define individual CloudFormation stacks.
+- Lifecycle skills (ipa.init, ipa.compose, etc.) and stack skills (ipa.stack.*) are organized into separate subdirectories because they serve different purposes: lifecycle skills orchestrate workflows, while stack skills define individual CloudFormation stacks.
 
 **Template** for a new skill documentation page:
 
@@ -625,7 +627,7 @@ No template is needed for this section — the `/aidoc.create` and `/speckit` sk
 
 ## Writing Conventions
 
-The following rules apply to all documentation across every section. For the complete specification, see the [Guide Format Standard](../developer-docs/docs/guide-format-standard.md) [3] and the project brief (`.context/aidoc.md`).
+The following rules apply to all documentation across every section. For the complete specification, see the [Guide Format Standard](./guide-format-standard.md) [3] and the project brief (`.context/aidoc.md`).
 
 **Voice and Tone:**
 

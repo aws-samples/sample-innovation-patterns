@@ -34,5 +34,5 @@ CodeCommit repository for source code management. Managed by `/ipa.codepipeline`
 
 ## Related Skills
 
-- [/ipa.codepipeline](../ipa-codepipeline.md) — Creates and manages this stack
+- [/ipa.codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
 - [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Pipeline stack that reads from this repository

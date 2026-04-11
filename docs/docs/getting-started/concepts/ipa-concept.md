@@ -1,3 +1,8 @@
+---
+title: IPA Concept
+sidebar_position: 2
+---
+
 # Innovation Patterns Agent Concept
 
 The Innovation Patterns Agent (IPA) is a library of composable AI agent skills — namespaced under `/ipa.*` — that automate the deployment of full-stack infrastructure on AWS [1]. Each skill is a Markdown instruction document in `.claude/skills/` that Claude Code interprets and executes. IPA follows an agent-native design: the AI agent is the primary operator, and human-readable outputs — Makefiles, CloudFormation templates, and security registers — are generated artifacts for the humans who take ownership of the deployed infrastructure [1].

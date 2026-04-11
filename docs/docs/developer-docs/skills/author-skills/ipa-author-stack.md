@@ -102,5 +102,5 @@ Describe an RDS database as a single-service prepare stack. The skill creates th
 
 ## Related Skills
 
-- [/ipa.compose](../ipa-compose.md) — Consumes the stack skills and patterns created by this skill
-- [/ipa.deploy](../ipa-deploy.md) — Deploys stacks defined by authored skills
+- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Consumes the stack skills and patterns created by this skill
+- [/ipa.deploy](../lifecycle-skills/ipa-deploy.md) — Deploys stacks defined by authored skills

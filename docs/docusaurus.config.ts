@@ -62,7 +62,7 @@ const config: Config = {
       links: [
         {title: 'Documentation', items: [
           {label: 'Getting Started', to: '/'},
-          {label: 'Patterns', to: '/patterns/'},
+          {label: 'Stacks', to: '/stacks/'},
           {label: 'Developer Docs', to: '/developer-docs/'},
         ]},
       ],

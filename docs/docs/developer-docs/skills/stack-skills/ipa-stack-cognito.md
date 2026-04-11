@@ -56,7 +56,7 @@ Other stacks consume Cognito outputs:
 
 ## Related Skills
 
-- [/ipa.prepare](../ipa-prepare.md) — Deploys this stack
+- [/ipa.prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
 - [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes auth issuer and audience
 - [/ipa.stack.queue](./ipa-stack-queue.md) — Consumes auth issuer and audience
 - [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Consumes OIDC endpoints

@@ -48,7 +48,7 @@ Other stacks consume ECR outputs:
 
 ## Related Skills
 
-- [/ipa.prepare](../ipa-prepare.md) — Deploys this stack
+- [/ipa.prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
 - [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes image URI
 - [/ipa.stack.queue](./ipa-stack-queue.md) — Consumes image URI
 - [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Consumes image URI for builds

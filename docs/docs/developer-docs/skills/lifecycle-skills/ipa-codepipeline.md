@@ -84,5 +84,5 @@ The skill detects the existing pipeline configuration and offers to update it wi
 - [/ipa.init](./ipa-init.md) — Provides base `.env` variables
 - [/ipa.security](./ipa-security.md) — Provides the CodeBuild execution role
 - [/ipa.compose](./ipa-compose.md) — Generates the Makefiles that the pipeline executes
-- [/ipa.stack.codecommit](./stack-skills/ipa-stack-codecommit.md) — CodeCommit stack reference
-- [/ipa.stack.codepipeline](./stack-skills/ipa-stack-codepipeline.md) — CodePipeline stack reference
+- [/ipa.stack.codecommit](../stack-skills/ipa-stack-codecommit.md) — CodeCommit stack reference
+- [/ipa.stack.codepipeline](../stack-skills/ipa-stack-codepipeline.md) — CodePipeline stack reference
