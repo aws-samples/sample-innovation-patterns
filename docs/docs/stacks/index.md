@@ -1,9 +1,9 @@
 ---
-title: Patterns
+title: Overview
 sidebar_position: 1
 ---
 
-# Patterns
+# Stacks
 
 Reusable innovation patterns for building applications.
 

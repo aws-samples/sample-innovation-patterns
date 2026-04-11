@@ -39,7 +39,7 @@ const config: Config = {
       title: 'Innovation Patterns',
       logo: {alt: 'IPA Logo', src: 'img/site-logo.svg'},
       items: [
-        {type: 'docSidebar', sidebarId: 'patternsSidebar', label: 'Patterns', position: 'left'},
+        {type: 'docSidebar', sidebarId: 'stacksSidebar', label: 'Stacks', position: 'left'},
         {type: 'docSidebar', sidebarId: 'guidesSidebar', label: 'Guides', position: 'left'},
         {type: 'docSidebar', sidebarId: 'userDocsSidebar', label: 'User Docs', position: 'left'},
         {type: 'docSidebar', sidebarId: 'developerDocsSidebar', label: 'Developer Docs', position: 'left'},
