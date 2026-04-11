@@ -6,7 +6,7 @@ slug: /
 
 # Getting Started
 
-Get up and running with Innovation Patterns. This section covers everything you need to start developing locally.
+Get up and running with Innovation Patterns (IPA). This section covers everything you need to go from a fresh checkout to a deployed full-stack application on AWS.
 
-- **[Quickstart](quickstart.md)** — Install dependencies, start the backend and frontend, and begin developing in under 5 minutes.
-- **[Installation](installation.md)** — Detailed prerequisite installation guide (Python, Node.js, uv, AWS CLI).
+- **[Installation](installation.md)** — Install the prerequisites: Python 3.12, Node.js, uv, AWS CLI, Docker, GNU Make, and Claude Code.
+- **[Quickstart](quickstart.md)** — Configure the project, compose a pattern, and deploy a full-stack serverless application in a single session.

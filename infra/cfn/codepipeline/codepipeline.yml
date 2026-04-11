@@ -115,6 +115,9 @@ Resources:
             build:
               commands:
                 - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
+          artifacts:
+            files:
+              - '**/*'
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -184,7 +187,7 @@ Resources:
                 BranchName: !Ref SourceBranch
                 PollForSourceChanges: false
               OutputArtifacts:
-                - Name: SourceOut
+                - Name: SourceOutput
               RunOrder: 1
         - Name: Test
           Actions:
@@ -198,7 +201,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"test.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"test","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: SourceOut
+                - Name: SourceOutput
               RunOrder: 1
         - Name: Build
           Actions:
@@ -212,9 +215,9 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"build.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"build","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: SourceOut
+                - Name: SourceOutput
               OutputArtifacts:
-                - Name: BuildOut
+                - Name: BuildOutput
               RunOrder: 1
         - Name: Deploy
           Actions:
@@ -228,7 +231,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: BuildOut
+                - Name: BuildOutput
               RunOrder: 1
         - Name: PostDeploy
           Actions:
@@ -242,7 +245,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"post-deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"post-deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: BuildOut
+                - Name: BuildOutput
               RunOrder: 1
       Tags:
         - Key: Purpose
