@@ -5,6 +5,7 @@ import {existsSync} from 'fs';
 import {resolve} from 'path';
 
 const showWorking = existsSync(resolve(__dirname, 'docs/working'));
+const showUserDocs = existsSync(resolve(__dirname, 'docs/user-docs'));
 
 const config: Config = {
   title: 'Innovation Patterns',
@@ -17,7 +18,7 @@ const config: Config = {
   i18n: {defaultLocale: 'en', locales: ['en']},
   markdown: {format: 'detect', mermaid: true},
   themes: ['@docusaurus/theme-mermaid'],
-  customFields: {showWorking},
+  customFields: {showWorking, showUserDocs},
 
   presets: [
     ['classic', {
@@ -41,8 +42,13 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'stacksSidebar', label: 'Stacks', position: 'left'},
         {type: 'docSidebar', sidebarId: 'guidesSidebar', label: 'Guides', position: 'left'},
-        {type: 'docSidebar', sidebarId: 'userDocsSidebar', label: 'User Docs', position: 'left'},
         {type: 'docSidebar', sidebarId: 'developerDocsSidebar', label: 'Developer Docs', position: 'left'},
+        ...(showUserDocs ? [{
+          type: 'docSidebar' as const,
+          sidebarId: 'userDocsSidebar',
+          label: 'User Docs',
+          position: 'left' as const,
+        }] : []),
         ...(showWorking ? [{
           type: 'docSidebar' as const,
           sidebarId: 'workingSidebar',

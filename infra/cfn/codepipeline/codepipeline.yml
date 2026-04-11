@@ -115,9 +115,6 @@ Resources:
             build:
               commands:
                 - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
-          artifacts:
-            files:
-              - '**/*'
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -216,8 +213,6 @@ Resources:
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"build.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"build","type":"PLAINTEXT"}]'
               InputArtifacts:
                 - Name: SourceOutput
-              OutputArtifacts:
-                - Name: BuildOutput
               RunOrder: 1
         - Name: Deploy
           Actions:
@@ -231,7 +226,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: SourceOutput
               RunOrder: 1
         - Name: PostDeploy
           Actions:
@@ -245,7 +240,7 @@ Resources:
                 ProjectName: !Ref CodeBuildProject
                 EnvironmentVariables: '[{"name":"IPA_MAKEFILE","value":"post-deploy.mk","type":"PLAINTEXT"},{"name":"IPA_TARGET","value":"post-deploy","type":"PLAINTEXT"}]'
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: SourceOutput
               RunOrder: 1
       Tags:
         - Key: Purpose
