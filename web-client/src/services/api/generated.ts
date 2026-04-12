@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { baseApi as api } from "./baseApi";
 export const addTagTypes = ["passengers", "sse", "jobs"] as const;
 const injectedRtkApi = api

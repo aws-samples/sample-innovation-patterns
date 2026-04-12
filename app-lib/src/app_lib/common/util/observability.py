@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Application observability utilities.
 
 Provides structured error logging, custom CloudWatch metric emission,

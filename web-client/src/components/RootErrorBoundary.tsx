@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useRouteError, isRouteErrorResponse, Link } from 'react-router'
 import { IconAlertTriangle, IconArrowLeft, IconRefresh, IconCopy } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'

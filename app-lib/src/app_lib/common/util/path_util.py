@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 # Copyright © Amazon.com and Affiliates:
 # This deliverable is considered Developed Content as defined in the AWS Service Terms and the SOW between the parties.
 # The libraries used in this developed content are subject to their respective license disclosures.

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 export function DashboardHelpPanel() {
   return (
     <div className="space-y-4 text-sm">

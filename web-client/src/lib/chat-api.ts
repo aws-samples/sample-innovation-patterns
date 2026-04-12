@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 /**
  * Thin fetch-based API client for the Agent Core Chat pattern.
  * Does NOT use RTK Query — ExternalStoreRuntime manages its own state.

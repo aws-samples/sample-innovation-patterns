@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { Outlet } from 'react-router'
 import { ModeToggle } from '@/components/mode-toggle'
 import { ThemeSelector } from '@/components/theme-selector'

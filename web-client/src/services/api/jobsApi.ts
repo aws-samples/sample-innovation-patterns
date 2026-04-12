@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { EventSource } from 'eventsource'
 import { getIdToken } from '@/lib/auth'
 import { baseApi, API_BASE_URL } from './baseApi'

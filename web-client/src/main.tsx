@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { setupLogging } from '@/lib/setupLogging'
 import { getFlags } from '@/lib/featureFlags'
 import { StrictMode } from 'react'

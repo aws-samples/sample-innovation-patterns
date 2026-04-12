@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import * as React from 'react'
 import { IconChevronRight, IconDownload } from '@tabler/icons-react'
 import { PlusIcon, TicketIcon } from 'lucide-react'

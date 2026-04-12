@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 import {existsSync} from 'fs';
 import {resolve} from 'path';

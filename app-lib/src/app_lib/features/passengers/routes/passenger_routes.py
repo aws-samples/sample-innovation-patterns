@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """v1 routes for the Titanic passenger REST API.
 
 Routes are defined on an APIRouter with prefix="/api/v1".

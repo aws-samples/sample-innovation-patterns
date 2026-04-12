@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useVersionVersionGetQuery } from '@/services/api/generated'
 
 interface VersionResponse {

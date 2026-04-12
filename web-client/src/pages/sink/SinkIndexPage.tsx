@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { componentRegistry } from './component-registry'
 import { ComponentWrapper } from './components/component-wrapper'
 

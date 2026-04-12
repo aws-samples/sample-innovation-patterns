@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useOidc } from '@axa-fr/react-oidc'
 import { useNavigate } from 'react-router'
 import { config } from '@/lib/config'

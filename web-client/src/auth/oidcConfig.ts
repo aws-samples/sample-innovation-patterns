@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { config } from '@/lib/config'
 
 // Derive the Cognito Hosted UI base URL from the end_session_endpoint.

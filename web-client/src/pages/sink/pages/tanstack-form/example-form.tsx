@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 /* eslint-disable react/no-children-prop */
 import * as React from 'react'
 import { useForm } from '@tanstack/react-form'

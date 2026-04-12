@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { OidcProvider } from '@axa-fr/react-oidc'
 import type { ReactNode } from 'react'
 import { oidcConfiguration, isAuthEnabled } from './oidcConfig'

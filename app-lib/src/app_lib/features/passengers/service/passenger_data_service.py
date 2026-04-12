@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Data service for Titanic passenger data.
 
 Implements AbstractDataService[TitanicPassengerTable] with DynamoDB

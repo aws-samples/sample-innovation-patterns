@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
 const DEFAULT_THEME = 'blue-scaled'

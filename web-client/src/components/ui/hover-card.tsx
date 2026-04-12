@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import * as React from 'react'
 import { HoverCard as HoverCardPrimitive } from 'radix-ui'
 

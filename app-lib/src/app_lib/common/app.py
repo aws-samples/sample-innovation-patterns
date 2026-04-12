@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """FastAPI application entry point.
 
 Mounts feature routers and defines infrastructure routes.

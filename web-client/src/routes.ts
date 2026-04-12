@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import type { RouteObject } from 'react-router'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
 import { RootLayout } from '@/layouts/RootLayout'

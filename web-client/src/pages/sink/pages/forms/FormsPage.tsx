@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { AppearanceSettings } from '@/pages/sink/pages/forms/appearance-settings'
 import { ChatSettings } from '@/pages/sink/pages/forms/chat-settings'
 import { DisplaySettings } from '@/pages/sink/pages/forms/display-settings'

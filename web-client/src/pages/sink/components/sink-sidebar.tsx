@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { type ComponentProps, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import {

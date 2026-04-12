@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useRef, useState } from 'react'
 import { Square } from 'lucide-react'
 import { IconAlertTriangle } from '@tabler/icons-react'

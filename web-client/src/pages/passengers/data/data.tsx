@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { IconCheck, IconX, IconShip, IconGenderMale, IconGenderFemale } from '@tabler/icons-react'
 
 export const survivedOptions = [

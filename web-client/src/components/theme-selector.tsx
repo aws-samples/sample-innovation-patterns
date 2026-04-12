@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useThemeConfig } from '@/components/active-theme'
 import { Label } from '@/components/ui/label'
 import {

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """SSE streaming route for inference via Bedrock Converse API.
 
 Mounted by app.py. Provides POST /api/v1/sse/inference/converse.

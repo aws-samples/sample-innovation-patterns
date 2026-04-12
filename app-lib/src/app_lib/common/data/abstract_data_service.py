@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Abstract base class for data services.
 
 Defines a backend-agnostic CRUD interface for entity persistence.

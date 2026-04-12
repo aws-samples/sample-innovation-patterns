@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { type Table } from '@tanstack/react-table'
 import { X } from 'lucide-react'
 import { IconBolt, IconLoader2 } from '@tabler/icons-react'

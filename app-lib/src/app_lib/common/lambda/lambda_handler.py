@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Handler-based Lambda entry point.
 
 A simple Lambda handler that receives an event dict and returns a response dict.

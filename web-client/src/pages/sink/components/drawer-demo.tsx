@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import * as React from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { Bar, BarChart, ResponsiveContainer } from 'recharts'

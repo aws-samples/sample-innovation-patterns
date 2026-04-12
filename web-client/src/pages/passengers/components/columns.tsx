@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { type ColumnDef } from '@tanstack/react-table'
 import { type TitanicPassengerResponse } from '@/services/api/generated'
 import { Badge } from '@/components/ui/badge'

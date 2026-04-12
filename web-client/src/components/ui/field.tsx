@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useMemo } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 

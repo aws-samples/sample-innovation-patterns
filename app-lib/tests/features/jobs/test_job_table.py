@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Tests for JobTable model."""
 
 from app_lib.features.jobs.model.job_table import JobTable

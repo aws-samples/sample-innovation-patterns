@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """S3 file processor handler.
 
 Receives S3 event notifications via SQS. Downloads file, processes content,

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """DynamoDB model for background jobs."""
 
 from pynamodb.attributes import UnicodeAttribute

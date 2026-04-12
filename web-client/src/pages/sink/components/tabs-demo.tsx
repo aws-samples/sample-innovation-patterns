@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { AppWindowIcon, CodeIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'

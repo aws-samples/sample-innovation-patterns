@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Data service for background jobs.
 
 Implements AbstractDataService[JobTable] with DynamoDB as the backing store.

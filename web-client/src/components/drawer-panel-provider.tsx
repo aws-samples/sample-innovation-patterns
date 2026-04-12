@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { DrawerPanelContext, type DrawerPanelOptions } from '@/components/drawer-panel-context'

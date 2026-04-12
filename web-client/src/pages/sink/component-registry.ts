@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { FormsPage } from './pages/forms/FormsPage'
 import { ReactHookFormPage } from './pages/react-hook-form/ReactHookFormPage'
 import { TanstackFormPage } from './pages/tanstack-form/TanstackFormPage'

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """JWT authentication middleware for the REST API.
 
 Validates Bearer tokens against any OIDC-compliant identity provider.

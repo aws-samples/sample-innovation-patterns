@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 // Endpoint overrides for generated API endpoints.
 //
 // Use appApi.injectEndpoints({ overrideExisting: true }) here to fix codegen

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 // Production configuration example for the web-client.
 //
 // This file shows all configurable values and their expected format.

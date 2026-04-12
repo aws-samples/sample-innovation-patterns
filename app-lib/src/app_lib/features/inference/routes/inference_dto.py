@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """Pydantic DTOs for the streaming inference endpoint."""
 
 from pydantic import BaseModel, Field

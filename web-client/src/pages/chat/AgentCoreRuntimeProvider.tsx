@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 /**
  * Wires @assistant-ui/react ExternalStoreRuntime to the Agent Core Chat backend.
  */

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { type Row } from '@tanstack/react-table'
 import { MoreHorizontal } from 'lucide-react'
 import { useNavigate } from 'react-router'

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 """SQS worker handler.
 
 Receives SQS events via Lambda Web Adapter pass-through (POST /events).

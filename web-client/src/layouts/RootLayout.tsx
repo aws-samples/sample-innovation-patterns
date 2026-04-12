@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useEffect } from 'react'
 import { Outlet, useNavigation } from 'react-router'
 import NProgress from 'nprogress'

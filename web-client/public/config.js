@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 // Runtime configuration — local development defaults.
 //
 // This file is committed to the repo with sensible defaults for local dev:

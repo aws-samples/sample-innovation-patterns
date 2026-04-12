@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { execSync } from 'child_process'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'

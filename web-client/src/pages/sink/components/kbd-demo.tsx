@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { ArrowLeftIcon, ArrowRightIcon, CommandIcon, WavesIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
