@@ -1,5 +1,5 @@
 ---
-name: ipa-author-stack
+name: ipa.author.stack
 description: "Create or update an IPA stack skill — from single-service prepare stacks to multi-service tier stacks — with optional pattern definition authoring. Use when the user says 'create a stack', 'new stack', 'add [service] to IPA', 'create a pattern', 'create a tier', 'create a feature stack', 'write a stack skill', 'update the [service] stack', or wants to add infrastructure to the IPA system. Do NOT use for composing/deploying existing patterns (that is ipa.compose/ipa.deploy)."
 ---
 
