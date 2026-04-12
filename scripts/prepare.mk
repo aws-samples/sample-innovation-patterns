@@ -16,7 +16,7 @@
 -include .env
 
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
-APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
+APP_ACCOUNT_HASH := $(shell printf '%s' "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
 .PHONY: prepare prepare-cognito prepare-ecr teardown-prepare teardown-ecr teardown-cognito
 

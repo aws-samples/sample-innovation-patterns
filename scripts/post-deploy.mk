@@ -15,7 +15,7 @@ export
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
-APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
+APP_ACCOUNT_HASH := $(shell printf '%s' "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
 .PHONY: post-deploy update-env load-data configure-frontend upload-frontend invalidate-cf update-cognito-callback update-backend-cors
 
