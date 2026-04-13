@@ -45,9 +45,7 @@ class JobDataService(AbstractDataService[JobTable]):
         if not filters:
             return list(jobs)
         return [
-            j
-            for j in jobs
-            if all(getattr(j, k, None) == v for k, v in filters.items())
+            j for j in jobs if all(getattr(j, k, None) == v for k, v in filters.items())
         ]
 
     def count(self) -> int:

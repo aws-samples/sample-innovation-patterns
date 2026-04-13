@@ -70,6 +70,17 @@ Parameters that receive values from other stacks during composition:
 - CloudWatch: Log groups with 30-day retention
 - ECR pull and CloudWatch PutMetricData use `Resource: '*'` (AWS API limitation — documented)
 
+## Compose Config
+
+Parameter overrides applied by `/ipa.compose`:
+
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| FunctionName | fn | REST API handler |
+| InvokeMode | RESPONSE_STREAM | SSE streaming support |
+| Timeout | 300 | Long-running inference requests |
+| EnablePassengersTable | true | Demo feature — Titanic dataset |
+
 ## Deploy Command
 
 ```bash

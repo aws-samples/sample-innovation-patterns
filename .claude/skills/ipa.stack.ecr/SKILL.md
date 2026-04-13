@@ -7,11 +7,15 @@ description: "Deploy an ECR repository for container image storage."
 
 Deploy an ECR container image repository. Provides repository URI and ARN outputs for downstream Lambda stacks and security policy scoping.
 
-## CloudFormation Contract
+## Stack Identity
 
-- **Template**: `infra/cfn/ecr/ecr.yml`
-- **Stack name**: `{APP_NAMESPACE}-{APP_ENV}-ecr`
-- **Capabilities**: none
+| Property | Value |
+|----------|-------|
+| Stack name | `{APP_NAMESPACE}-{APP_ENV}-ecr` |
+| Template | `infra/cfn/ecr/ecr.yml` |
+| Capabilities | none |
+| Lifecycle | prepare (prerequisite stack) |
+| Tier | ecr |
 
 ## Parameters
 

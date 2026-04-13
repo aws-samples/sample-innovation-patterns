@@ -101,7 +101,12 @@ const data = {
   ],
   samples: [
     { name: 'Kitchen Sink', url: '/sink', icon: IconCubeSpark, flag: 'kitchen_sink' as const },
-    { name: 'Tabler Icons', url: 'https://tabler.io/icons', icon: IconExternalLink, external: true },
+    {
+      name: 'Tabler Icons',
+      url: 'https://tabler.io/icons',
+      icon: IconExternalLink,
+      external: true,
+    },
   ],
 }
 
@@ -168,14 +173,10 @@ function NavMain({ items, currentPath }: { items: typeof data.navMain; currentPa
   )
 }
 
-function NavSamples({
-  items,
-  currentPath,
-}: {
-  items: typeof data.samples
-  currentPath: string
-}) {
-  const visibleItems = items.filter((item) => !('flag' in item) || !item.flag || config.features[item.flag])
+function NavSamples({ items, currentPath }: { items: typeof data.samples; currentPath: string }) {
+  const visibleItems = items.filter(
+    (item) => !('flag' in item) || !item.flag || config.features[item.flag],
+  )
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -183,7 +184,10 @@ function NavSamples({
       <SidebarMenu>
         {visibleItems.map((item) => (
           <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild isActive={'url' in item && !('external' in item) && item.url === currentPath}>
+            <SidebarMenuButton
+              asChild
+              isActive={'url' in item && !('external' in item) && item.url === currentPath}
+            >
               {'external' in item && item.external ? (
                 <a href={item.url} target="_blank" rel="noopener noreferrer">
                   <item.icon />

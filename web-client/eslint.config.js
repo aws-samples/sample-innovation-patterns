@@ -9,7 +9,7 @@ import eslintConfigPrettier from 'eslint-config-prettier'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src/services/api/generated.ts']),
+  globalIgnores(['dist', 'src/services/api/generated.ts', 'src/components/ui', 'src/pages/sink']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -39,6 +39,23 @@ export default defineConfig([
             'Use RTK Query hooks from @/services/api instead of fetch(). See docs/docs/solution/web-client/FORMAT-LINT.md',
         },
       ],
+    },
+  },
+  // Relax strict type-checking rules in test files — mocking and test
+  // fixtures use patterns (type casts, unbound methods, thrown Responses)
+  // that trigger false positives under recommendedTypeChecked.
+  {
+    files: ['**/*.test.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/only-throw-error': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
     },
   },
   eslintConfigPrettier,

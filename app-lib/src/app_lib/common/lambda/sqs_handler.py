@@ -16,12 +16,12 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from loguru import logger
 
+from app_lib.common.service.inference.passenger_analysis_service import (
+    PassengerAnalysisService,
+)
 from app_lib.features.jobs.service.job_data_service import JobDataService
 from app_lib.features.passengers.service.passenger_data_service import (
     TitanicPassengerDataService,
-)
-from app_lib.common.service.inference.passenger_analysis_service import (
-    PassengerAnalysisService,
 )
 
 job_service = JobDataService()

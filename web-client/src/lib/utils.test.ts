@@ -8,7 +8,8 @@ describe('cn', () => {
   })
 
   it('handles conditional classes', () => {
-    expect(cn('base', false && 'hidden', 'extra')).toBe('base extra')
+    const isHidden = false
+    expect(cn('base', isHidden && 'hidden', 'extra')).toBe('base extra')
   })
 
   it('deduplicates Tailwind classes via twMerge', () => {

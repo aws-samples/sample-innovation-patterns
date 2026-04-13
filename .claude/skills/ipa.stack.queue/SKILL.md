@@ -84,6 +84,18 @@ After deployment, the `update-env-sqs` target in `scripts/env.mk` writes `SQS_QU
 
 This enables the local FastAPI backend (`load_dotenv()`) to submit jobs to the deployed queue without manual `.env` configuration. The target runs as part of `post-deploy.mk`'s `update-env` step, gated by `.env` existence (skipped in CI/CD).
 
+## Compose Config
+
+Parameter overrides applied by `/ipa.compose`:
+
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| FunctionName | fn-worker | Distinct from REST handler |
+| InvokeMode | BUFFERED | Synchronous SQS processing |
+| Timeout | 300 | Match REST handler timeout |
+| ImageCommand | python,-m,sqs_handler | Worker entrypoint |
+| EnableJobsTable | true | Job tracking feature |
+
 ## Deploy Command
 
 ```bash

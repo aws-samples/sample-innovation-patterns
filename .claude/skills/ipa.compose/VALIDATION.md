@@ -2,6 +2,7 @@
 
 > Reference file for `/ipa.compose` SKILL.md. Loaded on demand during pre-flight and reading steps.
 > Contains validation checks that MUST pass before artifact generation.
+> Validates stack skills and their wirable parameters directly — no pattern abstraction layer.
 
 **Rule**: If any validation fails, STOP immediately. Display the error message and do NOT generate any artifacts.
 
@@ -23,48 +24,28 @@ If `.env` does not exist at all: "`.env` not found. Run `/ipa.init` first to con
 
 ---
 
-## V2: Pattern Validation
+## V2: Stack Skill Validation
 
-For the selected pattern at `patterns/{name}/PATTERN.md` (relative to the compose skill directory):
+For each stack skill referenced in the composition:
 
-### V2.2 Stack Sequence Non-Empty
-
-The Stack Sequence must reference at least one stack.
-
-**Error**: "Pattern `patterns/{name}` references zero stacks. A pattern must compose at least one stack."
-
-### V2.3 Required Content
-
-Verify the following content exists for the pattern:
-
-- `## Wiring` section in `PATTERN.md` — structured wiring map
-- `ARCHITECTURE.md` file in the pattern directory — architecture diagram and summary
-
-**Error**: "Pattern `patterns/{name}` is missing `{item}`. This is required for composition."
-
----
-
-## V3: Stack Skill Validation
-
-For each stack referenced in the pattern's Stack Sequence:
-
-### V3.1 Stack Skill Exists
+### V2.1 Stack Skill Exists
 
 Verify `.claude/skills/ipa.stack.{service}/SKILL.md` exists.
 
-**Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced by pattern `patterns/{name}` in step {N} of the Stack Sequence."
+**Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced in the composition."
 
-### V3.2 Required Sections
+### V2.2 Required Sections
 
 Verify these sections exist in the stack SKILL.md:
 
 - `## CloudFormation Contract` — must include Template path and service suffix
 - `## Parameters` — parameter table
 - `## Outputs` — output table
+- `## Wirable Parameters` — wiring map for inter-stack connections
 
 **Error**: "Stack skill `ipa.stack.{service}` is missing required section `{section}`."
 
-### V3.3 CloudFormation Template Exists
+### V2.3 CloudFormation Template Exists
 
 Extract the template path from the stack's CloudFormation Contract section. Resolve to the expected filesystem path (typically `infra/cfn/{service}.yml`).
 
@@ -72,49 +53,49 @@ Verify the template file exists on disk.
 
 **Error**: "CloudFormation template `{path}` not found on disk. This template is referenced by stack skill `ipa.stack.{service}`."
 
-### V3.4 Service Suffix Uniqueness
+### V2.4 Service Suffix Uniqueness
 
-Collect all service suffixes from all stacks in the pattern. Verify no two stacks share the same suffix.
+Collect all service suffixes from all stacks in the composition. Verify no two stacks share the same suffix.
 
 **Error**: "Service suffix collision: stacks `ipa.stack.{service1}` and `ipa.stack.{service2}` both use suffix `{suffix}`. Each stack must have a unique service suffix."
 
 ---
 
-## V4: Wiring Map Validation
+## V3: Wiring Map Validation
 
-Read the `## Wiring` section from the pattern's `PATTERN.md` and validate each wiring entry:
+Read each stack's `## Wirable Parameters` section to build the wiring map, then validate each wiring entry:
 
-### V4.1 Source Output Exists
+### V3.1 Source Output Exists
 
 For each wiring entry, verify `source.output` exists in the source stack skill's `## Outputs` table.
 
-**Error**: "Wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. Check PATTERN.md ## Wiring section entry: `{source}.{output}` → `{target}.{parameter}`."
+**Error**: "Wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. Check the `## Wirable Parameters` wiring entry: `{source}.{output}` → `{target}.{parameter}`."
 
-### V4.2 Target Parameter Exists
+### V3.2 Target Parameter Exists
 
 For each wiring entry with `target.parameter`, verify it exists in the target stack skill's `## Parameters` table.
 
-**Error**: "Wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. Check PATTERN.md ## Wiring section entry: `{source}.{output}` → `{target}.{parameter}`."
+**Error**: "Wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. Check the `## Wirable Parameters` wiring entry: `{source}.{output}` → `{target}.{parameter}`."
 
-### V4.3 Exactly One Target
+### V3.3 Exactly One Target
 
 Each wiring entry must have exactly one of `target.parameter` or `target.env`.
 
 **Error**: "Wiring error: entry `{source}.{output}` must specify exactly one of `target.parameter` or `target.env`, not both or neither."
 
-### V4.4 No Circular Dependencies
+### V3.4 No Circular Dependencies
 
 Verify the dependency graph (derived from wiring) has no cycles.
 
-**Error**: "Circular dependency detected: {cycle_description}. The Stack Sequence must form a directed acyclic graph."
+**Error**: "Circular dependency detected: {cycle_description}. The stack deployment order must form a directed acyclic graph."
 
 ---
 
-## V5: Merge Validation
+## V4: Merge Validation
 
-After merging new stacks or patterns into an existing composition, validate the merged result before generating artifacts. These checks operate on the **combined** composition (base + additions).
+After merging new stacks into an existing composition, validate the merged result before generating artifacts. These checks operate on the **combined** composition (base + additions).
 
-### V5.1 No Duplicate Suffixes Across Base + Additions
+### V4.1 No Duplicate Suffixes Across Base + Additions
 
 Collect all service suffixes from the base composition (parsed from `deploy.mk`) and from each new stack being added. Verify no suffix appears more than once across the combined set.
 
@@ -122,7 +103,7 @@ Collect all service suffixes from the base composition (parsed from `deploy.mk`)
 
 **Error**: "Merge conflict: service suffix `{suffix}` is used by existing stack `ipa.stack.{existing_service}` and new stack `ipa.stack.{new_service}`. Each stack must have a unique service suffix across the entire composition."
 
-### V5.2 No Circular Dependencies in Merged Wiring Graph
+### V4.2 No Circular Dependencies in Merged Wiring Graph
 
 Build the full dependency graph from the merged wiring (base wiring + new wiring entries). Verify the graph contains no cycles.
 
@@ -130,7 +111,7 @@ Build the full dependency graph from the merged wiring (base wiring + new wiring
 
 **Error**: "Circular dependency detected in merged composition: {cycle_description}. Adding `{new_stacks}` introduces a cycle in the deployment order. Review the wiring between base and new stacks."
 
-### V5.3 All Wired Source Outputs Exist in Stack Skills
+### V4.3 All Wired Source Outputs Exist in Stack Skills
 
 For every wiring entry in the merged wiring map, verify the source output name exists in the source stack skill's `## Outputs` table.
 
@@ -138,7 +119,7 @@ For every wiring entry in the merged wiring map, verify the source output name e
 
 **Error**: "Merge wiring error: output `{output}` does not exist in stack `ipa.stack.{source}` Outputs table. This wiring entry was produced during merge of `{new_stacks}` into the existing composition."
 
-### V5.4 All Wired Target Parameters Exist in Stack Skills
+### V4.4 All Wired Target Parameters Exist in Stack Skills
 
 For every wiring entry in the merged wiring map, verify the target parameter name exists in the target stack skill's `## Parameters` table.
 
@@ -146,7 +127,7 @@ For every wiring entry in the merged wiring map, verify the target parameter nam
 
 **Error**: "Merge wiring error: parameter `{parameter}` does not exist in stack `ipa.stack.{target}` Parameters table. This wiring entry was produced during merge of `{new_stacks}` into the existing composition."
 
-### V5.5 All Referenced Stack Skills Exist on Disk
+### V4.5 All Referenced Stack Skills Exist on Disk
 
 Verify that every stack referenced in the merged composition (base + additions) has a corresponding skill directory and SKILL.md on disk.
 
@@ -154,7 +135,7 @@ Verify that every stack referenced in the merged composition (base + additions) 
 
 **Error**: "Stack skill `ipa.stack.{service}` not found at `.claude/skills/ipa.stack.{service}/SKILL.md`. This stack is referenced in the merged composition (base + additions). Ensure the stack skill is installed before composing."
 
-### V5.6 All Referenced CloudFormation Templates Exist on Disk
+### V4.6 All Referenced CloudFormation Templates Exist on Disk
 
 Verify that every CloudFormation template referenced by stacks in the merged composition exists on disk.
 

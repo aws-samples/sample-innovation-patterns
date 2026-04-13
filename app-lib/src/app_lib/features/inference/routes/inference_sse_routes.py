@@ -49,7 +49,7 @@ async def inference_converse_stream(body: ConverseRequest):
             )
             stream = response.get("stream")
             if not stream:
-                yield f'data: {json.dumps({"error": "No stream in response"})}\n\n'
+                yield f"data: {json.dumps({'error': 'No stream in response'})}\n\n"
                 yield "data: [DONE]\n\n"
                 return
             for event in stream:

@@ -23,17 +23,17 @@ load_dotenv()
 from app_lib.common.auth import JWTAuthMiddleware
 from app_lib.common.util.observability import log_exception
 
-# Feature routers — delete import + include_router to disconnect a feature
-from app_lib.features.passengers.routes.passenger_routes import (
-    router as passengers_router,
-)
+# Inference streaming
+from app_lib.features.inference.routes.inference_sse_routes import inference_sse_router
 
 # SQS pattern
 from app_lib.features.jobs.routes.job_routes import job_router
 from app_lib.features.jobs.routes.job_sse_routes import job_sse_router
 
-# Inference streaming
-from app_lib.features.inference.routes.inference_sse_routes import inference_sse_router
+# Feature routers — delete import + include_router to disconnect a feature
+from app_lib.features.passengers.routes.passenger_routes import (
+    router as passengers_router,
+)
 
 app = FastAPI(
     title="Titanic Passenger API",

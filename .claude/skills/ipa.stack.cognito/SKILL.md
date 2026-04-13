@@ -7,11 +7,15 @@ description: "Deploy a Cognito User Pool stack with OAuth 2.0 Hosted UI and OIDC
 
 Deploy a Cognito User Pool with App Client, Custom Domain (Hosted UI), and Managed Login Branding. Provides authentication outputs for API Gateway authorizers, Lambda JWT validation, and frontend OIDC flows.
 
-## CloudFormation Contract
+## Stack Identity
 
-- **Template**: `infra/cfn/cognito/cognito.yml`
-- **Stack name**: `{APP_NAMESPACE}-{APP_ENV}-cognito`
-- **Capabilities**: none
+| Property | Value |
+|----------|-------|
+| Stack name | `{APP_NAMESPACE}-{APP_ENV}-cognito` |
+| Template | `infra/cfn/cognito/cognito.yml` |
+| Capabilities | none |
+| Lifecycle | prepare (prerequisite stack) |
+| Tier | cognito |
 
 ## Parameters
 

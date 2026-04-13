@@ -1,10 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import { render, screen } from '@testing-library/react'
-import {
-  DrawerPanelContext,
-  type DrawerPanelContextValue,
-} from '@/components/drawer-panel-context'
+import { DrawerPanelContext, type DrawerPanelContextValue } from '@/components/drawer-panel-context'
 import { DashboardPage } from './DashboardPage'
 
 vi.mock('@/pages/dashboard/components/chart-area-interactive', () => ({
@@ -46,8 +43,6 @@ describe('DashboardPage', () => {
 
   it('sets the drawer panel on mount', () => {
     const { setPanel } = renderDashboard()
-    expect(setPanel).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'About This Panel' }),
-    )
+    expect(setPanel).toHaveBeenCalledWith(expect.objectContaining({ title: 'About This Panel' }))
   })
 })

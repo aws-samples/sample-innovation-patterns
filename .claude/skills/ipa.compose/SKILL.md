@@ -1,14 +1,14 @@
 ---
 name: ipa.compose
-description: "Compose a deployment pattern from stack skills and generate executable artifacts
+description: "Compose a deployment from stack skills and generate executable artifacts
   (Makefiles, security disposition). Use when the user says 'compose',
   'generate deployment', or invokes /ipa.compose."
 model: opus
 ---
 
-# /ipa.compose — Compose Deployment Pattern
+# /ipa.compose — Compose Deployment from Stack Skills
 
-This skill reads pattern definitions and stack skills, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register.
+This skill reads stack skills directly, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register.
 
 **Prerequisite workflow**: `/ipa.init` → `/ipa.security` → **`/ipa.compose`** → `/ipa.prepare` → `/ipa.deploy`
 
@@ -16,25 +16,25 @@ This skill reads pattern definitions and stack skills, composes them into a proj
 
 ## Phase 0: Parse Intent
 
-This phase runs before Phase 1. It parses the builder's input, classifies arguments, detects whether an existing composition exists, and determines the composition mode.
+This phase parses the builder's input, classifies arguments, detects whether an existing composition exists, and determines the composition mode.
 
 ### Step 0.1: Classify Input Arguments
 
 Read the arguments supplied with the `/ipa.compose` invocation. For each token:
 
-1. Check if it matches a directory name in `patterns/` (relative to this SKILL.md) → classify as **pattern**
-2. If the token matches no pattern → classify as **natural language context**
+1. Check if `ipa.stack.{token}` exists as a stack skill directory in `.claude/skills/` → classify as **stack**
+2. If the token matches no stack → classify as **natural language context**
 
-For natural language tokens, attempt to resolve to known patterns. Lean on the AI agent's language understanding:
+For natural language tokens, attempt to resolve to known stacks. Lean on the AI agent's language understanding:
 
-1. **Scan patterns**: For each pattern directory in `patterns/`, read the first line of `PATTERN.md` for the description. Check if the natural language token semantically relates to the pattern name or description (e.g., "knowledge base" matches `bedrock-knowledge-base`, "API backend" matches `react-rest-lambda`).
+1. **Scan stacks**: For each `ipa.stack.*` directory in `.claude/skills/`, read the SKILL.md header for the description. Check if the natural language token semantically relates to the stack name or description (e.g., "API backend" matches `backend`, "web frontend" matches `frontend`, "job processing" matches `queue`).
 
 2. **Resolve matches**:
-   - **Exactly one match**: Auto-classify. Display: "Interpreted `{natural language}` as `{matched-name}`. Correct? (yes/no):"
+   - **Exactly one match**: Auto-classify. Display: "Interpreted `{natural language}` as `{matched-stack}`. Correct? (yes/no):"
    - **Multiple matches**: Present all matches and ask the builder to select.
-   - **No match**: Ask the builder to clarify: "Could not resolve `{natural language}` to a known pattern. Available patterns: {list}."
+   - **No match**: Ask the builder to clarify: "Could not resolve `{natural language}` to a known stack. Available stacks: {list}."
 
-Store the classified tokens: list of identified patterns and any unresolved natural language.
+Store the classified tokens: list of identified stack tier names and any unresolved natural language.
 
 ---
 
@@ -53,26 +53,26 @@ Check if `scripts/deploy.mk` exists:
 
 Using the classified arguments (Step 0.1) and existing composition state (Step 0.2), determine the mode:
 
-| deploy.mk exists? | Args contain pattern(s)? | Mode |
+| deploy.mk exists? | Args contain stack(s)? | Mode |
 |---|---|---|
-| No | Yes | **Fresh compose** — proceed to Phase 1 with identified pattern(s) |
-| No | No | **Pattern discovery** — proceed to Phase 1 Step 2 |
-| Yes | Yes | **Fresh compose (overwrite)** — proceed to Phase 1 with identified pattern(s) |
+| No | Yes | **Fresh compose** — proceed to Phase 1 with identified stack(s) |
+| No | No | **Stack discovery** — proceed to Phase 1 Step 2 |
+| Yes | Yes | **Fresh compose (overwrite)** — proceed to Phase 1 with identified stack(s) |
 | Yes | No | **Idempotent refresh** — proceed to Step 0.3a, then Phase 1 |
 
 ---
 
-### Step 0.3a: Extract Pattern Name from deploy.mk (Idempotent Refresh Only)
+### Step 0.3a: Extract Stack Names from deploy.mk (Idempotent Refresh Only)
 
-Read `scripts/deploy.mk` header to determine which pattern(s) were previously composed:
+Read `scripts/deploy.mk` header to determine which stack(s) were previously composed:
 
 1. Match `# Deploy targets for {name}` in the first 5 lines.
-   - Extract the pattern name(s). If the header contains `+`, multiple patterns were composed (e.g., `react-rest-lambda + sqs-lambda pattern`).
+   - Extract the stack tier name(s). If the header contains `+`, multiple stacks were composed (e.g., `backend + frontend + queue`).
    - If `manual_edit_detected` is true:
      - Warn: "deploy.mk appears to have been manually edited. Re-composing will overwrite all manual changes. Proceed? (yes to overwrite, no to cancel):"
      - If declined: exit with "Composition cancelled. No files were written."
 
-2. Use the extracted pattern name(s) as input for Phase 1 (same as fresh compose).
+2. Use the extracted stack name(s) as input for Phase 1 (same as fresh compose).
 
 ---
 
@@ -98,93 +98,87 @@ Store all variable values for use in subsequent steps.
 
 ---
 
-### Step 2: Pattern Discovery
+### Step 2: Stack Discovery
 
-Scan the `patterns/` subdirectory (relative to this SKILL.md) for subdirectories. Each subdirectory name is a pattern name. For each match, read the first line of `PATTERN.md` (expected format: `# Pattern: {name}`) for the description.
+Scan `.claude/skills/` for directories matching `ipa.stack.*`. For each match, read `SKILL.md` and extract the `## Stack Identity` table to get the Tier and Lifecycle.
 
-**If zero patterns found**: STOP — "No patterns found in `patterns/` directory. Author a pattern definition (e.g., `patterns/react-rest-lambda/PATTERN.md`) before running `/ipa.compose`."
+**If zero stacks found**: STOP — "No stack skills found in `.claude/skills/`. Author a stack skill (e.g., `ipa.stack.backend`) before running `/ipa.compose`."
 
-**If exactly one pattern found**: Auto-select it. Display: "Found one pattern: **{name}** — {description}. Proceeding with this pattern."
+**If exactly one stack found**: Auto-select it. Display: "Found one stack: **{tier}** — {description}. Proceeding with this stack."
 
-**If multiple patterns found**: Display a numbered selection menu:
+**If multiple stacks found**: Display a numbered selection menu:
 
 ```
-Available patterns:
+Available stacks:
 
-  1. {name1} ({N1} stacks) — {description1}
-  2. {name2} ({N2} stacks) — {description2}
+  1. {tier1} ({lifecycle1}) — {description1}
+  2. {tier2} ({lifecycle2}) — {description2}
   ...
 
-Select a pattern (enter number):
+Select stacks to compose (enter numbers, comma-separated):
 ```
 
-To determine stack count, scan each pattern's `## Stack Sequence` section and count `ipa.stack.*` references.
-
-Store the selected pattern name(s) and directory path(s).
+Store the selected stack tier name(s).
 
 ---
 
-### Step 3: Read Pattern Definition(s)
+### Step 3: Read Stack Skills and Derive Composition
 
-For each selected pattern, read files from `patterns/{name}/`:
-
-#### 3.1 PATTERN.md
-
-Extract these sections:
-
-- **Stack Sequence**: List of `ipa.stack.{service}` references with dependency declarations. Extract: stack names, deployment order, dependencies, and **lifecycle classification**.
-  - **Parse `(prepare)` annotation**: The `(prepare)` token is optional and appears between the stack skill name and the em-dash description separator. If `(prepare)` is present, set `lifecycle = "prepare"`; otherwise set `lifecycle = "deploy"`. This classification determines which Makefile receives the stack's targets (prepare.mk vs deploy.mk).
-  - **Parse Config**: Extract parameter overrides from the `Config:` line (e.g., `FunctionName=fn EnablePassengersTable=true`). These become `--parameter-overrides` entries in the deploy target.
-- **Deploy Ordering**: If the pattern declares explicit deploy ordering constraints (e.g., "Queue deploys before backend"), record these for enforcement during multi-pattern merge.
-- **Shared Stacks** (compose-only patterns): List of stacks from other patterns that are modified by this pattern. Extract the additional parameter overrides (e.g., `EnableSqsIntegration=true` applied to backend by sqs-lambda).
-- **Shared Post-Deploy** (compose-only patterns): List of post-deploy steps from other patterns that are modified by this pattern. Extract additional CLI arguments (e.g., `--enable-feature jobs` appended to `configure-frontend` by sqs-lambda). Each entry names the target step and the arguments to append.
-- **Teardown Sequence**: Reverse-order list for teardown targets. Prepare-classified stacks are excluded from teardown.
-- **Known Deferrals** (optional): Security deferrals for the disposition register.
-- **Post-Deploy** (optional): Ordered list of operational steps that run after all stacks deploy. Extract: step names, dependencies (within post-deploy), stack output references, commands. If absent, post-deploy.mk will be a no-op.
-
-#### 3.2 Wiring (from PATTERN.md)
-
-Read the `## Wiring` section from `PATTERN.md`. This contains a structured YAML wiring map. Each entry has:
-- `source.stack` and `source.output`
-- `target.stack` and `target.parameter`
-- `notes`
-
-Store the full wiring map for validation and Makefile generation.
-
-#### 3.3 ARCHITECTURE.md
-
-Read the full content of `patterns/{name}/ARCHITECTURE.md`. Store for reference during artifact generation.
-
-#### 3.4 Multi-Pattern Merge
-
-When composing multiple patterns (e.g., `react-rest-lambda + sqs-lambda`):
-
-1. **Merge stack sequences**: Combine stacks from all patterns. Deduplicate shared stacks (same suffix) — keep one instance with the earliest lifecycle classification (prepare > deploy).
-2. **Apply deploy ordering**: Respect pattern-declared ordering constraints. If pattern declares "queue deploys before backend", enforce this in the merged order.
-3. **Combine wiring**: Union of all wiring entries from all patterns. Consolidated stacks have distinct parameter names, so no wiring conflicts occur.
-4. **Merge parameter overrides**: When multiple patterns configure the same stack (e.g., backend gets `EnablePassengersTable=true` from react-rest-lambda and `EnableSqsIntegration=true` from sqs-lambda), combine all parameter overrides into a single `--parameter-overrides` line.
-5. **Apply shared stack modifications**: Compose-only patterns declare modifications to shared stacks (e.g., sqs-lambda adds `EnableSqsIntegration=true` to backend). Apply these as additional parameter overrides on the shared stack's deploy target.
-6. **Apply shared post-deploy modifications**: Compose-only patterns may declare modifications to existing post-deploy steps via `## Shared Post-Deploy`. For each declared modification, record the target step name and the additional CLI arguments to append. These are applied during post-deploy.mk generation (Step 6b) — the arguments are appended to the target step's command line.
-
-Run validation procedures V2 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
-
----
-
-### Step 4: Read Stack Skills
-
-For each `ipa.stack.{service}` in the merged stack list, read `.claude/skills/ipa.stack.{service}/SKILL.md` and extract:
+For each selected stack, read `.claude/skills/ipa.stack.{tier}/SKILL.md` and extract:
 
 | Section | Extract | Used For |
 |---------|---------|----------|
-| Stack Identity | Template path, service suffix, capabilities | deploy.mk targets, stack naming |
+| Stack Identity | Template path, suffix, capabilities, lifecycle, tier | deploy.mk targets, stack naming |
 | Parameters | Parameter name list, defaults | Wiring validation, `--parameter-overrides` |
 | Feature Flags | Flag names, defaults, conditions | Parameter override validation |
+| Wirable Parameters | Parameter, source stack, source output, notes | Wiring map derivation |
 | Outputs | Output name list | Wiring validation, `$(eval)` calls |
 | Build Requirements (optional) | Type, Suffix, Dockerfile path | build.mk targets |
+| Deploy Order (optional) | Ordering constraints | Deploy target prerequisites |
+| Compose Config (optional) | Parameter overrides | `--parameter-overrides` entries |
 
-**Consolidated stack skills**: The primary solution stack skills are `ipa.stack.frontend`, `ipa.stack.backend`, and `ipa.stack.queue`. Each corresponds to a single tier template in `infra/cfn/{tier}/{tier}.yml`. Prepare stack skills (`ipa.stack.cognito`, `ipa.stack.ecr`) remain unchanged.
+**Consolidated stack skills**: The primary solution stack skills are `ipa.stack.frontend`, `ipa.stack.backend`, and `ipa.stack.queue`. Each corresponds to a single tier template in `infra/cfn/{tier}/{tier}.yml`. Prepare stack skills (`ipa.stack.cognito`, `ipa.stack.ecr`) are one-time prerequisites.
+
+#### 3.1 Auto-Include Prepare Dependencies
+
+For each selected stack, read its `## Wirable Parameters` section. Every **Source Stack** column value that is not already in the selected set must be auto-included. Recursively resolve until no new stacks are added.
+
+Display: "Auto-including prepare stacks: {list of auto-included tier names}"
+
+#### 3.2 Derive Wiring Map
+
+Build the complete wiring map from all stacks' `## Wirable Parameters` sections. Each row in a stack's wirable parameters table becomes a wiring entry:
+
+```
+source.stack  = Source Stack column value (tier name)
+source.output = Source Output column value
+target.stack  = the stack that owns this Wirable Parameters table (tier name)
+target.parameter = Parameter column value
+notes         = Notes column value
+```
+
+#### 3.3 Derive Deploy Order
+
+Build the deployment dependency graph:
+
+1. For each wiring entry, the target stack depends on the source stack.
+2. If a stack has a `## Deploy Order` section with explicit ordering constraints (e.g., "Queue deploys before backend"), enforce these.
+3. Topologically sort the graph to produce deployment order.
+4. Within the same lifecycle, respect dependencies. Across lifecycles, all prepare stacks deploy before all deploy stacks.
+
+#### 3.4 Apply Feature Flag Auto-Wiring
+
+When the composition includes stacks that are wired together via feature flags, automatically enable the corresponding flags:
+
+- **If `queue` and `backend` are both selected**: Set `EnableSqsIntegration=true` on backend (enables SQS wiring parameters). This is inferred from backend's Wirable Parameters having `SqsQueueUrl` and `SqsSendQueueArns` with source `queue`, gated by the `EnableSqsIntegration` feature flag.
 
 Run validation procedures V3 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
+
+---
+
+### Step 4: Validate Wiring
+
+Run validation procedure V4 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
 ---
 
@@ -192,33 +186,31 @@ Run validation procedures V3 from [VALIDATION.md](VALIDATION.md). STOP on any fa
 
 ### Step 5: Composition Summary and Confirmation
 
-Validate wiring cross-references before displaying the summary. Run validation procedure V4 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
-
 Display a summary of what will be generated. Check if generated artifacts already exist (re-composition scenario).
 
 #### Summary Display
 
 ```
-Composition Summary: {pattern_name(s)}
+Composition Summary: {tier1} + {tier2} + ...
 Project: {APP_NAMESPACE} | Environment: {APP_ENV} | Region: {AWS_REGION}
 
 Stack Inventory:
-  | Stack | Suffix | Template | Lifecycle |
-  |-------|--------|----------|-----------|
-  | ipa.stack.{svc1} | {sfx1} | infra/cfn/{svc1}/{svc1}.yml | prepare |
-  | ipa.stack.{svc2} | {sfx2} | infra/cfn/{svc2}/{svc2}.yml | deploy |
+  | Stack | Tier | Template | Lifecycle |
+  |-------|------|----------|-----------|
+  | ipa.stack.{tier1} | {tier1} | infra/cfn/{tier1}/{tier1}.yml | prepare |
+  | ipa.stack.{tier2} | {tier2} | infra/cfn/{tier2}/{tier2}.yml | deploy |
   | ... | ... | ... | ... |
 
 Deployment Order:
-  1. {APP_NAMESPACE}-{APP_ENV}-{sfx1} — depends on: none
-  2. {APP_NAMESPACE}-{APP_ENV}-{sfx2} — depends on: none
-  3. {APP_NAMESPACE}-{APP_ENV}-{sfx3} — depends on: {sfx1}, {sfx2}
+  1. {APP_NAMESPACE}-{APP_ENV}-{tier1} — depends on: none
+  2. {APP_NAMESPACE}-{APP_ENV}-{tier2} — depends on: none
+  3. {APP_NAMESPACE}-{APP_ENV}-{tier3} — depends on: {tier1}, {tier2}
   ...
 
 Parameter Wiring:
   | Source | Output | → Target | Parameter |
   |--------|--------|----------|-----------|
-  | {sfx1} | {out1} | {sfx3} | {param1} |
+  | {tier1} | {out1} | {tier3} | {param1} |
   | ... | ... | ... | ... |
 
 Artifacts to generate:
@@ -249,19 +241,19 @@ Create `scripts/` directory if it does not exist. Write `scripts/deploy.mk`.
 
 Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. Generate:
 
-1. **Header**: Comment block with pattern name(s), usage instructions, `-include .env`, `.PHONY` declarations.
-2. **Aggregate deploy target**: `deploy: deploy-{sfx1} deploy-{sfx2} ... deploy-{sfxN}` in deployment order.
+1. **Header**: Comment block with composed stack tier names (e.g., `# Deploy targets for backend + frontend + queue`), usage instructions, `-include .env`, `.PHONY` declarations.
+2. **Aggregate deploy target**: `deploy: deploy-{tier1} deploy-{tier2} ... deploy-{tierN}` in deployment order.
 3. **Per-stack deploy targets**: For each stack in deployment order:
-   - Add Make dependency prerequisites from the Stack Sequence dependencies.
+   - Add Make dependency prerequisites from the wiring-derived dependency graph.
    - For each wiring entry targeting this stack with `target.parameter`: add a `$(eval)` line to capture the source output via `aws cloudformation describe-stacks --query`.
    - Write the `aws cloudformation deploy` command with `--stack-name`, `--template-file`, `--parameter-overrides`, and `--no-fail-on-empty-changeset`.
-   - Include pattern-declared config parameters (e.g., `EnablePassengersTable=true`) and shared stack modifications (e.g., `EnableSqsIntegration=true`) in `--parameter-overrides`.
+   - Include Compose Config parameter overrides and auto-wired feature flags in `--parameter-overrides`.
    - Add `--capabilities CAPABILITY_NAMED_IAM` if the stack requires it.
-4. **Aggregate teardown target**: `teardown: teardown-{sfxN} ... teardown-{sfx1}` in reverse deployment order.
-5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix}`.
+4. **Aggregate teardown target**: `teardown: teardown-{tierN} ... teardown-{tier1}` in reverse deployment order.
+5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{tier}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{tier}`.
 
 **Critical rules**:
-- All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
+- All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{tier}` — never literal values.
 - All targets are `.PHONY`.
 - Teardown is in exact reverse of deployment order.
 - `$(eval ... $(shell ...))` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables — these conditionals pass credentials when set (local dev) and omit them when empty (CI/CD IAM role).
@@ -275,7 +267,7 @@ Always generate `scripts/prepare.mk`. Filter the stack list to include only stac
 **If zero stacks have prepare lifecycle**: Write a no-op prepare.mk with the header block and a no-op target:
 ```makefile
 prepare:
-	@echo "No prepare targets for this pattern"
+	@echo "No prepare targets for this composition"
 ```
 
 **If one or more stacks have prepare lifecycle**: Write the full prepare.mk.
@@ -283,13 +275,13 @@ prepare:
 Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generate:
 
 1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
-2. **Aggregate prepare target**: `prepare: prepare-{sfx1} prepare-{sfx2} ...` in deployment order (filtered to prepare stacks).
+2. **Aggregate prepare target**: `prepare: prepare-{tier1} prepare-{tier2} ...` in deployment order (filtered to prepare stacks).
 3. **Per-stack prepare targets**: For each prepare stack in deployment order:
    - Add Make dependency prerequisites (only against other prepare stacks).
    - For wiring entries between prepare stacks: add `$(eval)` lines to capture outputs.
    - Write the `aws cloudformation deploy` command.
    - Add `--capabilities CAPABILITY_NAMED_IAM` if required.
-4. **Aggregate teardown target**: `teardown-prepare: teardown-{sfxN} ... teardown-{sfx1}` in reverse order.
+4. **Aggregate teardown target**: `teardown-prepare: teardown-{tierN} ... teardown-{tier1}` in reverse order.
 5. **Per-stack teardown targets**: `aws cloudformation delete-stack` + `wait stack-delete-complete`.
 
 **Note**: Environment variable writes (OIDC, ECR, SQS) are no longer generated in prepare.mk. They are consolidated in `env.mk` (see Step 6c). The prepare chain is simplified to: `prepare-cognito → prepare-ecr` (direct dependency, no env targets).
@@ -305,9 +297,9 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 
 ### Step 6b: Generate post-deploy.mk
 
-Always generate `scripts/post-deploy.mk`. Read the pattern's `## Post-Deploy` section.
+Always generate `scripts/post-deploy.mk`. Read the **Post-Deploy Steps** section below to determine which steps apply based on the stacks in the composition.
 
-**If no `## Post-Deploy` section exists**: Write a no-op post-deploy.mk.
+**If no post-deploy steps apply**: Write a no-op post-deploy.mk.
 
 **If post-deploy steps exist**: Write the full post-deploy.mk.
 
@@ -318,7 +310,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) post-deploy.mk template. Gen
 3. **Per-step targets**: For each post-deploy step:
    - Add Make dependency prerequisites from the step's "Depends on" declaration.
    - For each stack output reference: add a `$(eval)` line via `aws cloudformation describe-stacks --query`.
-   - **Use consolidated stack suffixes** for `--stack-name` (e.g., `backend` for ApiUrl/FunctionArn, `frontend` for AppUrl/BucketName/DistributionId).
+   - **Use tier names** for `--stack-name` (e.g., `backend` for ApiUrl/FunctionArn, `frontend` for AppUrl/BucketName/DistributionId).
    - Write the operational command.
 4. No teardown targets — post-deploy steps are operational, not infrastructure.
 
@@ -343,9 +335,9 @@ update-env:
 This ensures CI/CD (no `.env` file) skips the env sync. The `update-env` target must appear in the `.PHONY` declaration and as the first prerequisite of the aggregate `post-deploy:` target.
 
 **Critical rules**:
-- All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{suffix}` — never literal values.
+- All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{tier}` — never literal values.
 - All targets are `.PHONY`.
-- Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{suffix}`.
+- Post-deploy targets use descriptive names (e.g., `configure-frontend`), not `post-deploy-{tier}`.
 - The `update-cognito-callback` target must pass ALL parameters that `prepare-cognito` passes, plus the updated `CallbackURL`.
 - `$(eval ... $(shell ...))` lines MUST use conditional profile/region.
 
@@ -358,7 +350,7 @@ Always generate `scripts/env.mk`. This file consolidates all `.env` writes — s
 Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) env.mk template. Generate:
 
 1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
-2. **Aggregate target**: `update-env: update-env-{sfx1} update-env-{sfx2} ...` listing all per-stack env targets.
+2. **Aggregate target**: `update-env: update-env-{tier1} update-env-{tier2} ...` listing all per-stack env targets.
 3. **Per-stack env targets**: For each stack in the composition that has `.env`-relevant outputs:
    - **cognito** → `update-env-cognito` (writes OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_DISCOVERY_URL, OIDC_END_SESSION_ENDPOINT, OIDC_USER_POOL_ID)
    - **ecr** → `update-env-ecr` (writes ECR_REPO_URI)
@@ -406,20 +398,20 @@ Write `scripts/SECURITY-DISPOSITION.md`.
 
 #### First-Time Composition
 
+Read the **Known Deferrals** section below. Filter to only include deferrals for stacks that are in the current composition.
+
 ```markdown
-# Security Disposition Register: {Pattern Name}
+# Security Disposition Register: {tier1} + {tier2} + ...
 
 > Generated by /ipa.compose on {YYYY-MM-DD}.
 > This register tracks known security findings and their dispositions.
 
-## Pattern Deferrals
+## Stack Deferrals
 
-{Copy each Known Deferral from all composed pattern definitions, formatted as a table:}
-
-| ID | Finding | Disposition | Rationale |
-|----|---------|-------------|-----------|
-| DEF-001 | {description} | Accepted — POC scope | {rationale from pattern} |
-| ... | ... | ... | ... |
+| ID | Stack | Finding | Disposition | Rationale |
+|----|-------|---------|-------------|-----------|
+| DEF-001 | {tier} | {description} | Accepted — POC scope | {rationale} |
+| ... | ... | ... | ... | ... |
 
 ## Custom Dispositions
 
@@ -434,8 +426,8 @@ If `scripts/SECURITY-DISPOSITION.md` already exists:
 1. Read the existing file.
 2. Find the `## Custom Dispositions` section.
 3. Extract everything from `## Custom Dispositions` to the end of the file — this is the preserved content.
-4. Regenerate the `## Pattern Deferrals` section from all composed patterns' Known Deferrals.
-5. Write the new file: header + regenerated Pattern Deferrals + preserved Custom Dispositions content.
+4. Regenerate the `## Stack Deferrals` section from the Known Deferrals for stacks in the composition.
+5. Write the new file: header + regenerated Stack Deferrals + preserved Custom Dispositions content.
 
 ---
 
@@ -446,7 +438,7 @@ If `scripts/SECURITY-DISPOSITION.md` already exists:
 Display a structured report:
 
 ```
-Composition Complete: {pattern_name(s)}
+Composition Complete: {tier1} + {tier2} + ...
 
 Generated artifacts:
   ✓ scripts/prepare.mk                         (prepare Makefile — run once)
@@ -468,7 +460,94 @@ Next steps:
   • Run `make -f scripts/test.mk test-validate` to validate templates
   • Run `/ipa.prepare` to deploy one-time prerequisites (ECR, etc.)
   • Run `/ipa.security` to update IAM roles for new stacks
-  • Run `/ipa.deploy` to deploy the composed pattern
+  • Run `/ipa.deploy` to deploy the composed stacks
 ```
 
 Note: For fresh compose, the report shows total stacks only.
+
+---
+
+## Post-Deploy Steps
+
+Post-deploy steps are selected based on which stacks are in the composition. They run after all CloudFormation deploys succeed. Post-deploy runs automatically within `/ipa.deploy` — no separate invocation needed.
+
+### Always included
+
+#### update-env
+- Action: Sync stack outputs to .env (conditional: only if .env exists)
+- Invokes: `scripts/env.mk` update-env target
+- Notes: CI/CD skips this (no .env file). Local dev gets OIDC_*, ECR_REPO_URI, SQS_QUEUE_URL written to .env.
+
+### When `backend` is in composition (with EnablePassengersTable=true)
+
+#### load-data
+- Action: Load sample Titanic passenger data from CSV into DynamoDB table
+- Script: `cd app-lib && uv run python -m app_lib.features.passengers.util.load_dynamodb_util`
+- Depends on: (none within post-deploy)
+- Notes: Uses PutItem (upsert) — safe to re-run. Reads from app-lib/src/app_lib/assets/datasets/titanic/walkthrough_titanic.csv
+
+### When `frontend` is in composition
+
+#### configure-frontend
+- Action: Generate web-client/dist/config.js with runtime configuration
+- Script: scripts/util/configure_frontend.py
+- Depends on: (none within post-deploy)
+- Stack outputs:
+  - backend → ApiUrl
+  - frontend → AppUrl
+- .env variables: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_END_SESSION_ENDPOINT
+- **When `queue` is also in composition**: Append `--enable-feature jobs` to the configure_frontend.py command
+
+#### upload-frontend
+- Action: Sync web-client/dist/ to S3 bucket
+- Depends on: configure-frontend
+- Stack outputs:
+  - frontend → BucketName
+- Command: aws s3 sync web-client/dist/ s3://{BucketName}/ --delete
+
+#### invalidate-cf
+- Action: Create CloudFront cache invalidation and wait for completion
+- Depends on: upload-frontend
+- Stack outputs:
+  - frontend → DistributionId
+- Command: aws cloudfront create-invalidation + aws cloudfront wait invalidation-completed
+
+#### update-cognito-callback
+- Action: Update Cognito callback/logout URLs — add CloudFront domain alongside localhost
+- Depends on: invalidate-cf
+- Stack outputs:
+  - frontend → AppUrl
+- Command: aws cloudformation deploy (Cognito stack with CallbackURL={AppUrl}/authentication/callback)
+- Notes: Passes ALL original prepare-cognito parameters plus updated CallbackURL. The localhost callback remains — CloudFront URL is added as additional allowed callback.
+
+#### update-backend-cors
+- Action: Update API Gateway v2 CORS origin with CloudFront domain
+- Depends on: update-cognito-callback
+- Stack outputs:
+  - frontend → AppUrl
+- Notes: Re-deploys backend stack with AllowedOrigin set to CloudFront URL. Must pass ALL original deploy-backend parameters plus updated frontend AppUrl for CORS.
+  **When `queue` is also in composition**: Must also include the SQS integration parameters (EnableSqsIntegration=true, SqsQueueUrl, SqsSendQueueArns) queried from the queue stack — same as the deploy-backend target.
+
+---
+
+## Known Deferrals
+
+Security deferrals by stack, included in SECURITY-DISPOSITION.md only when the stack is in the composition.
+
+### frontend
+
+| ID | Finding | Rationale |
+|----|---------|-----------|
+| S3-1 | No bucket versioning | POC scope |
+| CF-1 | No custom domain / ACM certificate | POC uses *.cloudfront.net |
+| CF-2 | No WAF | POC scope + HTTP API v2 does not support WAF |
+| CF-3 | PriceClass_100 only | POC — US/Canada/Europe only |
+| CF-4 | Short DefaultTTL (300s) | POC — production should tune per content type |
+| APIGW-1 | CORS origin `*` during initial deploy | CloudFront domain unknown at API deploy time; auto-wired in post-deploy |
+
+### queue
+
+| ID | Finding | Rationale |
+|----|---------|-----------|
+| SQS-1 | No FIFO queue support | POC scope — standard queue sufficient |
+| SQS-2 | No SSE streaming for job status | POC scope |

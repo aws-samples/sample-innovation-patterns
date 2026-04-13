@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT-0
 """Tests for job route handlers with mocked services."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest

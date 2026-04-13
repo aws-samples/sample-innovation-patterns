@@ -45,9 +45,7 @@ def _parse_sse_events(response_text: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_returns_text_chunks(mock_get_client, client):
     """Test POST /api/v1/sse/inference/converse streams text chunks."""
     mock_client = MagicMock()
@@ -71,9 +69,7 @@ def test_converse_stream_returns_text_chunks(mock_get_client, client):
     assert text_events[1]["text"] == " world"
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_returns_metadata(mock_get_client, client):
     """Test that metadata event with usage counts is emitted."""
     mock_client = MagicMock()
@@ -96,9 +92,7 @@ def test_converse_stream_returns_metadata(mock_get_client, client):
     assert metadata_events[0]["metadata"]["usage"]["outputTokens"] == 5
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_ends_with_done(mock_get_client, client):
     """Test that stream always ends with [DONE] marker."""
     mock_client = MagicMock()
@@ -116,9 +110,7 @@ def test_converse_stream_ends_with_done(mock_get_client, client):
     assert events[-1] == "[DONE]"
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_forwards_system_prompt(mock_get_client, client):
     """Test that system prompt is forwarded to Bedrock when provided."""
     mock_client = MagicMock()
@@ -137,9 +129,7 @@ def test_converse_stream_forwards_system_prompt(mock_get_client, client):
     assert call_kwargs["system"] == [{"text": "You are a pirate."}]
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_omits_system_when_empty(mock_get_client, client):
     """Test that empty system prompt sends empty system list."""
     mock_client = MagicMock()
@@ -163,9 +153,7 @@ def test_converse_stream_omits_system_when_empty(mock_get_client, client):
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_custom_temperature(mock_get_client, client):
     """Test that custom temperature is passed to inference config."""
     mock_client = MagicMock()
@@ -184,9 +172,7 @@ def test_converse_stream_custom_temperature(mock_get_client, client):
     assert call_kwargs["inferenceConfig"]["temperature"] == 0.2
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_custom_max_tokens(mock_get_client, client):
     """Test that custom max_tokens is passed to inference config."""
     mock_client = MagicMock()
@@ -205,9 +191,7 @@ def test_converse_stream_custom_max_tokens(mock_get_client, client):
     assert call_kwargs["inferenceConfig"]["maxTokens"] == 1024
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_defaults(mock_get_client, client):
     """Test that defaults are applied when parameters are omitted."""
     mock_client = MagicMock()
@@ -228,12 +212,8 @@ def test_converse_stream_defaults(mock_get_client, client):
     assert "topP" not in config
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
-def test_converse_stream_temperature_precedence_over_top_p(
-    mock_get_client, client
-):
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
+def test_converse_stream_temperature_precedence_over_top_p(mock_get_client, client):
     """Test that temperature takes precedence when both are provided."""
     mock_client = MagicMock()
     mock_client.converse_stream.return_value = {"stream": []}
@@ -254,9 +234,7 @@ def test_converse_stream_temperature_precedence_over_top_p(
     assert "topP" not in config
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_top_p_when_no_temperature(mock_get_client, client):
     """Test that top_p is used when temperature is null."""
     mock_client = MagicMock()
@@ -283,9 +261,7 @@ def test_converse_stream_top_p_when_no_temperature(mock_get_client, client):
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_error_returns_error_event(mock_get_client, client):
     """Test that Bedrock errors are returned as SSE error events."""
     mock_client = MagicMock()
@@ -301,16 +277,12 @@ def test_converse_stream_error_returns_error_event(mock_get_client, client):
     )
     assert resp.status_code == 200
     events = _parse_sse_events(resp.text)
-    error_events = [
-        json.loads(e) for e in events if e.startswith("{") and "error" in e
-    ]
+    error_events = [json.loads(e) for e in events if e.startswith("{") and "error" in e]
     assert len(error_events) == 1
     assert "Model not found" in error_events[0]["error"]
 
 
-@patch(
-    "app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client"
-)
+@patch("app_lib.features.inference.routes.inference_sse_routes._get_bedrock_client")
 def test_converse_stream_error_ends_with_done(mock_get_client, client):
     """Test that [DONE] is always the final event even after errors."""
     mock_client = MagicMock()
