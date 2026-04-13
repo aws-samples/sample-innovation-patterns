@@ -201,11 +201,11 @@ Three middleware layers wrap all routes, applied in `common/app.py`:
 
 1. **CORS** — Configurable allowed origins via `CORS_ALLOWED_ORIGINS` environment variable (comma-separated). Defaults to `"*"` for local development.
 
-2. **JWT Authentication** — `JWTAuthMiddleware` in `common/auth.py` validates Bearer tokens on all routes except public paths. Disabled by default (`AUTH_ENABLED=false`).
+2. **JWT Authentication** — `JWTAuthMiddleware` in `common/auth.py` validates Bearer tokens on all routes except public paths. Enabled by default (`AUTH_ENABLED=true`). Set to `false` for local development without a deployed Cognito stack.
 
    | Environment Variable | Purpose | Default |
    |---------------------|---------|---------|
-   | `AUTH_ENABLED` | Enable/disable JWT validation | `false` |
+   | `AUTH_ENABLED` | Enable/disable JWT validation | `true` |
    | `OIDC_ISSUER` (or `AUTH_ISSUER`) | OIDC provider URL | — |
    | `OIDC_CLIENT_ID` (or `AUTH_AUDIENCE`) | Expected audience | — |
 

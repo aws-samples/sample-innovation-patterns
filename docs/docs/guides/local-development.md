@@ -124,17 +124,17 @@ Open `http://localhost:8080` in a browser. The React application loads and API r
 
 ### 4. Optional: Configure Cognito authentication locally
 
-By default, authentication is disabled in local development (`AUTH_ENABLED=false` on the backend, empty OIDC fields in the frontend config). To test with Cognito authentication enabled:
+By default, authentication is enabled (`AUTH_ENABLED=true`). For local development without a deployed Cognito stack, disable it by setting the environment variable before starting the backend:
+
+```bash
+export AUTH_ENABLED=false
+```
+
+To test with Cognito authentication enabled locally:
 
 a. Confirm the OIDC values are present in `.env` by running the sync from Step 1, or verify that `OIDC_ISSUER` and `OIDC_CLIENT_ID` are set.
 
-b. Enable authentication on the backend by setting the following environment variables before starting the backend:
-
-```bash
-export AUTH_ENABLED=true
-```
-
-c. Create `web-client/public/config.local.js` to override the frontend OIDC configuration:
+b. Create `web-client/public/config.local.js` to override the frontend OIDC configuration:
 
 ```javascript
 window.__CONFIG__ = {

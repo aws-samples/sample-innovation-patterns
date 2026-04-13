@@ -77,7 +77,7 @@ See [ruff.toml](./ruff.toml): line-length 88, Python 3.9+ target, Pyflakes (F), 
 | `APP_ENV` | `"dev"` | `PynamodbUtil` — environment segment in table names |
 | `API_STAGE_PREFIX` | `""` | `common/app.py` — FastAPI `root_path` for API Gateway |
 | `CORS_ALLOWED_ORIGINS` | `"*"` | `common/app.py` — comma-separated origins |
-| `AUTH_ENABLED` | `"false"` | `common/auth.py` — enable JWT validation |
+| `AUTH_ENABLED` | `"true"` | `common/auth.py` — enable JWT validation (set to `"false"` for local dev without Cognito) |
 | `OIDC_ISSUER` / `AUTH_ISSUER` | `""` | `common/auth.py` — OIDC issuer URL |
 | `OIDC_CLIENT_ID` / `AUTH_AUDIENCE` | `""` | `common/auth.py` — expected audience |
 | `APP_METRIC_NAMESPACE` | `"{namespace}/{env}"` | `observability.py` — CloudWatch metric namespace |

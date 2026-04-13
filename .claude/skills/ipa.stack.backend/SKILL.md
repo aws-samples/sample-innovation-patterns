@@ -26,6 +26,7 @@ Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged
 | MemorySize | No | `512` | Lambda memory in MB |
 | Timeout | No | `300` | Lambda timeout in seconds |
 | ImageCommand | No | *(empty)* | Override container CMD |
+| AllowedOrigin | No | `https://none.invalid` | Allowed CORS origin (CloudFront domain from post-deploy). Blocks cross-origin requests until set. |
 | EnablePassengersTable | No | `false` | Feature flag: create passengers DynamoDB table |
 | EnableSqsIntegration | No | `false` | Feature flag: enable SQS send permissions |
 | SqsQueueUrl | No | *(empty)* | SQS queue URL for env var injection |
@@ -50,6 +51,7 @@ Parameters that receive values from other stacks during composition:
 | AuthAudience | cognito | UserPoolClientId | App client ID |
 | SqsQueueUrl | queue | QueueUrl | Only when EnableSqsIntegration=true |
 | SqsSendQueueArns | queue | QueueArn | Only when EnableSqsIntegration=true |
+| AllowedOrigin | frontend | AppUrl | Set during post-deploy (update-backend-cors target) |
 
 ## Outputs
 
@@ -65,7 +67,7 @@ Parameters that receive values from other stacks during composition:
 
 - Lambda: Per-function execution role with least-privilege policies
 - IAM: Conditional DynamoDB policies scoped to `!GetAtt Table.Arn` — no wildcards
-- API Gateway: JWT authorizer (Cognito), CORS configured, access logging
+- API Gateway: JWT authorizer (Cognito), CORS locked to `AllowedOrigin` parameter (defaults to `https://none.invalid` — blocks cross-origin until post-deploy sets CloudFront domain), access logging
 - DynamoDB: SSE enabled, PAY_PER_REQUEST billing
 - CloudWatch: Log groups with 30-day retention
 - ECR pull and CloudWatch PutMetricData use `Resource: '*'` (AWS API limitation — documented)

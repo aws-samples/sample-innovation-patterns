@@ -76,6 +76,12 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: 'Feature flag: create DynamoDB passengers table (K3:B — default false)'
 
+  # --- CORS ---
+  AllowedOrigin:
+    Type: String
+    Default: 'https://none.invalid'
+    Description: 'Allowed CORS origin (CloudFront domain from post-deploy). Defaults to a non-matching value that blocks cross-origin requests until post-deploy sets the real domain.'
+
   # --- SQS integration (wired when queue tier is composed) ---
   EnableSqsIntegration:
     Type: String
@@ -288,6 +294,7 @@ Resources:
           APP_NAMESPACE: !Ref Namespace
           APP_ENV: !Ref Environment
           AWS_LWA_REMOVE_BASE_PATH: '/prod'
+          CORS_ALLOWED_ORIGINS: !Ref AllowedOrigin
           SQS_QUEUE_URL: !If [HasSqsQueueUrl, !Ref SqsQueueUrl, !Ref 'AWS::NoValue']
       Tags:
         - Key: Namespace
@@ -325,7 +332,7 @@ Resources:
           - DELETE
           - OPTIONS
         AllowOrigins:
-          - '*'
+          - !Ref AllowedOrigin
 
   JwtAuthorizer:
     Type: AWS::ApiGatewayV2::Authorizer
