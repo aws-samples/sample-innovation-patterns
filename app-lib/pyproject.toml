@@ -34,13 +34,13 @@ api_lambda = [
 ]
 
 test = [
-    "pytest>=8.3.0,<9.0.0",
+    "pytest>=9.0.3,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
 ]
 
 all = [
     "pynamodb>=6.1.0,<7.0.0",
-    "pytest>=8.3.0,<9.0.0",
+    "pytest>=9.0.3,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
     "ruff>=0.14.10,<1.0.0",
     "fastapi>=0.115.0,<1.0.0",
@@ -78,7 +78,7 @@ constraint-dependencies = [
 [dependency-groups]
 dev = [
     "ruff>=0.14.10,<1.0.0",
-    "pytest>=8.3.0,<9.0.0",
+    "pytest>=9.0.3,<10.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
     "ipykernel>=7.1.0,<8.0.0",
     "mkdocs>=1.6.1",

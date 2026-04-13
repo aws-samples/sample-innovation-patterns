@@ -9,7 +9,7 @@ Generated Makefiles that encode the build, deploy, and teardown lifecycle for an
 
 ## Overview
 
-The `scripts/` directory is the execution layer of IPA. When `/ipa.compose` resolves a pattern (for example, `react-rest-lambda + sqs-lambda`), it generates a set of Makefiles that encode the exact `aws` CLI calls, stack ordering, and parameter wiring for that composition. These Makefiles are the contract between the builder, the AI agent, and CI/CD pipelines — all three execute the same targets.
+The `scripts/` directory is the execution layer of IPA. When `/ipa.compose` composes stacks (for example, `frontend + backend + queue`), it generates a set of Makefiles that encode the exact `aws` CLI calls, stack ordering, and parameter wiring for that composition. These Makefiles are the contract between the builder, the AI agent, and CI/CD pipelines — all three execute the same targets.
 
 Makefiles contain direct `aws` CLI calls inline. There are no helper functions, no abstraction layer, and no external dependencies beyond the AWS CLI and GNU Make. A customer can open any target and see exactly what AWS command runs.
 
@@ -99,7 +99,7 @@ Two Markdown files are generated alongside the Makefiles:
 
 **`INSTALL-RUNBOOK.md`** — A self-contained deployment guide that walks through environment configuration, template validation, prepare, build, deploy, and teardown. This document works without IPA or Claude Code — a customer can follow it using only the AWS CLI and Make.
 
-**`SECURITY-DISPOSITION.md`** — Tracks security findings from the composed pattern with their dispositions (accepted, deferred, mitigated). Pattern-level deferrals are generated automatically; project-specific findings are added manually in the "Custom Dispositions" section, which is preserved across re-composition.
+**`SECURITY-DISPOSITION.md`** — Tracks security findings from the composed stacks with their dispositions (accepted, deferred, mitigated). Stack-level deferrals are generated automatically; project-specific findings are added manually in the "Custom Dispositions" section, which is preserved across re-composition.
 
 ## Teardown
 

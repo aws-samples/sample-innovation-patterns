@@ -7,7 +7,7 @@ sidebar_position: 2
 
 ## Overview
 
-This guide walks through selecting IPA stacks and assembling them into a deployable composition using `/ipa.compose`. By the end, the project has generated Makefiles, a security disposition register, and resolved stack parameter wiring — ready for `/ipa.prepare` and `/ipa.deploy`.
+This guide walks through selecting IPA stacks and composing them into a deployable solution using `/ipa.compose`. By the end, the project has generated Makefiles, a security disposition register, and resolved stack parameter wiring — ready for `/ipa.prepare` and `/ipa.deploy`.
 
 ## When to Use This Guide
 
@@ -53,28 +53,28 @@ Prepare stacks are one-time prerequisite infrastructure that persists across dep
 | `ipa.stack.cognito` | `cognito` | Cognito User Pool, App Client, Hosted UI domain |
 | `ipa.stack.ecr` | `ecr` | ECR container image repository |
 
-Prepare stacks are included automatically when a pattern requires them. There is no need to select them manually.
+Prepare stacks are included automatically when a deploy stack requires them. There is no need to select them manually.
 
 ### 2. Run `/ipa.compose`
 
-To compose a solution, invoke the compose skill with one or more pattern names:
+To compose a solution, invoke the compose skill with one or more stack tier names:
 
 ```
-/ipa.compose react-rest-lambda
+/ipa.compose frontend backend
 ```
 
-To compose multiple patterns together — for example, adding background job processing to a full-stack application:
+To compose all three tiers — for example, a full-stack application with background job processing:
 
 ```
-/ipa.compose react-rest-lambda sqs-lambda
+/ipa.compose frontend backend queue
 ```
 
-If no pattern name is provided, `/ipa.compose` displays a selection menu listing available patterns with their descriptions and stack counts.
+If no stack names are provided, `/ipa.compose` displays a selection menu listing available stacks with their descriptions.
 
-The skill validates that the required `.env` variables are set, reads the pattern definitions and stack skills, resolves parameter wiring, and displays a composition summary:
+The skill validates that the required `.env` variables are set, reads the stack skills, resolves parameter wiring, and displays a composition summary:
 
 ```
-Composition Summary: react-rest-lambda
+Composition Summary: backend + frontend
 Project: myapp | Environment: dev | Region: us-east-1
 
 Stack Inventory:
@@ -97,7 +97,7 @@ Artifacts to generate:
 The skill then generates all artifacts and reports completion.
 
 :::note
-Running `/ipa.compose` is idempotent. Re-running it regenerates all Makefiles from the current pattern definitions. Custom dispositions in `SECURITY-DISPOSITION.md` are preserved across re-composition.
+Running `/ipa.compose` is idempotent. Re-running it regenerates all Makefiles from the current stack definitions. Custom dispositions in `SECURITY-DISPOSITION.md` are preserved across re-composition.
 :::
 
 ### 3. Review generated Makefiles
@@ -125,7 +125,7 @@ The output lists the `aws cloudformation deploy` commands that would execute, wi
 
 The composition engine resolves cross-stack dependencies by wiring outputs from one stack into parameters of another. This wiring appears in the generated Makefiles as `$(eval)` lines that query CloudFormation stack outputs at deploy time.
 
-For the `react-rest-lambda` pattern, the wiring resolves these connections:
+For a frontend + backend composition, the wiring resolves these connections:
 
 | Source Stack | Output | Target Stack | Parameter |
 |--------------|--------|--------------|-----------|
@@ -155,7 +155,7 @@ deploy-backend:
 		--no-fail-on-empty-changeset
 ```
 
-When composing multiple patterns, additional wiring entries are merged. Composing `sqs-lambda` with `react-rest-lambda` adds wiring from the queue stack to the backend and enables the SQS integration feature flag:
+When composing additional stacks, additional wiring entries are merged. Adding the `queue` stack to a composition that already has `frontend` and `backend` adds wiring from the queue stack to the backend and enables the SQS integration feature flag:
 
 | Source Stack | Output | Target Stack | Parameter |
 |--------------|--------|--------------|-----------|
@@ -166,14 +166,14 @@ The backend stack also receives `EnableSqsIntegration=true` to activate SQS send
 
 ### 5. Review the security disposition register
 
-The composition generates `scripts/SECURITY-DISPOSITION.md`, a register of known security findings accepted for the current scope. Each pattern declares known deferrals — security findings that are intentionally accepted with documented rationale.
+The composition generates `scripts/SECURITY-DISPOSITION.md`, a register of known security findings accepted for the current scope. Each stack declares known deferrals — security findings that are intentionally accepted with documented rationale.
 
 The register contains two sections:
 
-- **Pattern Deferrals** — security findings inherited from the composed patterns, regenerated on each composition
+- **Stack Deferrals** — security findings inherited from the composed stacks, regenerated on each composition
 - **Custom Dispositions** — project-specific findings added manually, preserved across re-composition
 
-Example pattern deferrals from `react-rest-lambda`:
+Example deferrals from a frontend + backend composition:
 
 | ID | Finding | Disposition | Rationale |
 |----|---------|-------------|-----------|
@@ -185,13 +185,13 @@ Review this register before handing the project to a customer. Each deferral sho
 
 ### 6. Optional: Add stacks to an existing composition
 
-To add a stack to an existing composition, re-run `/ipa.compose` with all pattern names — both existing and new. For example, to add background job processing to a project that already has `react-rest-lambda`:
+To add a stack to an existing composition, re-run `/ipa.compose` with all stack names — both existing and new. For example, to add background job processing to a project that already has frontend and backend:
 
 ```
-/ipa.compose react-rest-lambda sqs-lambda
+/ipa.compose frontend backend queue
 ```
 
-The skill detects the existing composition, merges the new pattern with the existing one, and regenerates all Makefiles. The regeneration is idempotent — existing configuration is preserved.
+The skill detects the existing composition, merges the new stacks with the existing ones, and regenerates all Makefiles. The regeneration is idempotent — existing configuration is preserved.
 
 :::warning
 Do not edit the generated Makefiles manually. Re-running `/ipa.compose` overwrites all Makefiles in `scripts/`. If the skill detects a malformed header in `deploy.mk` indicating manual edits, it warns before proceeding.
@@ -227,7 +227,7 @@ To confirm that the composition completed successfully:
 
    The output lists `aws cloudformation deploy` commands with resolved stack names and parameter overrides.
 
-3. Verify that `SECURITY-DISPOSITION.md` references the composed pattern:
+3. Verify that `SECURITY-DISPOSITION.md` references the composed stacks:
 
    ```bash
    head -3 scripts/SECURITY-DISPOSITION.md
@@ -236,7 +236,7 @@ To confirm that the composition completed successfully:
    Expected output:
 
    ```
-   # Security Disposition Register: react-rest-lambda
+   # Security Disposition Register: backend + frontend
    ```
 
 ## Troubleshooting
@@ -244,8 +244,8 @@ To confirm that the composition completed successfully:
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
 | `/ipa.compose` fails with missing `.env` variable error | One or more of `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, or `AWS_ACCOUNT_ID` is not set in `.env` | Run `/ipa.init` to generate the `.env` file with all required variables |
-| Re-composition overwrites manual Makefile edits | `/ipa.compose` regenerates all Makefiles from pattern definitions on every run | Do not edit generated Makefiles manually — for custom targets, create a separate Makefile that includes the generated ones |
-| Pattern not found when running `/ipa.compose {name}` | The pattern name does not match a directory in `.claude/skills/ipa.compose/patterns/` | Run `/ipa.compose` without arguments to see available patterns and select from the menu |
+| Re-composition overwrites manual Makefile edits | `/ipa.compose` regenerates all Makefiles from stack definitions on every run | Do not edit generated Makefiles manually — for custom targets, create a separate Makefile that includes the generated ones |
+| Stack not found when running `/ipa.compose {name}` | The stack name does not match a known stack skill in `.claude/skills/ipa.stack.*` | Run `/ipa.compose` without arguments to see available stacks and select from the menu |
 
 ## Next Steps
 

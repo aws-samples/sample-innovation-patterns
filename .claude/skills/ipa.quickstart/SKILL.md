@@ -10,7 +10,7 @@ model: opus
 
 This skill orchestrates the complete IPA lifecycle — init, security, compose, prepare, build, deploy, and post-deploy — with a single prompt. It gathers only the project namespace, applies convention-over-configuration defaults for everything else, and drives through the entire workflow end-to-end.
 
-**Default pattern**: `react-rest-lambda` (frontend + backend). Optional: `sqs-lambda` (queue tier add-on).
+**Default stacks**: `frontend backend` (frontend + backend). Optional: `queue` (queue tier add-on).
 
 > **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
 
@@ -31,7 +31,7 @@ This skill orchestrates the complete IPA lifecycle — init, security, compose, 
 - Does not replace individual skills — use `/ipa.init`, `/ipa.security`, `/ipa.compose`, `/ipa.deploy` for fine-grained control
 - Does not support the existing-role-ARN path — use `/ipa.security` for that
 - Does not support teardown — use `/ipa.destroy`
-- Does not support custom patterns — hardcoded to `react-rest-lambda` with optional `sqs-lambda`
+- Does not support custom stack selections — hardcoded to `frontend backend` with optional `queue`
 - Does not support custom regions, environments, or profiles — defaults to `us-east-1`, `dev`, default credential chain
 - Does not modify `.env` variables set by other tools — preserves non-IPA content
 
@@ -258,21 +258,21 @@ Display: "Security stack deployed. IAM roles provisioned."
 
 ---
 
-## Step 4: Compose Pattern (Delegate to /ipa.compose)
+## Step 4: Compose Stacks (Delegate to /ipa.compose)
 
 > **Skip if `compose_complete = true`.** On skip, display:
 > "Makefiles already exist (`scripts/deploy.mk`). Skipping compose. To regenerate, run `/ipa.compose` manually."
 
-### 4.1 Determine Pattern Arguments
+### 4.1 Determine Stack Arguments
 
-- If `include_queue = false` (or not set because init was skipped): pattern args = `react-rest-lambda`
-- If `include_queue = true`: pattern args = `react-rest-lambda sqs-lambda`
+- If `include_queue = false` (or not set because init was skipped): stack args = `frontend backend`
+- If `include_queue = true`: stack args = `frontend backend queue`
 
 ### 4.2 Invoke Compose
 
-Display: "Composing `{pattern args}` pattern..."
+Display: "Composing `{stack args}` stacks..."
 
-Invoke `/ipa.compose {pattern args}` using the Skill tool.
+Invoke `/ipa.compose {stack args}` using the Skill tool.
 
 Compose auto-proceeds without confirmation (per compose SKILL.md Step 5 — "Do NOT ask for confirmation"). Wait for compose to complete. It generates:
 - `scripts/prepare.mk`, `scripts/deploy.mk`, `scripts/build.mk`, `scripts/post-deploy.mk`, `scripts/env.mk`, `scripts/test.mk`
@@ -417,7 +417,7 @@ Display:
 ```
 Quickstart Complete: {APP_NAMESPACE}-{APP_ENV}
 
-  Pattern: react-rest-lambda [+ sqs-lambda]
+  Stacks: frontend + backend [+ queue]
 
   Stack                              Status
   ─────────────────────────────────  ───────────────

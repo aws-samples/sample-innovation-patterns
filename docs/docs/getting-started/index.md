@@ -8,7 +8,7 @@ slug: /
 
 Compose and deploy full-stack AWS applications in minutes, not days.
 
-IPA is a library of AI-driven skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) that automate AWS infrastructure deployment. You describe what you want — a serverless web app, a queue worker, a CI/CD pipeline — and IPA composes the CloudFormation stacks, generates the Makefiles, and deploys everything to your account.
+IPA is a library of AI-driven skills that automate AWS infrastructure deployment. You describe what you want — a serverless web app, a queue worker, a CI/CD pipeline — and IPA composes the CloudFormation stacks, generates the Makefiles, and deploys everything to your account.
 
 **The output is designed for your path to production.** IPA generates standard CloudFormation templates, plain GNU Makefiles with inline `aws` CLI calls, and commented `.env` files — no proprietary abstractions, no runtime dependencies on IPA or Claude Code. An AWS engineer can open any generated file, understand it without IPA context, and integrate it into whatever CI/CD pipeline, change management process, or deployment workflow their organization requires. IPA gets you to a working POC fast; the artifacts it produces are the starting point for production, not a dead end.
 
