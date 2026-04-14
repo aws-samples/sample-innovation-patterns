@@ -19,6 +19,7 @@ const config: Config = {
   onBrokenLinks: 'warn',
   i18n: {defaultLocale: 'en', locales: ['en']},
   markdown: {format: 'detect', mermaid: true},
+  plugins: [['drawio', {}]],
   themes: ['@docusaurus/theme-mermaid'],
   customFields: {showWorking, showUserDocs},
 
