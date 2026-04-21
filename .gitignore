@@ -29,3 +29,5 @@ infra/cfn/generated/
 
 # ASH scan output (regenerated on each scan)
 .ash/ash_output/
+
+innovation-patterns*.tar.gz
