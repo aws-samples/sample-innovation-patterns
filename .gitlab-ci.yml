@@ -33,10 +33,12 @@ pages:
     KUBERNETES_EPHEMERAL_STORAGE_LIMIT: "4Gi"
     NODE_OPTIONS: "--max-old-space-size=3072"
   before_script:
+    - corepack enable
+    - corepack prepare pnpm@latest --activate
     - cd docs
-    - npm ci
+    - pnpm install --frozen-lockfile
   script:
-    - npx docusaurus build
+    - pnpm exec docusaurus build
     - mv build ../public
   artifacts:
     paths:
