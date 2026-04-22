@@ -1,6 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/automated-security-helper/refs/heads/main/automated_security_helper/schemas/AshConfig.json
 project_name: innovation-patterns
 
+reporters:
+  # ASH emits an empty `{}` CycloneDX document when no SBOM data is collected,
+  # which GitLab's SBOM parser rejects with "Required GitLab CycloneDX
+  # properties are missing". Disable until ASH emits a schema-valid SBOM or
+  # a proper dependency-scanning integration is used instead.
+  cyclonedx:
+    enabled: false
+
 global_settings:
   ignore_paths:
     # pytest.ini is not infrastructure-as-code — KICS misparses it as a config file
