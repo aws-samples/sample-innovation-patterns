@@ -77,7 +77,7 @@ const config: Config = {
           {label: 'Developer Docs', to: '/developer-docs/'},
         ]},
       ],
-      copyright: `AWS Generative AI Innovation Center`,
+      copyright: `Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.`,
     },
     prism: {
       theme: prismThemes.github,

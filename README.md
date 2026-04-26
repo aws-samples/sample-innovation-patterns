@@ -2,7 +2,7 @@
 
 ![IPA Version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Faws-samples%2Fsample-innovation-patterns%2Fmain%2FVERSION&search=%5E.*%24&label=IPA%20Version&prefix=v)
 
-> **[Read the full documentation](https://sites.aws.dev/innovation-patterns-0a90b6/)**
+> **[Read the full documentation](https://aws-samples.github.io/sample-innovation-patterns/)**
 
 Compose and deploy full-stack AWS applications in minutes, not days.
 
@@ -43,12 +43,12 @@ Every skill is idempotent — safe to re-run at any time.
 
 ## Get Started
 
-- **[Installation](https://sites.aws.dev/innovation-patterns-0a90b6/getting-started/installation)** — Install prerequisites (Python 3.12, Node.js, AWS CLI, Claude Code)
-- **[Quickstart](https://sites.aws.dev/innovation-patterns-0a90b6/getting-started/quickstart)** — Go from zero to a deployed application in one session
+- **[Installation](https://aws-samples.github.io/sample-innovation-patterns/getting-started/installation)** — Install prerequisites (Python 3.12, Node.js, AWS CLI, Claude Code)
+- **[Quickstart](https://aws-samples.github.io/sample-innovation-patterns/getting-started/quickstart)** — Go from zero to a deployed application in one session
 
 ## Learn More
 
-- **[Concepts](https://sites.aws.dev/innovation-patterns-0a90b6/getting-started/concepts)** — What IPA is, how it is organized, and the lifecycle from inception to production handoff
+- **[Concepts](https://aws-samples.github.io/sample-innovation-patterns/getting-started/concepts)** — What IPA is, how it is organized, and the lifecycle from inception to production handoff
 - **[Design Principles](#design-principles)** — The constraints and trade-offs behind IPA's design
 
 ## Design Principles
