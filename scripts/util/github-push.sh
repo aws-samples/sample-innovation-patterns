@@ -40,6 +40,11 @@ done
 
 git commit --amend --no-edit
 
+# The amend changed the commit SHA; move the tag to match so the GitHub tag/main
+# agree and the auto-generated release tarball contains the filtered tree.
+# This retag is local only — never pushed back to GitLab origin.
+git tag -f "$TAG"
+
 if [ "$DRY_RUN" = true ]; then
   echo "dry-run: would push $TEMP_BRANCH as main and tag $TAG to $GITHUB_REMOTE"
   for path in "${EXCLUDE_PATHS[@]}"; do
