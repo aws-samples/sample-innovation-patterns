@@ -1,8 +1,10 @@
+---
+title: Getting Started
+sidebar_position: 1
+slug: /
+---
+
 # Innovation Patterns Agent (IPA)
-
-![IPA Version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Faws-samples%2Fsample-innovation-patterns%2Fmain%2FVERSION&search=%5E.*%24&label=IPA%20Version&prefix=v)
-
-> **[Read the full documentation](https://aws-samples.github.io/sample-innovation-patterns/)**
 
 Compose and deploy full-stack AWS applications in minutes, not days.
 
@@ -43,12 +45,12 @@ Every skill is idempotent — safe to re-run at any time.
 
 ## Get Started
 
-- **[Installation](https://aws-samples.github.io/sample-innovation-patterns/getting-started/installation)** — Install prerequisites (Python 3.12, Node.js, AWS CLI, Claude Code)
-- **[Quickstart](https://aws-samples.github.io/sample-innovation-patterns/getting-started/quickstart)** — Go from zero to a deployed application in one session
+- **[Installation](installation.md)** — Install prerequisites (Python 3.12, Node.js, AWS CLI, Claude Code)
+- **[Quickstart](quickstart.md)** — Go from zero to a deployed application in one session
 
 ## Learn More
 
-- **[Concepts](https://aws-samples.github.io/sample-innovation-patterns/getting-started/concepts)** — What IPA is, how it is organized, and the lifecycle from inception to production handoff
+- **[Concepts](concepts/)** — What IPA is, how it is organized, and the lifecycle from inception to production handoff
 - **[Design Principles](#design-principles)** — The constraints and trade-offs behind IPA's design
 
 ## Design Principles

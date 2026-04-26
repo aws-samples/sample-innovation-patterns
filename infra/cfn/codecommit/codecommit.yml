@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IPA CodeCommit repository for source code management'
+
+Parameters:
+  Namespace:
+    Type: String
+    Description: 'Project namespace prefix'
+  Environment:
+    Type: String
+    Description: 'Environment name (e.g., dev, staging, prod)'
+  RepositoryName:
+    Type: String
+    Description: 'CodeCommit repository name'
+    AllowedPattern: '[a-zA-Z0-9._-]+'
+    ConstraintDescription: 'Only alphanumeric characters, dots, underscores, and hyphens'
+  RepositoryDescription:
+    Type: String
+    Default: 'IPA-managed source repository'
+    Description: 'Human-readable repository description'
+  KmsKeyArn:
+    Type: String
+    Default: ''
+    Description: 'Optional KMS key ARN for repository encryption at rest'
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, '']]
+
+Resources:
+  Repository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      RepositoryDescription: !Ref RepositoryDescription
+      KmsKeyId: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
+      Tags:
+        - Key: Purpose
+          Value: !Sub 'Source repository for ${Namespace}-${Environment}'
+        - Key: ManagedBy
+          Value: IPA
+
+Outputs:
+  RepositoryName:
+    Description: 'CodeCommit repository name'
+    Value: !Ref RepositoryName
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryName'
+  RepositoryArn:
+    Description: 'CodeCommit repository ARN'
+    Value: !GetAtt Repository.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryArn'
+  CloneUrlHttp:
+    Description: 'HTTPS clone URL for the repository'
+    Value: !GetAtt Repository.CloneUrlHttp
+    Export:
+      Name: !Sub '${AWS::StackName}-CloneUrlHttp'
