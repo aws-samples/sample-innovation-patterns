@@ -77,12 +77,14 @@ github-release:
     - job: ash
       optional: true
   before_script:
+    # $GITHUB_DEPLOY_KEY is base64-encoded (masked + protected CI variable).
+    # Base64 strips whitespace/newlines so GitLab accepts masking.
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
-    - echo "$GITHUB_DEPLOY_KEY" | tr -d '\r' | ssh-add -
+    - echo "$GITHUB_DEPLOY_KEY" | base64 -d | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
   script:
-    - make -f scripts/release.mk release-check
+    - make -f scripts/util/release.mk release-check
     - git remote add github git@github.com:aws-samples/sample-innovation-patterns.git || true
     - git push github HEAD:main --force-with-lease
     - git push github "$CI_COMMIT_TAG"

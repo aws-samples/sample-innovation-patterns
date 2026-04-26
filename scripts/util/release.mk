@@ -1,5 +1,5 @@
 # Release automation targets
-# Usage: make -f scripts/release.mk <target>
+# Usage: make -f scripts/util/release.mk <target>
 
 -include .env
 
@@ -10,10 +10,10 @@ release-check:
 	@bash scripts/util/release-check.sh
 
 # Prepare a release: stamp VERSION and create CHANGELOG skeleton
-# Usage: make -f scripts/release.mk release-prep VERSION=0.2.0
+# Usage: make -f scripts/util/release.mk release-prep VERSION=0.2.0
 release-prep:
 ifndef VERSION
-	$(error VERSION is required. Usage: make -f scripts/release.mk release-prep VERSION=0.2.0)
+	$(error VERSION is required. Usage: make -f scripts/util/release.mk release-prep VERSION=0.2.0)
 endif
 	@echo "$(VERSION)" > VERSION
 	@echo "Stamped VERSION=$(VERSION)"

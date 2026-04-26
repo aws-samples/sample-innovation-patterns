@@ -25,9 +25,18 @@ specs/
 # IPA generated templates (security-sensitive, not committed)
 infra/cfn/generated/
 
+# IPA generated Makefiles & security disposition (solution-specific, not committed)
+scripts/*.mk
+!scripts/util/*.mk
+scripts/SECURITY-DISPOSITION.md
+scripts/INSTALL-RUNBOOK.md
+scripts/README.md
+
 .secrets.baseline
 
 # ASH scan output (regenerated on each scan)
 .ash/ash_output/
 
 innovation-patterns*.tar.gz
+
+.specify/
