@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<<<<<<< HEAD
-=======
 ## [0.1.1] - 2026-04-26
 
 ### Changed
@@ -21,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release pipeline** — after amending the release commit to strip internal-only paths, the release tag is now moved to the amended commit so GitHub's tag, `main`, and auto-generated release tarball all reference the same filtered tree.
 - **Auto-tag** — rule no longer excludes `$CI_PIPELINE_SOURCE == "push"`, which was blocking the job from ever firing on a standard push-to-main. Tag existence now checked against `origin` to tolerate CI's shallow clone.
 
->>>>>>> main
 ## [0.1.0] - 2026-04-26
 
 ### Added

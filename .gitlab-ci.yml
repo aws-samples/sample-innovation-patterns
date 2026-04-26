@@ -47,36 +47,22 @@ pages:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-<<<<<<< HEAD
-# Auto-tag on merge to main when VERSION was bumped (triggers github-release job)
-=======
 # Auto-tag on push to main when VERSION was bumped (triggers github-release job).
 # The tag push itself sets $CI_COMMIT_TAG, so the $CI_COMMIT_TAG == null check
 # prevents this job from recursing on its own tag push.
->>>>>>> main
 auto-tag:
   stage: release
   image: public.ecr.aws/docker/library/python:3.12-bookworm
   rules:
-<<<<<<< HEAD
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "push" && $CI_COMMIT_TAG == null
-=======
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
->>>>>>> main
       when: on_success
     - when: never
   script:
     - VERSION=$(tr -d '[:space:]' < VERSION)
-<<<<<<< HEAD
-    - |
-      if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
-        echo "Tag v$VERSION already exists — skipping (VERSION not bumped)"
-=======
     # Check the remote for the tag — CI's shallow clone may not have local tags.
     - |
       if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v$VERSION"; then
         echo "Tag v$VERSION already exists on origin — skipping (VERSION not bumped)"
->>>>>>> main
         exit 0
       fi
     - git config user.email "ci@code.aws.dev"
@@ -98,15 +84,6 @@ github-release:
     # Base64 strips whitespace/newlines so GitLab accepts masking.
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
-<<<<<<< HEAD
-    - echo "$GITHUB_DEPLOY_KEY" | base64 -d | ssh-add -
-    - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-  script:
-    - make -f scripts/util/release.mk release-check
-    - git remote add github git@github.com:aws-samples/sample-innovation-patterns.git || true
-    - git push github HEAD:main --force-with-lease
-    - git push github "$CI_COMMIT_TAG"
-=======
     # DIAGNOSTIC (remove after v0.1.0 succeeds): confirm GITHUB_DEPLOY_KEY decodes to a plausible key.
     # Uses `base64 -di` (ignore garbage/whitespace) and `|| true` so pipefail can't kill the diagnostic.
     - |
@@ -122,4 +99,3 @@ github-release:
   script:
     - make -f scripts/util/release.mk release-check
     - bash scripts/util/github-push.sh
->>>>>>> main
