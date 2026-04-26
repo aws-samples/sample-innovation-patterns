@@ -81,6 +81,15 @@ github-release:
     # Base64 strips whitespace/newlines so GitLab accepts masking.
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
+    # DIAGNOSTIC (remove after v0.1.0 succeeds): confirm GITHUB_DEPLOY_KEY decodes to a plausible key.
+    - |
+      echo "GITHUB_DEPLOY_KEY raw length: ${#GITHUB_DEPLOY_KEY}"
+      DECODED_LEN=$(printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -d 2>/dev/null | wc -c)
+      echo "GITHUB_DEPLOY_KEY base64-decoded length: $DECODED_LEN"
+      if [ "$DECODED_LEN" -lt 200 ]; then
+        echo "ERROR: decoded value is too short ($DECODED_LEN bytes). Either the variable is raw (not base64) or it decodes to garbage. Re-upload the key with: base64 -w0 key | pbcopy"
+        exit 1
+      fi
     - echo "$GITHUB_DEPLOY_KEY" | base64 -d | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
   script:
