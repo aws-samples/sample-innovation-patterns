@@ -47,19 +47,22 @@ pages:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# Auto-tag on merge to main when VERSION was bumped (triggers github-release job)
+# Auto-tag on push to main when VERSION was bumped (triggers github-release job).
+# The tag push itself sets $CI_COMMIT_TAG, so the $CI_COMMIT_TAG == null check
+# prevents this job from recursing on its own tag push.
 auto-tag:
   stage: release
   image: public.ecr.aws/docker/library/python:3.12-bookworm
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "push" && $CI_COMMIT_TAG == null
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
       when: on_success
     - when: never
   script:
     - VERSION=$(tr -d '[:space:]' < VERSION)
+    # Check the remote for the tag — CI's shallow clone may not have local tags.
     - |
-      if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
-        echo "Tag v$VERSION already exists — skipping (VERSION not bumped)"
+      if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v$VERSION"; then
+        echo "Tag v$VERSION already exists on origin — skipping (VERSION not bumped)"
         exit 0
       fi
     - git config user.email "ci@code.aws.dev"
