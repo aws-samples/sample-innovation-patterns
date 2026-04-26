@@ -1,0 +1,63 @@
+name: Security Compliance
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ash-scan:
+    name: ASH Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run ASH scan
+        run: |
+          pip install uv
+          uvx --from "git+https://github.com/awslabs/automated-security-helper.git" ash --source-dir . --output-dir .ash-output
+        continue-on-error: false
+
+      - name: Upload ASH results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ash-results
+          path: .ash-output/
+
+  ferret-scan:
+    name: Sensitive Data Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Ferret scan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+          trufflehog filesystem --directory . --fail --no-update
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for GPL dependencies
+        run: |
+          echo "Checking for GPL-licensed dependencies..."
+          if find . -name "requirements*.txt" -exec grep -li "GPL" {} \; 2>/dev/null | grep -q .; then
+            echo "error: GPL-licensed dependency found" >&2
+            exit 1
+          fi
+          echo "ok: no GPL dependencies detected"

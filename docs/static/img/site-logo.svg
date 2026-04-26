@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+<!-- 3x3 patchwork grid — light left to dark right, 6px gaps -->
+  <g transform="translate(6, 6)">
+    <!-- Row 1 — diagonal: top-left lightest -->
+    <rect x="0"   y="0"   width="126" height="126" rx="8" fill="#b8e0fa"/>
+    <rect x="131" y="0"   width="126" height="126" rx="8" fill="#8ec8f0"/>
+    <rect x="262" y="0"   width="126" height="126" rx="8" fill="#5a9fd4"/>
+
+    <!-- Row 2 -->
+    <rect x="0"   y="131" width="126" height="126" rx="8" fill="#8ec8f0"/>
+    <rect x="131" y="131" width="126" height="126" rx="8" fill="#4a8cc0"/>
+    <rect x="262" y="131" width="126" height="126" rx="8" fill="#1e4d7a"/>
+
+    <!-- Row 3 — bottom-right darkest -->
+    <rect x="0"   y="262" width="126" height="126" rx="8" fill="#5a9fd4"/>
+    <rect x="131" y="262" width="126" height="126" rx="8" fill="#1a3a5c"/>
+    <rect x="262" y="262" width="126" height="126" rx="8" fill="#0f2235"/>
+  </g>
+</svg>

@@ -1,0 +1,40 @@
+__pycache__
+.pytest_cache
+.DS_Store
+
+.vscode/
+.context/
+
+# Documentation site
+docs/build/
+docs/.docusaurus/
+docs/docs/working/
+docs/node_modules/
+
+.env
+.venv/
+specs/
+
+.temp/
+.sav/
+.delete/
+.data/
+.output/
+.draft/
+
+# IPA generated templates (security-sensitive, not committed)
+infra/cfn/generated/
+
+# IPA generated Makefiles & security disposition (solution-specific, not committed)
+scripts/*.mk
+!scripts/util/*.mk
+scripts/SECURITY-DISPOSITION.md
+scripts/INSTALL-RUNBOOK.md
+scripts/README.md
+
+.secrets.baseline
+
+# ASH scan output (regenerated on each scan)
+.ash/ash_output/
+
+innovation-patterns*.tar.gz

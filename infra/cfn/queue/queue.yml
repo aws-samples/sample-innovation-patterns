@@ -1,0 +1,610 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Queue tier — SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch.
+  Consolidates sqs.yml, sqs-esm.yml, lambda.yml (worker), dynamodb.yml, and
+  queue-specific CloudWatch into a single tier template with internal wiring.
+
+# ============================================================================
+# SECTION 1: PARAMETERS
+# ============================================================================
+Parameters:
+  # --- Core parameters (sourced from .env) ---
+  Namespace:
+    Type: String
+    AllowedPattern: '^[a-z][a-z0-9-]{0,11}$'
+    ConstraintDescription: 'Invalid namespace - 1-12 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Project namespace prefix for resource naming'
+
+  Environment:
+    Type: String
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Deployment environment'
+
+  # --- Wirable parameters (required — from upstream stacks) ---
+  ImageUri:
+    Type: String
+    Description: 'Full ECR image URI including tag (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/repo:latest)'
+
+  AuthIssuer:
+    Type: String
+    Description: 'OIDC issuer URL for JWT validation (from Cognito IssuerUrl output)'
+
+  AuthAudience:
+    Type: String
+    Description: 'OIDC client ID for JWT audience validation (from Cognito UserPoolClientId output)'
+
+  # --- SQS configuration ---
+  QueueName:
+    Type: String
+    Default: 'jobs'
+    AllowedPattern: '^[a-z][a-z0-9-]{0,29}$'
+    ConstraintDescription: 'Must be 1-30 chars, lowercase letters/digits/hyphens, starts with letter'
+    Description: 'Logical queue name'
+
+  VisibilityTimeout:
+    Type: Number
+    Default: 300
+    MinValue: 0
+    MaxValue: 43200
+    Description: 'Time in seconds that a message is hidden after being received (must exceed Lambda timeout)'
+
+  MessageRetentionPeriod:
+    Type: Number
+    Default: 345600
+    MinValue: 60
+    MaxValue: 1209600
+    Description: 'Time in seconds messages are retained in the queue (default: 4 days)'
+
+  MaxReceiveCount:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 1000
+    Description: 'Receive attempts before message is sent to DLQ'
+
+  CreateDLQ:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Whether to create a dead-letter queue for failed messages'
+
+  # --- Worker Lambda configuration ---
+  FunctionName:
+    Type: String
+    Default: 'fn-worker'
+    AllowedPattern: '^[a-z][a-z0-9-]{0,23}$'
+    ConstraintDescription: 'Must be 1-24 chars, lowercase alphanumeric + hyphens, starts with letter'
+    Description: 'Worker Lambda function name'
+
+  MemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: 'Worker Lambda memory allocation in MB'
+
+  Timeout:
+    Type: Number
+    Default: 300
+    MinValue: 1
+    MaxValue: 900
+    Description: 'Worker Lambda timeout in seconds'
+
+  ImageCommand:
+    Type: CommaDelimitedList
+    Default: 'python,-m,sqs_handler'
+    Description: 'Worker container CMD override. Default: python,-m,sqs_handler'
+
+  # --- DynamoDB feature flags (defaults to false — patterns must explicitly enable) ---
+  # CUSTOMIZE: To add a new table, copy the EnableJobsTable parameter and
+  # create matching Condition, Resource, IAM policy, and Output sections.
+  # See infra/cfn/queue/CLAUDE.md for the full 4-touchpoint workflow.
+  EnableJobsTable:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Feature flag: create DynamoDB jobs table (K3:B — default false)'
+
+  # --- CloudWatch ---
+  AlarmSnsTopicArn:
+    Type: String
+    Default: ''
+    Description: 'SNS topic ARN for alarm actions. Leave empty to keep alarms disabled.'
+
+# ============================================================================
+# SECTION 2: CONDITIONS
+# ============================================================================
+Conditions:
+  HasDLQ: !Equals [!Ref CreateDLQ, 'true']
+  HasJobsTable: !Equals [!Ref EnableJobsTable, 'true']
+  HasImageCommand: !Not [!Equals [!Select [0, !Ref ImageCommand], '']]
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmSnsTopicArn, '']]
+
+# ============================================================================
+# SECTION 3: DYNAMODB TABLES
+# ============================================================================
+# CUSTOMIZE: Same pattern as backend tier. Each table follows:
+#   - Parameter: Enable{Name}Table (default: 'false')
+#   - Condition: Has{Name}Table
+#   - Resource: {Name}Table (Condition: Has{Name}Table)
+#   - IAM: Conditional DynamoDB policy in WorkerExecutionRole (Section 5)
+#   - Output: {Name}TableArn (Condition: Has{Name}Table)
+#
+# NAMING CONTRACT: TableName = {Namespace}_{Environment}_{suffix}
+# This MUST match PynamodbUtil.env_table_name("{suffix}") in app-lib.
+# ============================================================================
+Resources:
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Condition: HasJobsTable
+    Properties:
+      TableName: !Sub '${Namespace}_${Environment}_jobs'
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: IPA
+
+  # ==========================================================================
+  # SECTION 4: SQS QUEUE
+  # ==========================================================================
+  Queue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${Namespace}-${Environment}-${QueueName}'
+      VisibilityTimeout: !Ref VisibilityTimeout
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      SqsManagedSseEnabled: true
+      RedrivePolicy: !If
+        - HasDLQ
+        - deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+          maxReceiveCount: !Ref MaxReceiveCount
+        - !Ref 'AWS::NoValue'
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Sub 'Message queue for ${QueueName} processing pipeline'
+
+  DeadLetterQueue:
+    Type: 'AWS::SQS::Queue'
+    Condition: HasDLQ
+    Properties:
+      QueueName: !Sub '${Namespace}-${Environment}-${QueueName}-dlq'
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Sub 'Dead-letter queue for failed ${QueueName} messages'
+
+  QueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref Queue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyNonSSL
+            Effect: Deny
+            Principal: '*'
+            Action: 'sqs:*'
+            Resource: !GetAtt Queue.Arn
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  # ==========================================================================
+  # SECTION 5: LAMBDA FUNCTION (WORKER)
+  # ==========================================================================
+  WorkerExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${Namespace}-${Environment}-${FunctionName}-exec'
+      Description: !Sub 'Execution role for ${Namespace}-${Environment}-${FunctionName} worker Lambda'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        # SQS Receive — always present (worker always reads from queue)
+        # Internal wiring: uses !GetAtt Queue.Arn instead of cross-stack parameter
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-sqs-receive'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ChangeMessageVisibility
+                Resource: !GetAtt Queue.Arn
+        # CUSTOMIZE: When adding a new DynamoDB table, add a matching IAM policy here.
+        - !If
+          - HasJobsTable
+          - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb-jobs'
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                    - dynamodb:GetItem
+                    - dynamodb:Query
+                    - dynamodb:Scan
+                    - dynamodb:DeleteItem
+                    - dynamodb:UpdateItem
+                  Resource: !GetAtt JobsTable.Arn
+          - !Ref 'AWS::NoValue'
+        # DynamoDB passengers table (cross-tier) — convention-based ARN, for analysis jobs
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-dynamodb-passengers'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Namespace}_${Environment}_passengers'
+        # ECR image pull
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-ecr-pull'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: '*'
+        # Bedrock model invocation
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-bedrock'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
+        # CloudWatch custom metrics
+        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-cloudwatch-metrics'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': !Sub '${Namespace}/${Environment}'
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: !Sub 'Execution role for ${FunctionName} worker Lambda'
+
+  WorkerLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: WorkerLogGroup
+    Properties:
+      FunctionName: !Sub '${Namespace}-${Environment}-${FunctionName}'
+      Description: !Sub '${Namespace} ${Environment} ${FunctionName} — SQS worker (BUFFERED)'
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      ImageConfig: !If
+        - HasImageCommand
+        - Command: !Ref ImageCommand
+        - !Ref 'AWS::NoValue'
+      Role: !GetAtt WorkerExecutionRole.Arn
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      ReservedConcurrentExecutions: 10
+      Environment:
+        Variables:
+          AUTH_ISSUER: !Ref AuthIssuer
+          AUTH_AUDIENCE: !Ref AuthAudience
+          APP_INVOKE_MODE: 'BUFFERED'
+          APP_NAMESPACE: !Ref Namespace
+          APP_ENV: !Ref Environment
+      Tags:
+        - Key: Namespace
+          Value: !Ref Namespace
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: InvokeMode
+          Value: 'BUFFERED'
+        - Key: Purpose
+          Value: !Sub '${FunctionName} SQS worker for ${Namespace}-${Environment}'
+
+  WorkerLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Namespace}-${Environment}-${FunctionName}'
+      RetentionInDays: 30
+
+  # ==========================================================================
+  # SECTION 6: EVENT SOURCE MAPPING
+  # ==========================================================================
+  # Internal wiring: !GetAtt replaces cross-stack FunctionArn/QueueArn parameters
+  EventSourceMapping:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    DependsOn:
+      - WorkerLambdaFunction
+      - Queue
+    Properties:
+      EventSourceArn: !GetAtt Queue.Arn
+      FunctionName: !GetAtt WorkerLambdaFunction.Arn
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+      Enabled: true
+
+  # ==========================================================================
+  # SECTION 7: CLOUDWATCH OBSERVABILITY
+  # ==========================================================================
+
+  # Metric filter: Worker errors
+  WorkerErrorsFilter:
+    Type: 'AWS::Logs::MetricFilter'
+    Properties:
+      LogGroupName: !Ref WorkerLogGroup
+      FilterName: !Sub '${Namespace}-${Environment}-worker-errors'
+      FilterPattern: 'ERROR'
+      MetricTransformations:
+        - MetricNamespace: !Sub '${Namespace}/${Environment}'
+          MetricName: WorkerErrorCount
+          MetricValue: '1'
+          DefaultValue: 0
+
+  # Metric filter: Worker unhandled exceptions
+  WorkerExceptionsFilter:
+    Type: 'AWS::Logs::MetricFilter'
+    Properties:
+      LogGroupName: !Ref WorkerLogGroup
+      FilterName: !Sub '${Namespace}-${Environment}-worker-exceptions'
+      FilterPattern: '?"\"exception\":" ?Traceback'
+      MetricTransformations:
+        - MetricNamespace: !Sub '${Namespace}/${Environment}'
+          MetricName: WorkerExceptionCount
+          MetricValue: '1'
+          DefaultValue: 0
+
+  # Alarm: Queue depth — fires when messages are backing up
+  QueueDepthAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub '${Namespace}-${Environment}-${QueueName}-queue-depth'
+      AlarmDescription: !Sub >-
+        Queue depth alarm for ${Namespace}-${Environment}-${QueueName}.
+        Fires when ApproximateNumberOfMessagesVisible >= 100 for 5 minutes.
+      Namespace: 'AWS/SQS'
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt Queue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 100
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: !If [HasAlarmTopic, true, false]
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+      OKActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+
+  # Alarm: DLQ depth — fires when messages land in DLQ (conditional)
+  DlqDepthAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Condition: HasDLQ
+    Properties:
+      AlarmName: !Sub '${Namespace}-${Environment}-${QueueName}-dlq-depth'
+      AlarmDescription: !Sub >-
+        DLQ depth alarm for ${Namespace}-${Environment}-${QueueName}-dlq.
+        Fires when any message appears in the DLQ.
+      Namespace: 'AWS/SQS'
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: !If [HasAlarmTopic, true, false]
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+      OKActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmSnsTopicArn
+        - !Ref 'AWS::NoValue'
+
+  # Dashboard: Queue observability — queue depth, worker health, DLQ
+  QueueDashboard:
+    Type: 'AWS::CloudWatch::Dashboard'
+    Properties:
+      DashboardName: !Sub '${Namespace}-${Environment}-queue-dashboard'
+      DashboardBody: !Sub
+        - |
+          {
+            "widgets": [
+              {
+                "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
+                "properties": { "markdown": "# Queue Health\nSQS queue depth and message age." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 1, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ],
+                    [ "AWS/SQS", "ApproximateNumberOfMessagesNotVisible", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Queue Depth",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              },
+              {
+                "type": "metric", "x": 12, "y": 1, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Oldest Message Age (seconds)",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              },
+              {
+                "type": "text", "x": 0, "y": 7, "width": 24, "height": 1,
+                "properties": { "markdown": "# Worker Health\nLambda invocations, duration, errors, and throttles." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [[ "AWS/Lambda", "Invocations", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Invocations"
+                }
+              },
+              {
+                "type": "metric", "x": 8, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p50", "period": 300, "label": "p50" } ],
+                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p90", "period": 300, "label": "p90" } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Duration (p50/p90)"
+                }
+              },
+              {
+                "type": "metric", "x": 16, "y": 8, "width": 8, "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/Lambda", "Errors", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ],
+                    [ "AWS/Lambda", "Throttles", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]
+                  ],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Errors + Throttles"
+                }
+              },
+              {
+                "type": "text", "x": 0, "y": 14, "width": 24, "height": 1,
+                "properties": { "markdown": "# Worker Application Errors\nCustom metric filters on worker log group." }
+              },
+              {
+                "type": "metric", "x": 0, "y": 15, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [[ "${MetricNs}", "WorkerErrorCount", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Errors (5-min)",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              },
+              {
+                "type": "metric", "x": 12, "y": 15, "width": 12, "height": 6,
+                "properties": {
+                  "metrics": [[ "${MetricNs}", "WorkerExceptionCount", { "stat": "Sum", "period": 300 } ]],
+                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Exceptions (5-min)",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              }
+            ]
+          }
+        - MetricNs: !Sub '${Namespace}/${Environment}'
+          FnName: !Sub '${Namespace}-${Environment}-${FunctionName}'
+          QName: !Sub '${Namespace}-${Environment}-${QueueName}'
+
+# ============================================================================
+# SECTION 8: OUTPUTS
+# ============================================================================
+Outputs:
+  QueueUrl:
+    Description: SQS queue URL (consumed by backend stack SqsQueueUrl parameter)
+    Value: !Ref Queue
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueUrl'
+
+  QueueArn:
+    Description: SQS queue ARN (consumed by backend stack SqsSendQueueArns parameter)
+    Value: !GetAtt Queue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueArn'
+
+  QueueName:
+    Description: Physical queue name
+    Value: !GetAtt Queue.QueueName
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueName'
+
+  WorkerFunctionArn:
+    Description: Worker Lambda function ARN
+    Value: !GetAtt WorkerLambdaFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-WorkerFunctionArn'
+
+  WorkerFunctionName:
+    Description: Worker Lambda function name
+    Value: !Ref WorkerLambdaFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-WorkerFunctionName'
+
+  DlqUrl:
+    Description: Dead-letter queue URL
+    Condition: HasDLQ
+    Value: !Ref DeadLetterQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-DlqUrl'
+
+  DlqArn:
+    Description: Dead-letter queue ARN
+    Condition: HasDLQ
+    Value: !GetAtt DeadLetterQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DlqArn'
+
+  JobsTableArn:
+    Description: DynamoDB jobs table ARN (only when EnableJobsTable=true)
+    Condition: HasJobsTable
+    Value: !GetAtt JobsTable.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-JobsTableArn'
+
+  DashboardUrl:
+    Description: Direct URL to the queue CloudWatch dashboard
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/${Namespace}-${Environment}-queue-dashboard'
+    Export:
+      Name: !Sub '${AWS::StackName}-DashboardUrl'

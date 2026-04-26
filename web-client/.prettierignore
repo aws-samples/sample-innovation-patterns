@@ -1,0 +1,5 @@
+dist
+node_modules
+package-lock.json
+openapi-schema.json
+src/services/api/generated.ts
