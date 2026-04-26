@@ -29,6 +29,11 @@ EXCLUDE_PATHS=(
 
 git remote add "$GITHUB_REMOTE" "$GITHUB_REPO" 2>/dev/null || true
 
+# Ensure git has a committer identity for the amend below.
+# Only set locally if not already configured (e.g., by a previous auto-tag step).
+git config user.email >/dev/null 2>&1 || git config user.email "ci@code.aws.dev"
+git config user.name  >/dev/null 2>&1 || git config user.name  "GitLab CI"
+
 TEMP_BRANCH="github-release-$(date +%s)"
 git checkout -b "$TEMP_BRANCH"
 
