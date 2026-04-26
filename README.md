@@ -1,5 +1,7 @@
 # Innovation Patterns Agent (IPA)
 
+![IPA Version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Faws-samples%2Fsample-innovation-patterns%2Fmain%2FVERSION&search=%5E.*%24&label=IPA%20Version&prefix=v)
+
 > **[Read the full documentation](https://sites.aws.dev/innovation-patterns-0a90b6/)**
 
 Compose and deploy full-stack AWS applications in minutes, not days.

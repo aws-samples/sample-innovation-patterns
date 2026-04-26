@@ -9,13 +9,21 @@ import {resolve} from 'path';
 const showWorking = existsSync(resolve(__dirname, 'docs/working'));
 const showUserDocs = existsSync(resolve(__dirname, 'docs/user-docs'));
 
+const docsTarget = process.env.DOCS_TARGET || 'gitlab';
+
 const config: Config = {
   title: 'Innovation Patterns',
   tagline: 'Reusable infrastructure patterns for AWS',
   favicon: 'img/site-logo.svg',
   future: {v4: true},
-  url: 'https://code.aws.dev',
-  baseUrl: process.env.CI ? '/innovation-patterns-0a90b6/' : '/',
+  url: docsTarget === 'github'
+    ? 'https://aws-samples.github.io'
+    : 'https://code.aws.dev',
+  baseUrl: docsTarget === 'github'
+    ? '/sample-innovation-patterns/'
+    : (process.env.CI ? '/innovation-patterns-0a90b6/' : '/'),
+  organizationName: docsTarget === 'github' ? 'aws-samples' : undefined,
+  projectName: docsTarget === 'github' ? 'sample-innovation-patterns' : undefined,
   onBrokenLinks: 'warn',
   i18n: {defaultLocale: 'en', locales: ['en']},
   markdown: {format: 'detect', mermaid: true},

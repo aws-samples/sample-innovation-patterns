@@ -17,6 +17,7 @@ stages:
   - test
 #   - securityScan  # Inherited
   - deploy
+  - release
 
 # GitLab Pages deployment job - must be named "pages" to trigger Pages deployment
 # Builds Docusaurus documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
@@ -45,3 +46,43 @@ pages:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Auto-tag on merge to main when VERSION was bumped (triggers github-release job)
+auto-tag:
+  stage: release
+  image: public.ecr.aws/docker/library/python:3.12-bookworm
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "push" && $CI_COMMIT_TAG == null
+      when: on_success
+    - when: never
+  script:
+    - VERSION=$(tr -d '[:space:]' < VERSION)
+    - |
+      if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
+        echo "Tag v$VERSION already exists — skipping (VERSION not bumped)"
+        exit 0
+      fi
+    - git config user.email "ci@code.aws.dev"
+    - git config user.name "GitLab CI"
+    - git tag -a "v$VERSION" -m "Release v$VERSION"
+    - git push origin "v$VERSION"
+
+# Push to GitHub on semver tag (triggered by auto-tag or manual tag)
+github-release:
+  stage: release
+  image: public.ecr.aws/docker/library/python:3.12-bookworm
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  needs:
+    - job: ash
+      optional: true
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$GITHUB_DEPLOY_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+  script:
+    - make -f scripts/release.mk release-check
+    - git remote add github git@github.com:aws-samples/sample-innovation-patterns.git || true
+    - git push github HEAD:main --force-with-lease
+    - git push github "$CI_COMMIT_TAG"
