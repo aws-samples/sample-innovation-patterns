@@ -5,13 +5,15 @@ sidebar_position: 1
 
 # scripts/
 
-Generated Makefiles that encode the build, deploy, and teardown lifecycle for an IPA-composed project. Every file in this directory is produced by `/ipa.compose` — do not edit them manually.
+Generated Makefiles that encode the build, deploy, and teardown lifecycle for an IPA-composed project. The top-level Makefiles are produced by `/ipa.compose` — do not edit them manually.
 
 ## Overview
 
 The `scripts/` directory is the execution layer of IPA. When `/ipa.compose` composes stacks (for example, `frontend + backend + queue`), it generates a set of Makefiles that encode the exact `aws` CLI calls, stack ordering, and parameter wiring for that composition. These Makefiles are the contract between the builder, the AI agent, and CI/CD pipelines — all three execute the same targets.
 
 Makefiles contain direct `aws` CLI calls inline. There are no helper functions, no abstraction layer, and no external dependencies beyond the AWS CLI and GNU Make. A customer can open any target and see exactly what AWS command runs.
+
+> **Framework vs. generated:** The IPA framework repository commits only `scripts/util/` (framework-level helpers such as `release.mk`, `docker.mk`, `version.py`). The top-level Makefiles (`prepare.mk`, `build.mk`, `deploy.mk`, etc.) and documents (`INSTALL-RUNBOOK.md`, `SECURITY-DISPOSITION.md`) are generated into a consumer's project by `/ipa.compose` and are excluded from the framework repo via `.gitignore`. This page describes the generated output you will see after running `/ipa.compose` in your own project.
 
 ## Contents
 
@@ -25,7 +27,7 @@ Makefiles contain direct `aws` CLI calls inline. There are no helper functions, 
 | `test.mk` | Template validation and security scanning | `/ipa.compose` |
 | `INSTALL-RUNBOOK.md` | Step-by-step deployment guide for the composed project | `/ipa.compose` |
 | `SECURITY-DISPOSITION.md` | Security findings register with dispositions | `/ipa.compose` |
-| `util/` | Build helpers and utility scripts (see below) | `/ipa.compose` or manual |
+| `util/` | Framework-level build, version, and release helpers (see below) | IPA framework (committed) |
 
 ## Execution Phases
 
@@ -84,13 +86,16 @@ myapp-dev-frontend      # Deploy stack (tier)
 
 ## util/ Subdirectory
 
-The `util/` directory contains the only abstractions permitted in `scripts/`. These helpers are used exclusively by `build.mk` — they are never included by `deploy.mk`, `prepare.mk`, or `test.mk`.
+The `util/` directory contains the only abstractions permitted in `scripts/`. It is part of the IPA framework and is committed to the framework repository — unlike the top-level generated Makefiles, these helpers are stable across compositions. Helpers used during build (`docker.mk`) are never included by `deploy.mk`, `prepare.mk`, or `test.mk`.
 
 | File | Purpose |
 |------|---------|
-| `docker.mk` | ECR authentication (`ecr-login`) and Docker build/tag/push (`docker-build-push`) macros |
+| `docker.mk` | ECR authentication (`ecr-login`) and Docker build/tag/push (`docker-build-push`) macros, included by `build.mk` |
 | `version.py` | Reads version from `app-lib/pyproject.toml` + git SHA; produces Docker tags, semver strings |
 | `configure_frontend.py` | Generates `web-client/dist/config.js` with runtime configuration (`window.__CONFIG__`) |
+| `release.mk` | Framework release automation (`release-check`, `release-prep`) used by GitLab CI and humans |
+| `release-check.sh` | Verifies the `VERSION` file matches the current git tag |
+| `archive.sh` | Creates a `.tar.gz` of the repo (respecting `.gitignore`) for offline handoff |
 | `openapi-codegen.mk` | API client generation helper (placeholder) |
 
 ## Generated Documentation
