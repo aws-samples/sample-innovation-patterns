@@ -21,7 +21,9 @@ const config: Config = {
     : 'https://code.aws.dev',
   baseUrl: docsTarget === 'github'
     ? '/sample-innovation-patterns/'
-    : (process.env.CI ? '/innovation-patterns-0a90b6/' : '/'),
+    : process.env.CI_PAGES_URL
+      ? new URL(process.env.CI_PAGES_URL).pathname.replace(/\/?$/, '/')
+      : (process.env.CI ? '/innovation-patterns-0a90b6/' : '/'),
   organizationName: docsTarget === 'github' ? 'aws-samples' : undefined,
   projectName: docsTarget === 'github' ? 'sample-innovation-patterns' : undefined,
   onBrokenLinks: 'warn',
