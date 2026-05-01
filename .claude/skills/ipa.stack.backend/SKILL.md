@@ -63,6 +63,12 @@ Parameters that receive values from other stacks during composition:
 | DashboardUrl | `{StackName}-DashboardUrl` | CloudWatch dashboard URL |
 | PassengersTableArn | `{StackName}-PassengersTableArn` | Conditional (HasPassengersTable) |
 
+## Build Requirements
+
+| Type | Suffix | Dockerfile | Description |
+|------|--------|------------|-------------|
+| container | rest-lambda | infra/containers/rest-lambda/Dockerfile | Shared container image for backend (REST API handler) and queue (SQS worker). Build context is repo root (`.`). Queue tier reuses this same image and overrides CMD via ImageCommand parameter — do not emit a second `build-rest-lambda` target when queue is in the composition. |
+
 ## Security
 
 - Lambda: Per-function execution role with least-privilege policies

@@ -4,6 +4,13 @@
 
 import os
 
+from dotenv import load_dotenv
+
+# Populate APP_NAMESPACE / APP_ENV / AWS_* from repo-root .env for standalone
+# CLI invocations (e.g., load_dynamodb_util). No-op in Lambda where no .env
+# exists. Must run before any Model's Meta.table_name is evaluated.
+load_dotenv()
+
 
 class PynamodbUtil:
     """Utilities for PynamoDB model configuration."""

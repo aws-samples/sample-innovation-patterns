@@ -62,6 +62,10 @@ Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-f
 | JobsTableArn | `{StackName}-JobsTableArn` | Conditional (HasJobsTable) |
 | DashboardUrl | `{StackName}-DashboardUrl` | Queue CloudWatch dashboard URL |
 
+## Build Requirements
+
+The queue worker Lambda reuses the shared `rest-lambda` container image built by the backend stack — CMD is overridden via the `ImageCommand` parameter. No additional build target is required for this stack; do not emit a duplicate `build-rest-lambda` when backend is also in the composition.
+
 ## Security
 
 - SQS: Deny non-SSL policy, SQS-managed SSE

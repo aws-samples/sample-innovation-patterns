@@ -38,6 +38,12 @@ Parameters that receive values from other stacks during composition:
 | DistributionDomainName | `{StackName}-DistributionDomainName` | CloudFront domain |
 | BucketName | `{StackName}-BucketName` | S3 bucket for upload |
 
+## Build Requirements
+
+| Type | Suffix | Dockerfile | Description |
+|------|--------|------------|-------------|
+| frontend | frontend | — | Build the React SPA in `web-client/` via `npm ci && npm run build`. Note: this project's frontend directory is `web-client`, not the default `frontend` — the generated `build-frontend` target must `cd web-client`, not `cd frontend`. |
+
 ## Feature Flags
 
 None — frontend tier has no conditional resources.
