@@ -1,0 +1,414 @@
+---
+name: ipa-deploy
+description: "Deploy composed infrastructure patterns by executing generated Makefiles.
+  Use when the user says 'deploy', 'stand up', 'create stacks', or invokes /ipa-deploy.
+  For teardown, use /ipa-destroy."
+model: opus
+---
+
+# /ipa-deploy — Deploy Infrastructure Pattern
+
+This skill executes the deployment of a composed infrastructure pattern by running generated Makefiles. It validates prerequisites, displays a deployment plan, executes the build and deploy phases, verifies stack states, diagnoses failures, and reports results.
+
+**Prerequisite workflow**: `/ipa-init` → `/ipa-security` → `/ipa-compose` → `/ipa-prepare` → **`/ipa-deploy`**
+
+---
+
+## What This Skill Does
+
+1. Validates prerequisites (.env, Makefiles, AWS credentials, required tools)
+2. Displays a deployment plan via `make -n` (Make dry-run)
+3. Runs `make -f scripts/build.mk build` (always — Make handles no-op)
+4. Runs `make -f scripts/deploy.mk deploy` (deploys all stacks in dependency order)
+5. Verifies deployed stacks reach `*_COMPLETE` status
+5a. Runs `make -f scripts/post-deploy.mk post-deploy` (config generation, S3 upload, CDN invalidation, auth wiring)
+6. Reports results with stack outputs, endpoints, and next steps
+
+## What This Skill Does NOT Do
+
+- Does not read pattern files, stack SKILL.md, or TROUBLESHOOT.md — Makefiles are the only deployment contract
+- Does not generate Makefiles — that's `/ipa-compose`'s job
+- Does not create IAM roles — that's `/ipa-security`'s job
+- Does not tear down infrastructure — use `/ipa-destroy`
+- Does not generate CloudFormation templates — templates are either static (`infra/cfn/`) or generated
+- Does not call AWS APIs directly — delegates to `make` which calls `aws cloudformation` CLI commands
+- Does not support per-stack targeting — always deploys the full pattern via aggregate targets
+- Does not modify `.env` — it is a read-only consumer of configuration
+
+## Information Sources
+
+| Source | What Deploy Reads | When |
+|--------|------------------|------|
+| `.env` | `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_PROFILE`, `AWS_ACCOUNT_ID` | Pre-flight validation |
+| `scripts/deploy.mk` | Target names, deployment order, stack names | Plan display + execution |
+| `scripts/build.mk` | Target names (may be no-op) | Build phase (always run — Make handles no-op) |
+| `scripts/post-deploy.mk` | Target names (may be no-op) | Post-deploy phase (config, upload, CDN, auth) |
+| `make -n` | Dry-run output showing commands that would execute | Deployment plan display |
+| `source .env 2>/dev/null; aws cloudformation describe-stacks --query 'Stacks[0].StackStatus' --output text` | Stack status | Pre-deploy checks + post-execution verification |
+| `source .env 2>/dev/null; aws cloudformation describe-stack-events` | Stack events | Failure diagnosis (primary diagnostic tool) |
+| `source .env 2>/dev/null; aws cloudformation describe-stacks --query 'Stacks[0].Outputs'` | Stack outputs | Post-deploy reporting |
+| `source .env 2>/dev/null; aws cloudformation list-stacks` | All managed stacks | Optional status overview |
+
+---
+
+## Step 1: Pre-Flight Validation
+
+Run **all** checks below and collect results. Report **all** failures at once with per-item remediation — do not stop at the first failure.
+
+### AWS Credential Resolution
+
+All AWS CLI commands in this skill must be run with `.env` sourced into the shell first. This sets `AWS_PROFILE` and `AWS_REGION` as environment variables, which the AWS CLI reads automatically via its default credential chain. Do NOT pass `--profile` or `--region` flags explicitly.
+
+**Pattern for every AWS CLI invocation:**
+
+```bash
+source .env 2>/dev/null; aws <command>
+```
+
+In CI/CD (where `.env` may not exist), the `2>/dev/null` silently skips, and the default credential chain (IAM role) takes over.
+
+### 1.1 Verify .env Exists
+
+Check that `.env` exists at the project root and is non-empty.
+
+**If missing**: "`.env` not found. Run `/ipa-init` to initialize project configuration."
+
+### 1.2 Verify Required .env Variables
+
+Read `.env` and verify these variables exist and are non-empty:
+
+| Variable | Written By | Error If Missing |
+|----------|------------|-----------------|
+| `APP_NAMESPACE` | `/ipa-init` | "Missing `APP_NAMESPACE`. Run `/ipa-init`." |
+| `APP_ENV` | `/ipa-init` | "Missing `APP_ENV`. Run `/ipa-init`." |
+| `AWS_REGION` | `/ipa-init` | "Missing `AWS_REGION`. Run `/ipa-init`." |
+| `AWS_PROFILE` | `/ipa-init` | "Missing `AWS_PROFILE`. Run `/ipa-init`." |
+| `AWS_ACCOUNT_ID` | `/ipa-init` | "Missing `AWS_ACCOUNT_ID`. Run `/ipa-init`." |
+
+Store all variable values for use in subsequent steps.
+
+### 1.3 Verify Deployment Scripts Exist
+
+Check that `scripts/deploy.mk` exists and contains a `deploy` target.
+
+**If missing**: "`scripts/deploy.mk` not found. Run `/ipa-compose` to generate deployment artifacts."
+
+### 1.3a Verify Prepare Prerequisites
+
+Check that `scripts/prepare.mk` exists (it is always generated by `/ipa-compose`).
+
+1. Parse the `prepare:` aggregate target to extract prepare stack names.
+2. If the `prepare:` target is a no-op (`@echo "No prepare targets..."`), skip — no prepare stacks to check.
+3. For each prepare stack, check status:
+   ```bash
+   source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
+   ```
+4. If **any** prepare stack does not exist or is not in a `*_COMPLETE` state:
+   - Display: "Prepare stack `{stack-name}` is not deployed. Auto-preparing..."
+   - Invoke `/ipa-prepare` in auto-triggered mode (skip confirmation).
+   - After `/ipa-prepare` completes successfully, resume pre-flight validation from Step 1.4.
+   - If `/ipa-prepare` fails, STOP. Do not proceed to build or deploy.
+
+**If `scripts/prepare.mk` is missing**: "prepare.mk not found. Run `/ipa-compose` to generate deployment artifacts."
+
+### 1.4 Verify Build Script Exists
+
+Check that `scripts/build.mk` exists.
+
+**If missing**: "`scripts/build.mk` not found. Run `/ipa-compose` to generate build artifacts."
+
+### 1.5 Verify Security Stack Is Deployed
+
+Run:
+
+```bash
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {APP_NAMESPACE}-{APP_ENV}-security --query 'Stacks[0].StackStatus' --output text
+```
+
+Expected: `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
+
+**If not deployed**: "Security stack `{APP_NAMESPACE}-{APP_ENV}-security` is not deployed. Run `/ipa-security` first."
+
+### 1.6 Verify AWS Credentials
+
+Run:
+
+```bash
+source .env 2>/dev/null; aws sts get-caller-identity
+```
+
+**If fails**: "AWS credentials are invalid or expired for profile `{AWS_PROFILE}`. Refresh your credentials and try again."
+
+### 1.7 Verify Make Is Installed
+
+Run `which make`.
+
+**If missing**: "GNU Make is not installed. On macOS it is pre-installed. On Linux: `sudo apt install make`."
+
+### Validation Summary
+
+If **any** checks fail, display all failures in a single summary table and **STOP**:
+
+```
+Pre-flight validation failed:
+
+  ✗ .env variable APP_NAMESPACE missing — Run /ipa-init
+  ✗ AWS credentials expired — Refresh credentials for profile {AWS_PROFILE}
+
+Fix the above issues and re-run /ipa-deploy.
+```
+
+If **all** checks pass: "Pre-flight validation passed. All prerequisites verified."
+
+---
+
+## Step 2: Display Deployment Plan + Confirmation
+
+Run Make dry-run to show exactly what will execute:
+
+```bash
+make -n -f scripts/deploy.mk deploy
+```
+
+Parse the output and display a human-readable deployment plan:
+
+```
+Deployment Plan: {APP_NAMESPACE}-{APP_ENV}
+
+  Stack                              Action
+  ─────────────────────────────────  ──────
+  {APP_NAMESPACE}-{APP_ENV}-ddb-passengers  create/update
+  {APP_NAMESPACE}-{APP_ENV}-fn       create/update (depends on: ecr, cognito, ddb-passengers)
+  {APP_NAMESPACE}-{APP_ENV}-apigwv2  create/update (depends on: fn, cognito)
+
+Proceed with deployment? (yes/no):
+```
+
+If `scripts/post-deploy.mk` exists and has non-no-op targets, also run:
+
+```bash
+make -n -f scripts/post-deploy.mk post-deploy
+```
+
+Include in the plan display:
+
+```
+Post-Deploy Steps:
+  ─────────────────────────────────────────────
+  configure-frontend    Generate config.js from stack outputs
+  upload-frontend       Sync web-client/dist/ to S3
+  invalidate-cf         CloudFront cache invalidation (waits ~1-2 min)
+  update-cognito-callback  Update Cognito callback URL
+```
+
+- **If confirmed**: proceed to Step 3.
+- **If declined**: "Deployment cancelled. No changes were made."
+
+---
+
+## Step 3: Execute Build Phase
+
+Run:
+
+```bash
+make -f scripts/build.mk build
+```
+
+Always execute this step — Make handles no-ops. If `build.mk` has no real targets, the aggregate target outputs "No build targets for this pattern" and exits 0.
+
+Display Make output as it runs.
+
+**If build fails** (exit code ≠ 0): Display the full Make output, propose a fix based on the error, and **STOP**. Do not proceed to deploy.
+
+---
+
+## Step 4: Execute Deploy
+
+Run:
+
+```bash
+make -f scripts/deploy.mk deploy
+```
+
+Display Make output as it runs. Each target prints its `aws cloudformation` command, providing natural progress indication.
+
+**If deploy succeeds** (exit code = 0): proceed to Step 5.
+
+**If deploy fails** (exit code ≠ 0): go to [Failure Diagnosis](#failure-diagnosis).
+
+**Idempotency**: Re-running deploy after a partial failure is always safe. The execution layer handles all state transitions:
+- Non-existent stack → `CreateStack`
+- `ROLLBACK_COMPLETE` → delete, then recreate
+- `*_COMPLETE` → `UpdateStack`
+- No changes → succeeds silently ("No updates are to be performed")
+
+---
+
+## Step 5: Post-Deploy Verification
+
+For each stack deployed by `scripts/deploy.mk`, run:
+
+```bash
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].StackStatus' --output text
+```
+
+Confirm all stacks report `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
+
+Then collect outputs for reporting:
+
+```bash
+source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name {stack-name} --query 'Stacks[0].Outputs'
+```
+
+Optionally, run an overview of all managed stacks:
+
+```bash
+source .env 2>/dev/null; aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE --query 'StackSummaries[?starts_with(StackName, `{APP_NAMESPACE}-{APP_ENV}`)]'
+```
+
+---
+
+## Step 5a: Execute Post-Deploy
+
+Check if `scripts/post-deploy.mk` exists (it is always generated by `/ipa-compose`).
+
+1. Parse the `post-deploy:` aggregate target.
+2. If the target is a no-op (`@echo "No post-deploy..."`), skip — proceed to Step 6.
+3. If targets exist:
+   - Display: "Running post-deploy steps..."
+   - Execute:
+     ```bash
+     make -f scripts/post-deploy.mk post-deploy
+     ```
+   - Display Make output as it runs.
+   - **If succeeds**: Include post-deploy results in Step 6 report.
+   - **If fails**: Display the error. Advise:
+     "Post-deploy failed. Deployed stacks are intact — no rollback needed.
+     Fix the issue and re-run `/ipa-deploy` (deploy will no-op, post-deploy will retry).
+     Or run manually: `make -f scripts/post-deploy.mk post-deploy`"
+     Do NOT roll back deployed CloudFormation stacks.
+
+**If `scripts/post-deploy.mk` is missing**: Skip silently — patterns composed before
+this feature will not have post-deploy.mk. This is not an error.
+
+---
+
+## Step 6: Completion Report
+
+Display a structured report:
+
+```
+Deployment Complete: {APP_NAMESPACE}-{APP_ENV}
+
+  Stack                                      Status
+  ─────────────────────────────────────────  ───────────────
+  {APP_NAMESPACE}-{APP_ENV}-ddb-passengers   CREATE_COMPLETE
+  {APP_NAMESPACE}-{APP_ENV}-fn               CREATE_COMPLETE
+  {APP_NAMESPACE}-{APP_ENV}-apigwv2          CREATE_COMPLETE
+
+  Outputs:
+  ────────
+  {APP_NAMESPACE}-{APP_ENV}-fn:
+    FunctionArn = arn:aws:lambda:us-east-1:123456789012:function:ipatest-dev-fn
+
+Next steps:
+  • Review deployed resources in the AWS Console
+  • Run /ipa-codepipeline to set up CI/CD (optional)
+  • Run /ipa-destroy to tear down infrastructure when no longer needed
+  • Re-run /ipa-deploy at any time — it is safe to re-run (idempotent)
+```
+
+If post-deploy ran successfully, add to the completion report:
+
+```
+  Post-Deploy:
+  ────────────
+  ✓ configure-frontend    — web-client/dist/config.js generated
+  ✓ upload-frontend       — synced to S3
+  ✓ invalidate-cf         — CloudFront cache invalidated
+  ✓ update-cognito-callback — Cognito callback URL updated
+
+  Application URL: {AppUrl from CloudFront stack output}
+
+Next steps:
+  • Open {AppUrl} to verify the deployed application
+  • Run /ipa-destroy to tear down infrastructure when no longer needed
+  • Re-run /ipa-deploy at any time — it is safe to re-run (idempotent)
+  • Re-run post-deploy only: make -f scripts/post-deploy.mk post-deploy
+```
+
+---
+
+## Failure Diagnosis
+
+When a Make target fails during deployment (Step 4), follow this procedure to diagnose and recover.
+
+### 1. Detect the Failed Stack
+
+Read the Make output to identify which target failed. The failed stack name follows the `--stack-name` flag in the `aws cloudformation` command that errored.
+
+### 2. Read Stack Events
+
+```bash
+source .env 2>/dev/null; aws cloudformation describe-stack-events --stack-name {failed-stack-name}
+```
+
+This returns recent events in chronological order with resource status and status reason.
+
+### 3. Classify the Error
+
+Match event text against the error classification table in [DIAGNOSIS.md](DIAGNOSIS.md). The five categories are:
+
+| Category | Recovery |
+|----------|----------|
+| Permission denied | **Manual** — advise re-running `/ipa-security` |
+| Validation error | **Manual** — show error, advise checking template/params |
+| Resource conflict | **Manual** — advise changing `APP_NAMESPACE` or manual delete |
+| Stuck rollback | **Auto** — offer to delete stack + retry |
+| Transient/throttle | **Auto** — offer to wait + retry |
+
+### 4. Execute Recovery
+
+**For simple recoveries** (stuck rollback, transient — marked Auto):
+
+1. Explain the diagnosis and proposed fix to the builder.
+2. Ask: "Would you like me to fix this automatically? (yes/no):"
+3. If confirmed, execute the fix:
+   - **Stuck rollback**: `source .env 2>/dev/null; aws cloudformation delete-stack --stack-name {failed-stack}` followed by `source .env 2>/dev/null; aws cloudformation wait stack-delete-complete --stack-name {failed-stack}`, then re-run `make -f scripts/deploy.mk deploy`.
+   - **Transient**: Wait 30 seconds, then re-run `make -f scripts/deploy.mk deploy`.
+
+**For complex fixes** (permission, validation, resource conflict — marked Manual):
+
+1. Explain the diagnosis and the specific error from `cfn-events`.
+2. Advise the builder on what to do — see [DIAGNOSIS.md](DIAGNOSIS.md) for per-category guidance.
+3. After the builder has applied the fix, they should re-run `/ipa-deploy`.
+
+For deploy-level failures not covered by CloudFormation events (Make errors, tool missing, credential issues), see [TROUBLESHOOT.md](TROUBLESHOOT.md).
+
+---
+
+## Error Handling
+
+### No-Op Build
+
+If `scripts/build.mk` has no real targets, the `build` aggregate target outputs "No build targets for this pattern" and exits 0. This is expected — proceed to deployment.
+
+### Dependent Stack Failure
+
+If a stack fails but its prerequisites succeeded, Make stops at the failed target. Already-deployed prerequisite stacks remain untouched. Re-running deploy after fixing the root cause will skip completed stacks and retry only the failed one.
+
+### Credential Expiry Mid-Deployment
+
+If credentials expire during a long-running deployment (e.g., temporary STS tokens with short TTL), the current `aws cloudformation` command will fail with an access denied error. The builder should refresh credentials and re-run `/ipa-deploy` — idempotency ensures already-deployed stacks are not affected.
+
+### Deployment Timeout
+
+CloudFormation deployments have a 60-minute default timeout. If a stack exceeds this, `cfn-events` will show the timeout. Advise the builder to check the stack status in the AWS Console — the stack may still be in progress.
+
+### Network Connectivity Loss
+
+If connectivity is lost mid-deployment, the current command will fail. Advise the builder that infrastructure may be in a transitional state. They should:
+
+1. Check stack status: `source .env 2>/dev/null; aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE CREATE_IN_PROGRESS UPDATE_IN_PROGRESS ROLLBACK_IN_PROGRESS --query 'StackSummaries[?starts_with(StackName, `{APP_NAMESPACE}-{APP_ENV}`)]'`
+2. Wait for any `IN_PROGRESS` stacks to reach a terminal state.
+3. Re-run `/ipa-deploy` to complete the deployment.

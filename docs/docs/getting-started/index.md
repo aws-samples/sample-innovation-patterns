@@ -27,19 +27,21 @@ Additional stacks layer on top: the queue stack adds a background worker, and st
 
 ## How It Works
 
-Five skills, run in sequence:
+Three skills, run in sequence:
 
 ```
-/ipa.init → /ipa.security → /ipa.compose → /ipa.prepare → /ipa.deploy
+/ipa-init → /ipa-compose → /ipa-deploy
 ```
 
 | Skill | What It Does |
 |-------|-------------|
-| `/ipa.init` | Configures the project (namespace, environment, region, AWS account) |
-| `/ipa.security` | Provisions IAM roles and a centralized log bucket |
-| `/ipa.compose` | Reads a pattern, resolves dependencies, generates Makefiles |
-| `/ipa.prepare` | Deploys one-time prerequisite stacks (Cognito, ECR) |
-| `/ipa.deploy` | Builds, deploys, and wires everything together |
+| `/ipa-init` | Configures the project (namespace, environment, region, AWS account). Auto-provisions security infrastructure if not already present. |
+| `/ipa-compose` | Reads a pattern, resolves dependencies, generates Makefiles |
+| `/ipa-deploy` | Builds, deploys, and wires everything together. Auto-runs prepare for prerequisite stacks (Cognito, ECR). |
+
+:::note
+`/ipa-security` and `/ipa-prepare` still exist as standalone skills and can be invoked directly, but you don't need to run them yourself — `/ipa-init` chains to `/ipa-security` on first use, and `/ipa-deploy` triggers `/ipa-prepare` automatically when prerequisite stacks aren't yet deployed.
+:::
 
 Every skill is idempotent — safe to re-run at any time.
 

@@ -13,9 +13,9 @@ This guide configures a CI/CD pipeline using AWS CodePipeline and CodeBuild that
 
 Use this guide when:
 
-- The composition is stable and deployed at least once with `/ipa.deploy`, and the team is ready to automate the build-test-deploy cycle
+- The composition is stable and deployed at least once with `/ipa-deploy`, and the team is ready to automate the build-test-deploy cycle
 - The customer requires CI/CD as a project deliverable
-- The project is transitioning from manual `/ipa.deploy` invocations to push-triggered deployments
+- The project is transitioning from manual `/ipa-deploy` invocations to push-triggered deployments
 - A staging or production environment needs continuous delivery from a shared repository
 
 Do not use this guide if the composition has not been deployed successfully at least once — stabilize the manual workflow first.
@@ -24,18 +24,18 @@ Do not use this guide if the composition has not been deployed successfully at l
 
 Before you start, confirm the following:
 
-- `/ipa.init` completed — `.env` contains `APP_NAMESPACE`, `APP_ENV`, `AWS_ACCOUNT_ID`, and `AWS_REGION`
-- `/ipa.security` completed — `.env` contains `APP_CODEBUILD_ROLE_ARN`
-- `/ipa.compose` completed — `scripts/` directory contains generated Makefiles (`deploy.mk`, `build.mk`, `test.mk`, `post-deploy.mk`)
-- `/ipa.prepare` completed — ECR and Cognito stacks are deployed in the target account
-- `/ipa.deploy` completed at least once — the composition deploys successfully from local Makefile targets
+- `/ipa-init` completed — `.env` contains `APP_NAMESPACE`, `APP_ENV`, `AWS_ACCOUNT_ID`, and `AWS_REGION`
+- `/ipa-security` completed — `.env` contains `APP_CODEBUILD_ROLE_ARN`
+- `/ipa-compose` completed — `scripts/` directory contains generated Makefiles (`deploy.mk`, `build.mk`, `test.mk`, `post-deploy.mk`)
+- `/ipa-prepare` completed — ECR and Cognito stacks are deployed in the target account
+- `/ipa-deploy` completed at least once — the composition deploys successfully from local Makefile targets
 - AWS CLI configured with credentials that have `iam:CreateRole` and `iam:PassRole` permissions (required for pipeline IAM roles)
 
 ## Before / Target State
 
 | Before | After |
 |--------|-------|
-| Manually deployed IPA composition. Code changes require the builder to run `/ipa.deploy`. | 5-stage CodePipeline triggered automatically on every push to the configured branch. |
+| Manually deployed IPA composition. Code changes require the builder to run `/ipa-deploy`. | 5-stage CodePipeline triggered automatically on every push to the configured branch. |
 | No shared source repository. | CodeCommit repository with HTTPS clone URL. |
 | No CI/CD infrastructure. | CodePipeline, CodeBuild project, S3 artifact bucket, and EventBridge trigger rule deployed via CloudFormation. |
 | `.env` has no pipeline variables. | `.env` updated with `PIPELINE_STACK_NAME`, `PIPELINE_NAME`, `CODEBUILD_PROJECT_NAME`, `CODECOMMIT_STACK_NAME`, `CODECOMMIT_REPO_NAME`, and `CODECOMMIT_CLONE_URL`. |
@@ -74,14 +74,14 @@ Verify the Makefiles exist:
 ls scripts/deploy.mk scripts/build.mk scripts/test.mk scripts/post-deploy.mk
 ```
 
-All four files are listed. If any prerequisite is missing, complete the corresponding skill (`/ipa.init`, `/ipa.security`, `/ipa.compose`, `/ipa.prepare`) before continuing.
+All four files are listed. If any prerequisite is missing, complete the corresponding skill (`/ipa-init`, `/ipa-security`, `/ipa-compose`, `/ipa-prepare`) before continuing.
 
-### 2. Run /ipa.codepipeline
+### 2. Run /ipa-codepipeline
 
 To deploy the pipeline infrastructure, invoke the codepipeline skill:
 
 ```
-/ipa.codepipeline
+/ipa-codepipeline
 ```
 
 The skill performs the following:
@@ -190,22 +190,22 @@ Expected output after a successful run:
 +------------+------------+
 ```
 
-Verify the deployed application is functional by testing its endpoints. The deploy stage executed the same `deploy.mk` targets as a local `/ipa.deploy`, so the application state should match a local deployment.
+Verify the deployed application is functional by testing its endpoints. The deploy stage executed the same `deploy.mk` targets as a local `/ipa-deploy`, so the application state should match a local deployment.
 
 ## Troubleshooting
 
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
-| Stack creation fails with "Role ARN does not exist" on CodeBuildProject | The `APP_CODEBUILD_ROLE_ARN` in `.env` references a role that does not exist or was deleted. | Run `/ipa.security` to create the CodeBuild execution role. Verify `APP_CODEBUILD_ROLE_ARN` in `.env` matches the security stack output. |
-| Stack creation fails with "BucketAlreadyExists" | The S3 artifact bucket name `{namespace}-{env}-pipeline-artifacts-{account_id}` collides with an existing bucket. S3 bucket names are globally unique. | Change `APP_NAMESPACE` via `/ipa.init` to produce a different bucket name, or delete the existing bucket if it is unused. |
-| Pipeline Source stage fails with "Repository not found" | The CodeCommit repository referenced by `SourceRepoName` does not exist, or the codecommit stack failed to deploy. | Verify the codecommit stack deployed successfully: `source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name ${APP_NAMESPACE}-${APP_ENV}-codecommit`. Re-run `/ipa.codepipeline` if the stack is missing. |
-| CodeBuild stages fail with empty environment variables (`ECR_REPO_URI`, `OIDC_ISSUER`) | The prepare stacks (ECR, Cognito) were redeployed with different outputs after the pipeline was created, but the pipeline stack was not updated. | Re-run `/ipa.codepipeline` and select "Yes, update" to re-query prepare-stack outputs and update the pipeline stack. |
+| Stack creation fails with "Role ARN does not exist" on CodeBuildProject | The `APP_CODEBUILD_ROLE_ARN` in `.env` references a role that does not exist or was deleted. | Run `/ipa-security` to create the CodeBuild execution role. Verify `APP_CODEBUILD_ROLE_ARN` in `.env` matches the security stack output. |
+| Stack creation fails with "BucketAlreadyExists" | The S3 artifact bucket name `{namespace}-{env}-pipeline-artifacts-{account_id}` collides with an existing bucket. S3 bucket names are globally unique. | Change `APP_NAMESPACE` via `/ipa-init` to produce a different bucket name, or delete the existing bucket if it is unused. |
+| Pipeline Source stage fails with "Repository not found" | The CodeCommit repository referenced by `SourceRepoName` does not exist, or the codecommit stack failed to deploy. | Verify the codecommit stack deployed successfully: `source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name ${APP_NAMESPACE}-${APP_ENV}-codecommit`. Re-run `/ipa-codepipeline` if the stack is missing. |
+| CodeBuild stages fail with empty environment variables (`ECR_REPO_URI`, `OIDC_ISSUER`) | The prepare stacks (ECR, Cognito) were redeployed with different outputs after the pipeline was created, but the pipeline stack was not updated. | Re-run `/ipa-codepipeline` and select "Yes, update" to re-query prepare-stack outputs and update the pipeline stack. |
 | Pipeline triggers immediately after creation before code is pushed | This is expected behavior. EventBridge may trigger on initial repository state. The Test stage fails because no source code exists. | Push code to the CodeCommit repository. The next pipeline run will succeed. The initial auto-trigger failure is harmless. |
 
 ## Next Steps
 
 - **Harden for production** — see [Path to Production](path-to-production.md) for configuration changes, security hardening, and customer handoff procedures
-- **CodePipeline stack reference** — see the stack skill documentation at `.claude/skills/ipa.stack.codepipeline/` for template parameters, outputs, and resource details
-- **CodeCommit stack reference** — see the stack skill documentation at `.claude/skills/ipa.stack.codecommit/` for repository configuration options
-- **Tear down the pipeline** — run `/ipa.destroy` to remove the pipeline and repository stacks (see [the destroy skill documentation](/developer-docs/skills/lifecycle-skills/ipa-destroy))
-- **Update the pipeline** — re-run `/ipa.codepipeline` at any time to update the pipeline configuration with current prepare-stack outputs
+- **CodePipeline stack reference** — see the stack skill documentation at `.claude/skills/ipa-stack-codepipeline/` for template parameters, outputs, and resource details
+- **CodeCommit stack reference** — see the stack skill documentation at `.claude/skills/ipa-stack-codecommit/` for repository configuration options
+- **Tear down the pipeline** — run `/ipa-destroy` to remove the pipeline and repository stacks (see [the destroy skill documentation](/developer-docs/skills/lifecycle-skills/ipa-destroy))
+- **Update the pipeline** — re-run `/ipa-codepipeline` at any time to update the pipeline configuration with current prepare-stack outputs

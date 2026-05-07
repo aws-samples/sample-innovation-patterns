@@ -1,19 +1,19 @@
 ---
-title: /ipa.security
+title: /ipa-security
 sidebar_position: 3
 ---
 
-# /ipa.security
+# /ipa-security
 
-Provision centralized IAM execution roles and an S3 log bucket for an IPA project. This is the second skill in the IPA workflow, invoked after `/ipa.init`.
+Provision centralized IAM execution roles and an S3 log bucket for an IPA project. This is the second skill in the IPA workflow, invoked after `/ipa-init`.
 
 ## Invocation
 
-    /ipa.security
+    /ipa-security
 
 ## Parameters
 
-`/ipa.security` reads prerequisites from `.env` and prompts for the configuration path interactively.
+`/ipa-security` reads prerequisites from `.env` and prompts for the configuration path interactively.
 
 | Parameter | Description |
 |-----------|-------------|
@@ -23,14 +23,14 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
 
 | Variable | Source |
 |----------|--------|
-| `AWS_REGION` | `/ipa.init` |
-| `AWS_ACCOUNT_ID` | `/ipa.init` |
-| `APP_NAMESPACE` | `/ipa.init` |
-| `APP_ENV` | `/ipa.init` |
+| `AWS_REGION` | `/ipa-init` |
+| `AWS_ACCOUNT_ID` | `/ipa-init` |
+| `APP_NAMESPACE` | `/ipa-init` |
+| `APP_ENV` | `/ipa-init` |
 
 ## What It Does
 
-1. **Validates prerequisites** — Confirms `.env` exists and contains all required variables from `/ipa.init`.
+1. **Validates prerequisites** — Confirms `.env` exists and contains all required variables from `/ipa-init`.
 
 2. **Prompts for configuration path:**
    - **Path 1 — Managed Policy:** IPA generates a CloudFormation template that creates a Builder role and a CodeBuild role with an attached managed policy.
@@ -56,17 +56,17 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
 
 **Provision with IPA-managed roles:**
 
-    /ipa.security
+    /ipa-security
 
 Select "Managed Policy" when prompted. The skill creates IAM roles and writes their ARNs to `.env`.
 
 **Use existing role ARNs:**
 
-    /ipa.security
+    /ipa-security
 
 Select "Existing Role ARNs" and provide the Builder and CodeBuild role ARNs when prompted.
 
 ## Related Skills
 
-- [/ipa.init](./ipa-init.md) — Must run first to create `.env` with required variables
-- [/ipa.compose](./ipa-compose.md) — Next step after security provisioning
+- [/ipa-init](./ipa-init.md) — Must run first to create `.env` with required variables
+- [/ipa-compose](./ipa-compose.md) — Next step after security provisioning

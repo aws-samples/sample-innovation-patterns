@@ -10,12 +10,12 @@ Auto-generated from all feature plans. Last updated: 2026-04-10
 - YAML (CloudFormation), Markdown (skill files) + Claude Code skill framework, AWS CLI, `aws cloudformation validate-template` (004-cognito-stack-skill)
 - N/A — infrastructure-as-code artifacts only (004-cognito-stack-skill)
 - YAML (CloudFormation templates), Markdown (skill files) + Claude Code skill framework, AWS CLI (006-ecr-stack-skill)
-- Markdown (Claude Code skill format) — no executable code + Claude Code skill framework, `.env` configuration, stack skills (`ipa.stack.*`) (007-simplify-compose)
+- Markdown (Claude Code skill format) — no executable code + Claude Code skill framework, `.env` configuration, stack skills (`ipa-stack-*`) (007-simplify-compose)
 - Filesystem — reads from `.claude/skills/`, `.env`, `infra/cfn/`; writes to `scripts/` (007-simplify-compose)
 - Markdown (Claude Code skill format) — no executable code + Claude Code skill framework, AWS CLI, GNU Make (008-ipa-deploy-skill)
 - N/A — reads `.env` and `scripts/*.mk`; does not write to any files (008-ipa-deploy-skill)
 - Markdown (Claude Code skill format) — no executable code + Claude Code skill framework, AWS CLI, GNU Make (009-compose-stacks)
-- Filesystem — reads from `.claude/skills/`, `.env`, `infra/cfn/`; writes to `.claude/skills/ipa.compose/`, `scripts/` (009-compose-stacks)
+- Filesystem — reads from `.claude/skills/`, `.env`, `infra/cfn/`; writes to `.claude/skills/ipa-compose/`, `scripts/` (009-compose-stacks)
 - Markdown (Claude Code skill format) + None — Claude Code is the runtime (001-ipa-init-skill)
 - Python 3.12 (backend), TypeScript 5.9 (frontend — no changes needed) + FastAPI, PynamoDB, boto3 (Bedrock + SQS), Pydantic, uvicorn (011-passenger-jobs)
 - DynamoDB (`app_dev_jobs` table — already deployed, `app_dev_passengers` table — existing) (011-passenger-jobs)
@@ -34,9 +34,9 @@ infra/cfn/
   cognito/cognito.yml      # Prepare stack (unchanged)
   ecr/ecr.yml              # Prepare stack (unchanged)
 .claude/skills/
-  ipa.stack.frontend/      # Stack skill for frontend tier
-  ipa.stack.backend/       # Stack skill for backend tier
-  ipa.stack.queue/         # Stack skill for queue tier
+  ipa-stack-frontend/      # Stack skill for frontend tier
+  ipa-stack-backend/       # Stack skill for backend tier
+  ipa-stack-queue/         # Stack skill for queue tier
 app-lib/                   # Python backend library
 web-client/                # React frontend SPA
 scripts/                   # Generated Makefiles (deploy.mk, prepare.mk, etc.)

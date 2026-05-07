@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The queue stack is included automatically when selecting the queue stack during `/ipa.compose`. Run the compose skill:
+The queue stack is included automatically when selecting the queue stack during `/ipa-compose`. Run the compose skill:
 
-    /ipa.compose
+    /ipa-compose
 
 Select the queue stack when prompted for stacks to include. The compose step generates Makefile targets, parameter overrides, and cross-stack wiring for the queue tier.
 

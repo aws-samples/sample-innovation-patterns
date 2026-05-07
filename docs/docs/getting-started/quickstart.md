@@ -16,26 +16,28 @@ This page walks through configuring, composing, and deploying a full-stack serve
 
 ## Workflow Overview
 
-IPA deploys infrastructure through a five-skill pipeline. Each skill handles one phase:
+IPA deploys infrastructure through three user-facing skills:
 
 ```
-/ipa.init → /ipa.security → /ipa.compose → /ipa.prepare → /ipa.deploy
+/ipa-init → /ipa-compose → /ipa-deploy
 ```
 
 | Skill | What It Does |
 |-------|-------------|
-| `/ipa.init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account |
-| `/ipa.security` | Provisions IAM execution roles and a centralized S3 log bucket |
-| `/ipa.compose` | Reads a pattern definition and generates Makefiles for build, deploy, and teardown |
-| `/ipa.prepare` | Deploys one-time prerequisite stacks (Cognito, ECR) |
-| `/ipa.deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring |
+| `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account. Auto-chains to `/ipa-security` to provision IAM roles and a centralized log bucket on first run. |
+| `/ipa-compose` | Reads a pattern definition and generates Makefiles for build, deploy, and teardown |
+| `/ipa-deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring. Auto-triggers `/ipa-prepare` when prerequisite stacks (Cognito, ECR) are not yet deployed. |
+
+:::note
+`/ipa-security` and `/ipa-prepare` still exist as standalone skills and can be invoked directly if you want to review or update security infrastructure or re-run prepare. In the normal flow, you don't need to — `/ipa-init` and `/ipa-deploy` chain to them automatically.
+:::
 
 ## Step 1: Initialize the Project
 
 Open Claude Code in the repository root and run:
 
 ```
-/ipa.init
+/ipa-init
 ```
 
 The skill prompts for four configuration values. Accept the defaults for the fastest setup:
@@ -47,36 +49,25 @@ The skill prompts for four configuration values. Accept the defaults for the fas
 | Namespace | `app` | Prefix for all CloudFormation stack names |
 | Environment | `dev` | Environment label (dev, stage, prod) |
 
-The skill auto-detects your AWS account ID and writes all values to `.env`. It then automatically chains to `/ipa.security`.
+The skill auto-detects your AWS account ID and writes all values to `.env`.
 
 ### What Happens
 
 1. `.env` is created with project configuration variables
 2. `.env.example` is generated for team onboarding
-3. `/ipa.security` runs automatically (see Step 2)
+3. If `APP_BUILDER_ROLE_ARN` is absent from `.env`, `/ipa-security` runs automatically:
+   - Prompts for an IAM configuration path (accept the default **managed policy** with `PowerUserAccess` for the fastest setup)
+   - Deploys a CloudFormation stack (`{namespace}-{env}-security`) with IAM roles and an S3 log bucket
+   - Writes `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` to `.env`
 
-## Step 2: Provision Security Infrastructure
+If security infrastructure is already configured, `/ipa-init` exits and points you at `/ipa-compose`.
 
-`/ipa.security` runs automatically after `/ipa.init` when security infrastructure has not been provisioned.
-
-The skill prompts for an IAM configuration path:
-
-- **Managed policy (recommended)** — IPA creates Builder and CodeBuild IAM roles with a policy you choose (default: `PowerUserAccess`)
-- **Existing role ARNs** — Provide pre-provisioned role ARNs
-
-Select the managed policy path and accept the default `PowerUserAccess` policy for the fastest setup.
-
-### What Happens
-
-1. A CloudFormation stack (`{namespace}-{env}-security`) is deployed with IAM roles and an S3 log bucket
-2. `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` are written to `.env`
-
-## Step 3: Compose a Pattern
+## Step 2: Compose a Pattern
 
 Run:
 
 ```
-/ipa.compose
+/ipa-compose
 ```
 
 The compose skill assembles the selected stacks into a full-stack serverless web application:
@@ -101,17 +92,17 @@ The skill reads the pattern definition, resolves stack dependencies and paramete
 
 A security disposition register is also generated at `scripts/SECURITY-DISPOSITION.md`.
 
-## Step 4: Deploy
+## Step 3: Deploy
 
 Run:
 
 ```
-/ipa.deploy
+/ipa-deploy
 ```
 
 The skill validates all prerequisites, displays a deployment plan, and asks for confirmation. After confirmation, it executes the full deployment pipeline:
 
-1. **Prepare** — If prerequisite stacks (Cognito, ECR) are not yet deployed, `/ipa.prepare` runs automatically
+1. **Prepare** — If prerequisite stacks (Cognito, ECR) are not yet deployed, `/ipa-prepare` runs automatically
 2. **Build** — Container images are built and pushed to ECR; frontend assets are compiled
 3. **Deploy** — Backend and frontend CloudFormation stacks are created
 4. **Post-deploy** — Frontend `config.js` is generated, assets are uploaded to S3, CloudFront cache is invalidated, and Cognito callback URLs are updated
@@ -163,11 +154,11 @@ make -f scripts/prepare.mk teardown-prepare
 
 ### Re-Deploy
 
-All IPA skills are idempotent. Re-run `/ipa.deploy` at any time to update the deployment. CloudFormation handles the state — unchanged stacks are skipped, updated stacks are deployed in place.
+All IPA skills are idempotent. Re-run `/ipa-deploy` at any time to update the deployment. CloudFormation handles the state — unchanged stacks are skipped, updated stacks are deployed in place.
 
 ## Next Steps
 
-- Re-run `/ipa.compose` and add the queue stack to layer an SQS worker onto the existing deployment
-- Run `/ipa.codepipeline` to set up CI/CD with CodePipeline
+- Re-run `/ipa-compose` and add the queue stack to layer an SQS worker onto the existing deployment
+- Run `/ipa-codepipeline` to set up CI/CD with CodePipeline
 - Explore the [Stacks](/stacks) section for per-stack reference documentation
 - Read the [Developer Docs](/developer-docs) for codebase conventions and contribution guidelines

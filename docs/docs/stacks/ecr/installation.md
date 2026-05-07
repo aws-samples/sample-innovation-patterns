@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The ECR stack is a prepare-lifecycle stack included automatically when selecting any stack that uses container images during `/ipa.compose`. Run the compose skill:
+The ECR stack is a prepare-lifecycle stack included automatically when selecting any stack that uses container images during `/ipa-compose`. Run the compose skill:
 
-    /ipa.compose
+    /ipa-compose
 
 The compose skill automatically includes ECR as a prepare dependency when the backend or queue stack is selected. The compose process generates a `scripts/prepare.mk` target for the ECR stack. Because it is a prepare stack, it is deployed once before the main application stacks and is not torn down during normal destroy operations.
 

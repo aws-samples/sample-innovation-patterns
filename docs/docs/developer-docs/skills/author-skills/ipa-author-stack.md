@@ -1,19 +1,19 @@
 ---
-title: /ipa.author.stack
+title: /ipa-author-stack
 sidebar_position: 2
 ---
 
-# /ipa.author.stack
+# /ipa-author-stack
 
 Create or update IPA stack skills, CloudFormation templates, and pattern definitions. Supports single-service prepare stacks, multi-service tier stacks, and pattern-only definitions.
 
 ## Invocation
 
-    /ipa.author.stack
+    /ipa-author-stack
 
 ## Parameters
 
-`/ipa.author.stack` gathers all parameters interactively through a requirements phase. No arguments are passed at invocation.
+`/ipa-author-stack` gathers all parameters interactively through a requirements phase. No arguments are passed at invocation.
 
 | Input | Description |
 |-------|-------------|
@@ -55,7 +55,7 @@ Creates three files in `.claude/skills/ipa.stack.{service}/`:
 
 ### Phase 4 — Create Pattern Definition
 
-Creates two files in `.claude/skills/ipa.compose/patterns/{name}/`:
+Creates two files in `.claude/skills/ipa-compose/patterns/{name}/`:
 
 | File | Purpose |
 |------|---------|
@@ -83,24 +83,24 @@ Checks stack-to-SKILL.md consistency, CloudFormation contract compliance, and pa
 | Stack skill | `.claude/skills/ipa.stack.{service}/SKILL.md` | Skill definition |
 | Security doc | `.claude/skills/ipa.stack.{service}/SECURITY.md` | Security findings |
 | Troubleshooting doc | `.claude/skills/ipa.stack.{service}/TROUBLESHOOT.md` | Error resolution guide |
-| Pattern definition | `.claude/skills/ipa.compose/patterns/{name}/PATTERN.md` | Compose pattern |
-| Architecture doc | `.claude/skills/ipa.compose/patterns/{name}/ARCHITECTURE.md` | Architecture reference |
+| Pattern definition | `.claude/skills/ipa-compose/patterns/{name}/PATTERN.md` | Compose pattern |
+| Architecture doc | `.claude/skills/ipa-compose/patterns/{name}/ARCHITECTURE.md` | Architecture reference |
 
 ## Examples
 
 **Create a new tier stack with pattern:**
 
-    /ipa.author.stack
+    /ipa-author-stack
 
 Describe a notification service using SNS and Lambda. The skill creates the CloudFormation template, stack skill files, and a pattern definition.
 
 **Add a single-service prepare stack:**
 
-    /ipa.author.stack
+    /ipa-author-stack
 
 Describe an RDS database as a single-service prepare stack. The skill creates the template and stack skill without a pattern definition.
 
 ## Related Skills
 
-- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Consumes the stack skills and patterns created by this skill
-- [/ipa.deploy](../lifecycle-skills/ipa-deploy.md) — Deploys stacks defined by authored skills
+- [/ipa-compose](../lifecycle-skills/ipa-compose.md) — Consumes the stack skills and patterns created by this skill
+- [/ipa-deploy](../lifecycle-skills/ipa-deploy.md) — Deploys stacks defined by authored skills

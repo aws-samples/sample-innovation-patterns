@@ -1,27 +1,27 @@
 ---
-title: /ipa.destroy
+title: /ipa-destroy
 sidebar_position: 7
 ---
 
-# /ipa.destroy
+# /ipa-destroy
 
 Tear down a deployed infrastructure pattern by executing teardown targets in the generated Makefiles. Removes solution-tier stacks while preserving security and prepare infrastructure.
 
 ## Invocation
 
-    /ipa.destroy
+    /ipa-destroy
 
 ## Parameters
 
-`/ipa.destroy` takes no arguments. It reads configuration from `.env` and executes teardown targets in `scripts/deploy.mk`.
+`/ipa-destroy` takes no arguments. It reads configuration from `.env` and executes teardown targets in `scripts/deploy.mk`.
 
 **Prerequisites:**
 
 | Requirement | Source |
 |-------------|--------|
-| `.env` with IPA variables | `/ipa.init` |
-| `scripts/deploy.mk` | `/ipa.compose` |
-| Security stack deployed | `/ipa.security` |
+| `.env` with IPA variables | `/ipa-init` |
+| `scripts/deploy.mk` | `/ipa-compose` |
+| Security stack deployed | `/ipa-security` |
 | AWS credentials valid | AWS CLI configuration |
 | GNU Make installed | System dependency |
 
@@ -45,7 +45,7 @@ Tear down a deployed infrastructure pattern by executing teardown targets in the
 
 | Infrastructure | Reason |
 |---------------|--------|
-| Security stack | Managed by `/ipa.security`, not the deployment pattern |
+| Security stack | Managed by `/ipa-security`, not the deployment pattern |
 | Prepare stacks (ECR, Cognito) | One-time prerequisites with persistent data |
 
 To tear down prepare stacks manually:
@@ -71,12 +71,12 @@ No artifacts are created. Pattern stacks are deleted from CloudFormation.
 
 **Tear down a deployed pattern:**
 
-    /ipa.destroy
+    /ipa-destroy
 
 Review the status of each stack, confirm twice, and the skill deletes stacks in reverse dependency order.
 
 ## Related Skills
 
-- [/ipa.deploy](./ipa-deploy.md) — Deploys the stacks that `/ipa.destroy` removes
-- [/ipa.compose](./ipa-compose.md) — Generates the Makefiles with teardown targets
-- [/ipa.prepare](./ipa-prepare.md) — Prepare stacks are preserved and require manual teardown
+- [/ipa-deploy](./ipa-deploy.md) — Deploys the stacks that `/ipa-destroy` removes
+- [/ipa-compose](./ipa-compose.md) — Generates the Makefiles with teardown targets
+- [/ipa-prepare](./ipa-prepare.md) — Prepare stacks are preserved and require manual teardown

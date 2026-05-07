@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Skill naming** — renamed all `ipa.*` skills to use `-` as the separator instead of `.` (e.g., `/ipa.compose` → `/ipa-compose`, `/ipa.stack.backend` → `/ipa-stack-backend`). Affects 17 skill directories, frontmatter, internal references, and all published documentation.
+
 ## [0.1.1] - 2026-04-26
 
 ### Changed

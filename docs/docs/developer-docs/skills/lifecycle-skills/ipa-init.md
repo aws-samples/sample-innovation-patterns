@@ -1,19 +1,19 @@
 ---
-title: /ipa.init
+title: /ipa-init
 sidebar_position: 2
 ---
 
-# /ipa.init
+# /ipa-init
 
 Interactively configure a project's `.env` file with the IPA-managed variables required by all downstream skills.
 
 ## Invocation
 
-    /ipa.init
+    /ipa-init
 
 ## Parameters
 
-`/ipa.init` prompts for all parameters interactively. No arguments are passed at invocation.
+`/ipa-init` prompts for all parameters interactively. No arguments are passed at invocation.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -31,7 +31,7 @@ Interactively configure a project's `.env` file with the IPA-managed variables r
 
 2. **Re-initialization** — Detects an existing `.env` file and enters selective-update mode. Displays current values and prompts only for variables the user wants to change. Warns before overwriting existing values.
 
-3. **Security chain** — On first run, if the security stack has not been provisioned, automatically chains to `/ipa.security` after `.env` is written.
+3. **Security chain** — On first run, if the security stack has not been provisioned, automatically chains to `/ipa-security` after `.env` is written.
 
 ## Outputs
 
@@ -44,17 +44,17 @@ Interactively configure a project's `.env` file with the IPA-managed variables r
 
 **Initialize a new project:**
 
-    /ipa.init
+    /ipa-init
 
-Respond to the prompts with your AWS profile, region, namespace (`myapp`), and environment (`dev`). The skill writes `.env` and proceeds to `/ipa.security`.
+Respond to the prompts with your AWS profile, region, namespace (`myapp`), and environment (`dev`). The skill writes `.env` and proceeds to `/ipa-security`.
 
 **Update an existing configuration:**
 
-    /ipa.init
+    /ipa-init
 
 The skill detects the existing `.env`, displays current values, and prompts for changes.
 
 ## Related Skills
 
-- [/ipa.security](./ipa-security.md) — Automatically invoked after first-time initialization
-- [/ipa.compose](./ipa-compose.md) — Reads `.env` variables written by this skill
+- [/ipa-security](./ipa-security.md) — Automatically invoked after first-time initialization
+- [/ipa-compose](./ipa-compose.md) — Reads `.env` variables written by this skill
