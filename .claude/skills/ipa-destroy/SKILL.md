@@ -10,7 +10,7 @@ model: opus
 
 This skill tears down a composed infrastructure pattern by executing the teardown targets in generated Makefiles. It validates prerequisites, checks which stacks exist, displays a teardown plan with data loss warnings, requires double confirmation, executes the teardown, verifies deletion, and reports results.
 
-**Prerequisite workflow**: `/ipa-init` → `/ipa-security` → `/ipa-compose` → `/ipa-deploy` → **`/ipa-destroy`**
+**Lifecycle**: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy` → **`/ipa-destroy`**
 
 > **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
 

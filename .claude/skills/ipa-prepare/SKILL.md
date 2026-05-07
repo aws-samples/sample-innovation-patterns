@@ -12,7 +12,7 @@ This skill deploys one-time prerequisite infrastructure by executing
 `scripts/prepare.mk`. Prepare stacks (ECR repositories, etc.) must exist
 before build and deploy scripts can run.
 
-**Prerequisite workflow**: `/ipa-init` → `/ipa-security` → `/ipa-compose` → **`/ipa-prepare`** → `/ipa-deploy`
+**Lifecycle**: `/ipa-init` → `/ipa-compose` → **`/ipa-prepare`** → `/ipa-deploy`
 
 ---
 
@@ -33,22 +33,12 @@ before build and deploy scripts can run.
 - Does not run build or deploy — use `/ipa-deploy`
 - Does not support per-stack targeting — always runs the aggregate `prepare` target
 
-## Invocation Modes
+## Invocation
 
-This skill supports two invocation modes:
+This skill is always invoked manually by the builder. `/ipa-deploy` does NOT auto-invoke
+`/ipa-prepare` — it gates with an error message directing the builder here.
 
-### Manual Invocation (builder runs `/ipa-prepare`)
 Full flow: pre-flight → plan display → confirmation → execute → verify → report.
-
-### Auto-Triggered Invocation (called by `/ipa-deploy`)
-Abbreviated flow: **skip pre-flight** → plan display → **skip confirmation** → execute → verify → report.
-When invoked from `/ipa-deploy`'s Step 1.3a, the builder has already validated
-credentials and `.env` in deploy's own pre-flight. Repeating those checks is redundant.
-Skip all of Step 1 (pre-flight validation) and proceed directly to Step 2 (plan display)
-with skip-confirmation.
-
-The invocation mode is determined by context: if `/ipa-prepare` is running because
-`/ipa-deploy` detected undeployed prepare stacks, it is auto-triggered.
 
 ## When to Run
 
@@ -92,9 +82,9 @@ Check `.env` exists at project root and is non-empty.
 
 Check `scripts/prepare.mk` exists and contains a `prepare` target.
 
-**If missing**: "`scripts/prepare.mk` not found. Run `/ipa-compose` to generate prepare artifacts."
+**If missing**: "A solution must be composed before prepare stacks can be deployed. Run `/ipa-compose` to generate deployment artifacts."
 
-**If empty/no target**: "`scripts/prepare.mk` has no `prepare` target. Run `/ipa-compose` with a pattern that has prepare stacks."
+**If empty/no target**: "A solution must be composed before prepare stacks can be deployed. Run `/ipa-compose` with stacks that have prepare prerequisites."
 
 ### 1.4 Verify AWS Credentials
 
@@ -112,7 +102,7 @@ If any fail, display all failures and STOP. If all pass: "Pre-flight validation 
 
 ---
 
-## Step 2: Display Prepare Plan + Conditional Confirmation
+## Step 2: Display Prepare Plan + Confirmation
 
 Run: `make -n -f scripts/prepare.mk prepare`
 
@@ -131,13 +121,8 @@ These are one-time prerequisite stacks. They must exist before
 build and deploy can run.
 ```
 
-**If manually invoked** (builder ran `/ipa-prepare`):
-  Ask: "Proceed? (yes/no):"
-  If declined: "Prepare cancelled. No changes were made."
-
-**If auto-triggered** (invoked by `/ipa-deploy` Step 1.3a):
-  Display: "Auto-preparing prerequisite stacks..."
-  Proceed directly to Step 3 (Execute). Do NOT ask for confirmation.
+Ask: "Proceed? (yes/no):"
+If declined: "Prepare cancelled. No changes were made."
 
 ---
 

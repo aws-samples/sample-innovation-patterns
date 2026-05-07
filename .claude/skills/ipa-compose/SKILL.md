@@ -8,9 +8,23 @@ model: opus
 
 # /ipa-compose — Compose Deployment from Stack Skills
 
-This skill reads stack skills directly, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register.
+This skill reads stack skills directly, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register. It also handles first-time security provisioning via delegation to `/ipa-security`.
 
-**Prerequisite workflow**: `/ipa-init` → `/ipa-security` → **`/ipa-compose`** → `/ipa-prepare` → `/ipa-deploy`
+**Lifecycle**: `/ipa-init` → **`/ipa-compose`** → `/ipa-prepare` → `/ipa-deploy`
+
+---
+
+## Phase 0.5: Auto-Init Gate
+
+Before any validation, check if `.env` exists and contains the required IPA variables
+(`APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_ACCOUNT_ID`).
+
+- **If all present**: proceed to Phase 0.
+- **If `.env` missing or any required variable absent**:
+  Display: "Project not initialized. Running `/ipa-init` to configure defaults…"
+  Invoke `/ipa-init` (full interactive flow — 4 questions).
+  On success, resume this skill from Phase 0.
+  On `/ipa-init` failure, STOP.
 
 ---
 
@@ -95,6 +109,27 @@ Read `.env` at the project root. Verify these variables exist and are non-empty:
 Run validation procedure V1 from [VALIDATION.md](VALIDATION.md). STOP on any failure.
 
 Store all variable values for use in subsequent steps.
+
+---
+
+### Step 1.5: Security Configuration
+
+Check if `APP_BUILDER_ROLE_ARN` is present in `.env`:
+
+- **Present**: Security already configured. Skip silently. Proceed to Step 2.
+- **Absent**: Prompt the builder (AskUserQuestion) with three choices:
+
+  **Question**: "How should IPA configure security infrastructure?"
+  **Header**: "Security"
+  **Options**:
+
+  A) **Existing Role ARN** — "I already have builder/CodeBuild roles provisioned"
+  B) **Managed Policy ARN** — "IPA creates roles with my chosen managed policy"
+  C) **Innovation Builder Stack (Recommended)** — "Deploy IPA's pre-authored security stack (permissions boundary + 47-service policy + builder/CodeBuild/SageMaker/EC2 roles)"
+
+  Delegate to `/ipa-security` with `mode=init` and `path={A|B|C}`, passing the builder's selection. On success, `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` are written to `.env`. Proceed to Step 2.
+
+  On `/ipa-security` failure, STOP.
 
 ---
 
@@ -459,7 +494,6 @@ Next steps:
   • Review generated artifacts
   • Run `make -f scripts/test.mk test-validate` to validate templates
   • Run `/ipa-prepare` to deploy one-time prerequisites (ECR, etc.)
-  • Run `/ipa-security` to update IAM roles for new stacks
   • Run `/ipa-deploy` to deploy the composed stacks
 ```
 

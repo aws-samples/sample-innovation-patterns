@@ -16,20 +16,21 @@ This page walks through configuring, composing, and deploying a full-stack serve
 
 ## Workflow Overview
 
-IPA deploys infrastructure through three user-facing skills:
+IPA deploys infrastructure through four skills:
 
 ```
-/ipa-init → /ipa-compose → /ipa-deploy
+/ipa-init → /ipa-compose → /ipa-prepare → /ipa-deploy
 ```
 
 | Skill | What It Does |
 |-------|-------------|
-| `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account. Auto-chains to `/ipa-security` to provision IAM roles and a centralized log bucket on first run. |
-| `/ipa-compose` | Reads a pattern definition and generates Makefiles for build, deploy, and teardown |
-| `/ipa-deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring. Auto-triggers `/ipa-prepare` when prerequisite stacks (Cognito, ECR) are not yet deployed. |
+| `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account |
+| `/ipa-compose` | Reads a pattern definition and generates Makefiles for build, deploy, and teardown. On first run, prompts for security configuration (IAM roles + log bucket). |
+| `/ipa-prepare` | Deploys one-time prerequisite stacks (Cognito, ECR) |
+| `/ipa-deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring |
 
-:::note
-`/ipa-security` and `/ipa-prepare` still exist as standalone skills and can be invoked directly if you want to review or update security infrastructure or re-run prepare. In the normal flow, you don't need to — `/ipa-init` and `/ipa-deploy` chain to them automatically.
+:::tip
+Not sure what to run next? Use `/ipa-help` — it inspects your project state and recommends the next skill.
 :::
 
 ## Step 1: Initialize the Project
@@ -55,12 +56,11 @@ The skill auto-detects your AWS account ID and writes all values to `.env`.
 
 1. `.env` is created with project configuration variables
 2. `.env.example` is generated for team onboarding
-3. If `APP_BUILDER_ROLE_ARN` is absent from `.env`, `/ipa-security` runs automatically:
-   - Prompts for an IAM configuration path (accept the default **managed policy** with `PowerUserAccess` for the fastest setup)
-   - Deploys a CloudFormation stack (`{namespace}-{env}-security`) with IAM roles and an S3 log bucket
-   - Writes `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` to `.env`
+3. The skill exits and points you at `/ipa-compose`
 
-If security infrastructure is already configured, `/ipa-init` exits and points you at `/ipa-compose`.
+:::note
+If you skip this step and jump straight to `/ipa-compose`, it will auto-run `/ipa-init` for you when `.env` is missing.
+:::
 
 ## Step 2: Compose a Pattern
 
@@ -69,6 +69,8 @@ Run:
 ```
 /ipa-compose
 ```
+
+On first compose, if `APP_BUILDER_ROLE_ARN` is absent from `.env`, the skill prompts for security configuration — choose the recommended **Innovation Builder Stack** path for the fastest setup, or provide an existing role ARN.
 
 The compose skill assembles the selected stacks into a full-stack serverless web application:
 
@@ -92,7 +94,23 @@ The skill reads the pattern definition, resolves stack dependencies and paramete
 
 A security disposition register is also generated at `scripts/SECURITY-DISPOSITION.md`.
 
-## Step 3: Deploy
+## Step 3: Prepare Prerequisites
+
+Run:
+
+```
+/ipa-prepare
+```
+
+The skill deploys one-time prerequisite stacks (ECR and Cognito) that must exist before the application can be built and deployed.
+
+### What Happens
+
+- ECR repository is created for container images
+- Cognito User Pool is provisioned with OAuth 2.0 Hosted UI
+- Stack outputs are written to `.env`
+
+## Step 4: Deploy
 
 Run:
 
@@ -100,12 +118,13 @@ Run:
 /ipa-deploy
 ```
 
-The skill validates all prerequisites, displays a deployment plan, and asks for confirmation. After confirmation, it executes the full deployment pipeline:
+The skill validates all prerequisites, displays a deployment plan, and asks for confirmation. If prepare stacks have not been deployed, it tells you to run `/ipa-prepare` first (it does not auto-prepare).
 
-1. **Prepare** — If prerequisite stacks (Cognito, ECR) are not yet deployed, `/ipa-prepare` runs automatically
-2. **Build** — Container images are built and pushed to ECR; frontend assets are compiled
-3. **Deploy** — Backend and frontend CloudFormation stacks are created
-4. **Post-deploy** — Frontend `config.js` is generated, assets are uploaded to S3, CloudFront cache is invalidated, and Cognito callback URLs are updated
+After confirmation, it executes the deployment pipeline:
+
+1. **Build** — Container images are built and pushed to ECR; frontend assets are compiled
+2. **Deploy** — Backend and frontend CloudFormation stacks are created
+3. **Post-deploy** — Frontend `config.js` is generated, assets are uploaded to S3, CloudFront cache is invalidated, and Cognito callback URLs are updated
 
 ### What Happens
 

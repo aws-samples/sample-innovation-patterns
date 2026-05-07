@@ -1,11 +1,11 @@
 ---
 title: /ipa-prepare
-sidebar_position: 5
+sidebar_position: 4
 ---
 
 # /ipa-prepare
 
-Deploy one-time prerequisite infrastructure (ECR repositories, Cognito User Pool) by executing `scripts/prepare.mk`.
+Deploy one-time prerequisite infrastructure (ECR repositories, Cognito User Pool) by executing `scripts/prepare.mk`. This is the third step in the IPA lifecycle, run after `/ipa-compose` generates the Makefiles.
 
 ## Invocation
 
@@ -31,7 +31,7 @@ Deploy one-time prerequisite infrastructure (ECR repositories, Cognito User Pool
 
 2. **Display prepare plan** — Runs `make -n -f scripts/prepare.mk prepare` to show the dry-run plan without executing anything.
 
-3. **Confirmation** — Waits for user confirmation before proceeding. When auto-triggered by `/ipa-deploy`, this step is skipped.
+3. **Confirmation** — Waits for user confirmation before proceeding.
 
 4. **Execute** — Runs `make -f scripts/prepare.mk prepare` to deploy prerequisite stacks.
 
@@ -65,5 +65,5 @@ Review the dry-run plan and confirm to deploy ECR and Cognito stacks.
 ## Related Skills
 
 - [/ipa-compose](./ipa-compose.md) — Generates `scripts/prepare.mk`
-- [/ipa-deploy](./ipa-deploy.md) — Auto-triggers `/ipa-prepare` if prepare stacks are missing
+- [/ipa-deploy](./ipa-deploy.md) — Requires prepare stacks to be deployed first (hard gate — will not auto-prepare)
 - [/ipa-destroy](./ipa-destroy.md) — Does not remove prepare stacks

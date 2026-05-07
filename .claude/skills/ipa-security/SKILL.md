@@ -6,7 +6,15 @@ model: opus
 
 # /ipa-security — Provision Security Infrastructure
 
-This skill provisions or updates centralized security infrastructure for an IPA project: IAM execution roles (Builder and CodeBuild) and a centralized S3 log bucket. It supports two configuration paths — managed policy (skill creates roles) or existing role ARNs (builder provides pre-provisioned roles). All resources are deployed as a single CloudFormation stack, and the resulting identifiers are written to `.env` for consumption by downstream IPA skills (`/ipa-compose`, `/ipa-deploy`, `/ipa-codepipeline`).
+This skill provisions or updates centralized security infrastructure for an IPA project: IAM execution roles and a centralized S3 log bucket. It supports three configuration paths:
+
+1. **Existing Role ARN** — Builder provides pre-provisioned role ARNs (no IAM creation)
+2. **Managed Policy ARN** — IPA creates Builder and CodeBuild roles with a chosen managed policy
+3. **Innovation Builder Stack** — Deploys IPA's pre-authored security stack (permissions boundary + 47-service policy + Builder/CodeBuild/SageMaker/EC2 roles)
+
+All paths produce two CloudFormation stacks: `{namespace}-{env}-security` (IAM/roles) and `{namespace}-{env}-logs` (centralized log bucket). The resulting identifiers are written to `.env` for consumption by downstream IPA skills (`/ipa-compose`, `/ipa-deploy`, `/ipa-codepipeline`).
+
+Initial security provisioning is triggered automatically on first `/ipa-compose` run. Direct invocation of `/ipa-security` is reserved for reviewing or updating an existing configuration.
 
 > **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
 
@@ -99,10 +107,11 @@ Use AskUserQuestion with 1 question:
 **Security configuration** (header: "IAM Roles", multiSelect: false)
 - Question: "How should IPA configure IAM execution roles?"
 - Options:
-  - **"Managed policy" (Recommended)** — "IPA creates Builder and CodeBuild roles; you provide the policy name"
+  - **"Innovation Builder Stack (Recommended)"** — "Deploy IPA's pre-authored security stack (permissions boundary + 47-service policy + builder/CodeBuild/SageMaker/EC2 roles)"
+  - **"Managed policy"** — "IPA creates Builder and CodeBuild roles; you provide the policy name"
   - **"Existing role ARNs"** — "Skip role creation; provide pre-provisioned role ARNs"
-- The path selection must NOT name specific policies — policy choices are deferred to Step 3a.
 
+- If the builder selects **"Innovation Builder Stack"** → proceed to **Step 3c: Innovation Builder Stack**.
 - If the builder selects **"Managed policy"** → proceed to **Step 3a: Managed Policy Input**.
 - If the builder selects **"Existing role ARNs"** → proceed to **Step 3b: Existing Role ARN Input**.
 
@@ -157,6 +166,57 @@ After role validation, display:
 
 ---
 
+## Step 3c: Innovation Builder Stack
+
+When the builder selects the Innovation Builder path, gather two inputs:
+
+### 3c.1 TrustedPrincipalArn
+
+Use AskUserQuestion:
+- Question: "Which IAM principal should be trusted to assume the builder role?"
+- Header: "Principal"
+- Options:
+  - **"Use my current caller (Recommended)"** — "Detect from `aws sts get-caller-identity`"
+  - **"Paste ARN"** — "Provide a specific IAM role, user, or root ARN"
+- multiSelect: false
+
+**If "Use my current caller"**:
+1. Run: `source .env 2>/dev/null; aws sts get-caller-identity --query Arn --output text`
+2. If the ARN is an assumed-role ARN (`arn:aws:sts::{acct}:assumed-role/{role}/{session}`):
+   - Convert to the underlying IAM role: `arn:aws:iam::{acct}:role/{role}`
+   - Display: "Detected caller: `{converted_arn}` (converted from assumed-role session)"
+3. If the ARN is an IAM user (`arn:aws:iam::{acct}:user/{name}`) or root (`arn:aws:iam::{acct}:root`):
+   - Use as-is.
+   - Display: "Detected caller: `{arn}`"
+4. If STS call fails: fall back to the "Paste ARN" flow silently.
+
+**If "Paste ARN"**:
+- Prompt: "Enter the trusted principal ARN:"
+- Validate: `^arn:aws:iam::\d{12}:(role|user)/.+$` or `^arn:aws:iam::\d{12}:root$`
+- If invalid: display error and re-prompt.
+
+Store the validated ARN as `TRUSTED_PRINCIPAL_ARN`.
+
+### 3c.2 RoleExpirationDate
+
+Compute the default: today + 6 months.
+- macOS: `date -v+6m +%Y-%m-%d`
+- Linux: `date -d "+6 months" +%Y-%m-%d`
+
+Prompt: "Enter role expiration date (YYYY-MM-DD, default: {computed_default}):"
+
+- If empty/Enter: use the computed default.
+- Validate: `^\d{4}-\d{2}-\d{2}$` and must be > today.
+- If invalid: display error and re-prompt.
+
+Store as `ROLE_EXPIRATION_DATE`.
+
+### 3c.3 Proceed
+
+Proceed to **Step 5: Confirmation Summary** with path = "Innovation Builder Stack".
+
+---
+
 ## Step 5: Confirmation Summary
 
 > **Note**: KMS encryption is not prompted. The log bucket always uses SSE-S3 (AES-256) encryption. The CloudFormation template retains the `KmsKeyArn` parameter with its default empty string for backwards compatibility — always pass `KmsKeyArn=""` during deployment.
@@ -189,7 +249,26 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ Builder Role ARN     │ arn:aws:iam::123456789012:role/my-builder       │ prompted      │
 │ CodeBuild Role ARN   │ (skipped — deferred to /ipa-codepipeline)      │ skipped       │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
-│ Log Bucket           │ myproject-dev-logs-123456789012-us-east-1       │ computed      │
+│ Log Bucket Stack     │ myproject-dev-logs                              │ computed      │
+│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
+└──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
+```
+
+### Innovation Builder Stack Path Example:
+
+```
+┌──────────────────────┬─────────────────────────────────────────────────┬───────────────┐
+│ Setting              │ Value                                           │ Source        │
+├──────────────────────┼─────────────────────────────────────────────────┼───────────────┤
+│ Path                 │ Innovation Builder Stack                        │ prompted      │
+│ Trusted Principal    │ arn:aws:iam::123456789012:role/MySSO            │ detected      │
+│ Role Expiration      │ 2026-11-07                                      │ default+6mo   │
+│ Builder Role         │ (will be created: myproject-dev-builder)        │ generated     │
+│ CodeBuild Role       │ (will be created: myproject-dev-codebuild)      │ generated     │
+│ SageMaker Role       │ (will be created: myproject-dev-sagemaker)      │ generated     │
+│ EC2 Builder Role     │ (will be created: myproject-dev-ec2-builder)    │ generated     │
+│ Security Stack       │ myproject-dev-security                          │ computed      │
+│ Log Bucket Stack     │ myproject-dev-logs                              │ computed      │
 │ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
@@ -207,22 +286,20 @@ Use AskUserQuestion:
 
 ---
 
-## Step 6: Generate CloudFormation Template
+## Step 6: Generate Templates (if needed)
 
 Create the directory if it does not exist:
 ```bash
 mkdir -p infra/cfn/generated
 ```
 
-Write the template to `infra/cfn/generated/security.yml` based on the chosen path.
+### 6a: Managed Policy Path — Generate `infra/cfn/generated/iam.yml`
 
-### 6a: Managed Policy Path Template
-
-Write this YAML to `infra/cfn/generated/security.yml`, substituting `{variables}` with actual values:
+Write `infra/cfn/generated/iam.yml` (IAM roles only, no log bucket):
 
 ```yaml
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "IPA Security Stack — IAM execution roles and centralized log bucket"
+Description: "IPA Security Stack — IAM execution roles (managed policy path)"
 
 Parameters:
   Namespace:
@@ -231,16 +308,8 @@ Parameters:
     Type: String
   AccountId:
     Type: String
-  Region:
-    Type: String
   ManagedPolicyArn:
     Type: String
-  KmsKeyArn:
-    Type: String
-    Default: ""
-
-Conditions:
-  UseKmsKey: !Not [!Equals [!Ref KmsKeyArn, ""]]
 
 Resources:
   BuilderExecutionRole:
@@ -271,73 +340,6 @@ Resources:
       ManagedPolicyArns:
         - !Ref ManagedPolicyArn
 
-  LogBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${Namespace}-${Environment}-logs-${AccountId}-${Region}"
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: !If [UseKmsKey, "aws:kms", "AES256"]
-              KMSMasterKeyID: !If [UseKmsKey, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      LifecycleConfiguration:
-        Rules:
-          - Id: ExpireLogs
-            Status: Enabled
-            ExpirationInDays: 90
-
-  LogBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref LogBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowS3ServerAccessLogs
-            Effect: Allow
-            Principal:
-              Service: logging.s3.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/s3-access-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: AllowCloudFrontLogs
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/cloudfront-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: AllowVPCFlowLogs
-            Effect: Allow
-            Principal:
-              Service: delivery.logs.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/vpc-flow-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: DenyNonSSL
-            Effect: Deny
-            Principal: "*"
-            Action: "s3:*"
-            Resource:
-              - !Sub "arn:aws:s3:::${LogBucket}"
-              - !Sub "arn:aws:s3:::${LogBucket}/*"
-            Condition:
-              Bool:
-                "aws:SecureTransport": "false"
-
 Outputs:
   BuilderRoleArn:
     Value: !GetAtt BuilderExecutionRole.Arn
@@ -347,23 +349,24 @@ Outputs:
     Value: !GetAtt CodeBuildExecutionRole.Arn
     Export:
       Name: !Sub "${AWS::StackName}-CodeBuildRoleArn"
-  LogBucketName:
-    Value: !Ref LogBucket
-    Export:
-      Name: !Sub "${AWS::StackName}-LogBucketName"
-  LogBucketArn:
-    Value: !GetAtt LogBucket.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-LogBucketArn"
 ```
 
-### 6b: Existing Role ARN Path Template
+### 6b: Existing Role ARN Path
 
-Write this YAML to `infra/cfn/generated/security.yml` — same log bucket resources, NO IAM roles:
+No template generated — the log bucket stack (Step 6d) is the only deployment.
+
+### 6c: Innovation Builder Stack Path
+
+No template generated — uses the existing vendored template at
+`infra/cfn/security/innovation-builder-security.yml` (consumed as-is, never modified).
+
+### 6d: Log Bucket Template — Generate `infra/cfn/generated/log-bucket.yml`
+
+Shared by all three paths. Write `infra/cfn/generated/log-bucket.yml`:
 
 ```yaml
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "IPA Security Stack — centralized log bucket (existing IAM roles)"
+Description: "IPA Log Bucket — centralized S3 log bucket for CloudFront, S3 access, and VPC flow logs"
 
 Parameters:
   Namespace:
@@ -386,6 +389,9 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${Namespace}-${Environment}-logs-${AccountId}-${Region}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -462,40 +468,77 @@ Outputs:
 
 ---
 
-## Step 7: Deploy Security Stack
+## Step 7: Deploy Security Stacks
 
-### 7.1 Deployment Command
+All paths deploy two stacks in this order:
+1. **Log bucket first**: `{APP_NAMESPACE}-{APP_ENV}-logs`
+2. **Security/IAM second**: `{APP_NAMESPACE}-{APP_ENV}-security`
 
-Deploy using AWS CLI:
+### 7.1 Deploy Log Bucket (all paths)
 
 ```bash
 source .env 2>/dev/null; aws cloudformation deploy \
-  --template-file infra/cfn/generated/security.yml \
-  --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
+  --template-file infra/cfn/generated/log-bucket.yml \
+  --stack-name {APP_NAMESPACE}-{APP_ENV}-logs \
   --parameter-overrides \
     Namespace={APP_NAMESPACE} \
     Environment={APP_ENV} \
     AccountId={AWS_ACCOUNT_ID} \
     Region={AWS_REGION} \
-    ManagedPolicyArn={resolved_arn} \
     KmsKeyArn="" \
+  --no-fail-on-empty-changeset
+```
+
+### 7.2a Deploy Security Stack — Managed Policy Path
+
+```bash
+source .env 2>/dev/null; aws cloudformation deploy \
+  --template-file infra/cfn/generated/iam.yml \
+  --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
+  --parameter-overrides \
+    Namespace={APP_NAMESPACE} \
+    Environment={APP_ENV} \
+    AccountId={AWS_ACCOUNT_ID} \
+    ManagedPolicyArn={resolved_arn} \
   --capabilities CAPABILITY_NAMED_IAM \
   --no-fail-on-empty-changeset
 ```
 
-**For the existing-role-ARN path**: omit the `ManagedPolicyArn` parameter override (it is not in the template).
+### 7.2b Deploy Security Stack — Existing Role ARN Path
 
-### 7.2 Wait for Deployment
+No security stack deployment needed (roles already exist). Skip to Step 8.
 
-Monitor the deployment. If it fails, proceed to the **Error Handling** section to diagnose the issue.
+### 7.2c Deploy Security Stack — Innovation Builder Stack Path
 
-If deployment succeeds, proceed to **Step 8: Write .env**.
+```bash
+source .env 2>/dev/null; aws cloudformation deploy \
+  --template-file infra/cfn/security/innovation-builder-security.yml \
+  --stack-name {APP_NAMESPACE}-{APP_ENV}-security \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    TrustedPrincipalArn={TRUSTED_PRINCIPAL_ARN} \
+    RoleExpirationDate={ROLE_EXPIRATION_DATE} \
+    BoundaryPolicyName={APP_NAMESPACE}-{APP_ENV}-InnovationBuilderBoundary \
+    CodeBuildRoleName={APP_NAMESPACE}-{APP_ENV}-codebuild \
+    SageMakerRoleName={APP_NAMESPACE}-{APP_ENV}-sagemaker \
+    EC2BuilderRoleName={APP_NAMESPACE}-{APP_ENV}-ec2-builder \
+    BuilderRoleName={APP_NAMESPACE}-{APP_ENV}-builder \
+  --no-fail-on-empty-changeset
+```
+
+### 7.3 Wait for Deployment
+
+Monitor each deployment. If either fails, proceed to the **Error Handling** section.
+
+If both deployments succeed, proceed to **Step 8: Write .env**.
 
 ---
 
 ## Step 8: Write .env Security Variables
 
-### 8.1 Retrieve Stack Outputs (Managed Policy Path)
+### 8.1 Retrieve Stack Outputs
+
+For paths A (Managed Policy) and C (Innovation Builder), read outputs from the security stack:
 
 ```bash
 source .env 2>/dev/null; aws cloudformation describe-stacks \
@@ -508,9 +551,11 @@ Extract:
 - `BuilderRoleArn` → `APP_BUILDER_ROLE_ARN`
 - `CodeBuildRoleArn` → `APP_CODEBUILD_ROLE_ARN`
 
+For path B (Existing Role ARN), the builder provided the values directly.
+
 ### 8.2 Compose .env Security Block
 
-#### Managed Policy Path:
+#### Managed Policy Path (A):
 
 ```
 # IPA Security Configuration
@@ -519,7 +564,7 @@ APP_BUILDER_ROLE_ARN={from stack output BuilderRoleArn}
 APP_CODEBUILD_ROLE_ARN={from stack output CodeBuildRoleArn}
 ```
 
-#### Existing Role ARN Path:
+#### Existing Role ARN Path (B):
 
 ```
 # IPA Security Configuration
@@ -528,6 +573,15 @@ APP_BUILDER_ROLE_ARN={builder-provided ARN}
 ```
 
 Include `APP_CODEBUILD_ROLE_ARN={builder-provided ARN}` only if the builder provided a CodeBuild role ARN (not skipped).
+
+#### Innovation Builder Stack Path (C):
+
+```
+# IPA Security Configuration
+# Generated by /ipa-security — local only, do not commit
+APP_BUILDER_ROLE_ARN={from stack output BuilderRoleArn}
+APP_CODEBUILD_ROLE_ARN={from stack output CodeBuildRoleArn}
+```
 
 ### 8.3 .env Update Strategy
 
@@ -539,7 +593,7 @@ Include `APP_CODEBUILD_ROLE_ARN={builder-provided ARN}` only if the builder prov
 
 ### 8.4 Completion Message
 
-Display: "Security stack deployed successfully. `.env` updated with security variables."
+Display: "Security infrastructure deployed. `.env` updated with security variables."
 
 Show a summary of written values:
 ```
@@ -547,10 +601,17 @@ Written to .env:
   APP_BUILDER_ROLE_ARN={value}
   APP_CODEBUILD_ROLE_ARN={value}
 
+Stacks deployed:
+  {APP_NAMESPACE}-{APP_ENV}-logs     (log bucket)
+  {APP_NAMESPACE}-{APP_ENV}-security (IAM roles)
+```
+
+If invoked as part of `/ipa-compose` (mode=init), return control to compose silently.
+If invoked directly, display next steps:
+```
 Next steps:
   • Run `/ipa-compose` to compose infrastructure and generate Makefiles
   • Run `/ipa-security` again to review or update the configuration
-  • Re-run `/ipa-init` to change project namespace or environment
 ```
 
 ---
@@ -571,8 +632,11 @@ This flow runs when pre-flight checks detect existing security configuration (St
    ```
 4. Extract from the response:
    - `Stacks[0].StackStatus` — verify it's a `*_COMPLETE` state (not `ROLLBACK_COMPLETE`)
-   - `Stacks[0].Parameters` — find `ManagedPolicyArn` (if present → managed policy path)
-   - `Stacks[0].Outputs` — find `LogBucketName` (for display)
+   - `Stacks[0].Parameters` — determine active path:
+     - If `TrustedPrincipalArn` parameter present → Innovation Builder path (C)
+     - If `ManagedPolicyArn` parameter present → Managed Policy path (A)
+     - Otherwise → Existing Role ARN path (B)
+   - `Stacks[0].Outputs` — extract role ARNs (for display)
 
 ### U2: Display Current Configuration
 
@@ -613,7 +677,12 @@ Current Security Configuration:
 └──────────────────────┴─────────────────────────────────────────────────┘
 ```
 
-Infer the current path from the stack's `describe-stacks` response: if `ManagedPolicyArn` is present in `Stacks[0].Parameters` → "Managed Policy"; otherwise → "Existing Role ARNs".
+Infer the current path from the stack's `describe-stacks` response:
+- If `TrustedPrincipalArn` parameter present → "Innovation Builder Stack"
+- If `ManagedPolicyArn` parameter present → "Managed Policy"
+- Otherwise → "Existing Role ARNs"
+
+Pre-mark the active path in the three-way choice (Step 2) when the builder selects "Yes, update".
 
 ### U3: Update Prompt
 

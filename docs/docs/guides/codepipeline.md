@@ -74,7 +74,7 @@ Verify the Makefiles exist:
 ls scripts/deploy.mk scripts/build.mk scripts/test.mk scripts/post-deploy.mk
 ```
 
-All four files are listed. If any prerequisite is missing, complete the corresponding skill (`/ipa-init`, `/ipa-security`, `/ipa-compose`, `/ipa-prepare`) before continuing.
+All four files are listed. If any prerequisite is missing, complete the corresponding skill (`/ipa-init`, `/ipa-compose`, `/ipa-prepare`) before continuing.
 
 ### 2. Run /ipa-codepipeline
 

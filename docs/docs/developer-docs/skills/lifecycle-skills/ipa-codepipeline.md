@@ -28,12 +28,12 @@ Deploy a CI/CD pipeline that automates the same build, test, and deploy workflow
 | `APP_ENV` | `/ipa-init` |
 | `AWS_ACCOUNT_ID` | `/ipa-init` |
 | `AWS_REGION` | `/ipa-init` |
-| `APP_CODEBUILD_ROLE_ARN` | `/ipa-security` |
+| `APP_CODEBUILD_ROLE_ARN` | `/ipa-compose` (security phase) |
 | Composed Makefiles in `scripts/` | `/ipa-compose` |
 
 ## What It Does
 
-1. **Pre-flight checks** — Verifies `.env` has init, security, and compose prerequisites. Detects any existing pipeline.
+1. **Pre-flight checks** — Verifies `.env` has init and compose prerequisites (including security variables from the compose security phase). Detects any existing pipeline.
 
 2. **Source configuration** — Prompts for repository name and branch.
 
@@ -82,7 +82,6 @@ The skill detects the existing pipeline configuration and offers to update it wi
 ## Related Skills
 
 - [/ipa-init](./ipa-init.md) — Provides base `.env` variables
-- [/ipa-security](./ipa-security.md) — Provides the CodeBuild execution role
-- [/ipa-compose](./ipa-compose.md) — Generates the Makefiles that the pipeline executes
+- [/ipa-compose](./ipa-compose.md) — Generates the Makefiles that the pipeline executes and provides the CodeBuild execution role (via embedded security phase)
 - [/ipa-stack-codecommit](../stack-skills/ipa-stack-codecommit.md) — CodeCommit stack reference
 - [/ipa-stack-codepipeline](../stack-skills/ipa-stack-codepipeline.md) — CodePipeline stack reference

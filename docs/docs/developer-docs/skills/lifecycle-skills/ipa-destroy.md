@@ -1,6 +1,6 @@
 ---
 title: /ipa-destroy
-sidebar_position: 7
+sidebar_position: 6
 ---
 
 # /ipa-destroy
@@ -21,7 +21,7 @@ Tear down a deployed infrastructure pattern by executing teardown targets in the
 |-------------|--------|
 | `.env` with IPA variables | `/ipa-init` |
 | `scripts/deploy.mk` | `/ipa-compose` |
-| Security stack deployed | `/ipa-security` |
+| Security stack deployed | `/ipa-compose` (security phase) |
 | AWS credentials valid | AWS CLI configuration |
 | GNU Make installed | System dependency |
 

@@ -1,11 +1,11 @@
 ---
 title: /ipa-security
-sidebar_position: 3
+sidebar_position: 7
 ---
 
 # /ipa-security
 
-Provision centralized IAM execution roles and an S3 log bucket for an IPA project. This is the second skill in the IPA workflow, invoked after `/ipa-init`.
+Provision centralized IAM execution roles and an S3 log bucket for an IPA project. This skill is embedded in `/ipa-compose` and runs automatically on first compose when `APP_BUILDER_ROLE_ARN` is absent from `.env`. It can also be invoked standalone to right-size IAM permissions or switch configuration paths after initial setup.
 
 ## Invocation
 
@@ -17,7 +17,7 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
 
 | Parameter | Description |
 |-----------|-------------|
-| Configuration path | **Managed Policy** (IPA creates roles) or **Existing Role ARNs** (user provides pre-provisioned ARNs) |
+| Configuration path | One of three paths — see below |
 
 **Prerequisites from `.env`:**
 
@@ -33,16 +33,24 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
 1. **Validates prerequisites** — Confirms `.env` exists and contains all required variables from `/ipa-init`.
 
 2. **Prompts for configuration path:**
-   - **Path 1 — Managed Policy:** IPA generates a CloudFormation template that creates a Builder role and a CodeBuild role with an attached managed policy.
-   - **Path 2 — Existing Role ARNs:** The user provides pre-provisioned role ARNs and IPA stores them in `.env`.
 
-3. **Deploys the security stack** — Creates CloudFormation stack `{namespace}-{env}-security` containing IAM roles and an S3 log bucket with SSE-S3 (AES-256) encryption.
+   | Path | Name | Description |
+   |------|------|-------------|
+   | A | **Existing Role ARN** | The user provides pre-provisioned role ARNs and IPA stores them in `.env`. No CloudFormation deployed. |
+   | B | **Managed Policy** | IPA generates a CloudFormation template that creates a Builder role and a CodeBuild role with an attached managed policy (`PowerUserAccess`). |
+   | C | **Innovation Builder Stack** (recommended) | IPA deploys a purpose-built security stack with scoped IAM roles, a log bucket, and boundary policies. Best balance of speed and least-privilege. |
+
+3. **Deploys the security stack** (Paths B and C) — Creates CloudFormation stack `{namespace}-{env}-security` containing IAM roles and an S3 log bucket with SSE-S3 (AES-256) encryption.
 
 4. **Writes security variables to `.env`:**
    - `APP_BUILDER_ROLE_ARN` — Builder execution role ARN
    - `APP_CODEBUILD_ROLE_ARN` — CodeBuild execution role ARN
 
 5. **Handles re-runs** — Detects an existing security stack and offers to update it. Warns before switching configuration paths.
+
+:::info Embedded in /ipa-compose
+In the standard workflow, this skill is triggered automatically by `/ipa-compose` on first compose. You only need to invoke `/ipa-security` directly to right-size IAM after initial setup or to switch between configuration paths.
+:::
 
 ## Outputs
 
@@ -69,4 +77,4 @@ Select "Existing Role ARNs" and provide the Builder and CodeBuild role ARNs when
 ## Related Skills
 
 - [/ipa-init](./ipa-init.md) — Must run first to create `.env` with required variables
-- [/ipa-compose](./ipa-compose.md) — Next step after security provisioning
+- [/ipa-compose](./ipa-compose.md) — Embeds `/ipa-security` on first compose; next step after security provisioning

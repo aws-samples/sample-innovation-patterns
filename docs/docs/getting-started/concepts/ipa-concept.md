@@ -25,7 +25,7 @@ IPA has a small vocabulary — skills, stacks, tiers, and composition — that t
 
 Skills fall into three categories [2].
 
-**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. Seven process skills handle the full sequence from project initialization through deployment and teardown: `/ipa-init`, `/ipa-security`, `/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`, `/ipa-destroy`, and `/ipa-codepipeline` [2].
+**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. The core lifecycle is four steps: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. Additional process skills include `/ipa-destroy` (teardown), `/ipa-help` (state inspection), and `/ipa-codepipeline` (CI/CD). `/ipa-security` is a backing skill invoked by `/ipa-compose` for initial provisioning [2].
 
 **Stack skills** (`/ipa.stack.*`) are infrastructure nouns. Each stack skill wraps a CloudFormation template with skill metadata — a `SKILL.md` describing the stack's parameters, outputs, and wiring contract, and a `SECURITY.md` documenting its security posture [2][4].
 
@@ -51,17 +51,16 @@ The Makefiles are the execution contract. The same `make deploy` target works wh
 
 ## The Builder Workflow
 
-The core workflow is a linear sequence of skill invocations [2]:
+The core workflow is a linear sequence of four skill invocations [2]:
 
 ```
 /ipa-init       →  Establish project defaults
-/ipa-security   →  Provision IAM roles and log bucket
-/ipa-compose    →  Select stacks, generate Makefiles
+/ipa-compose    →  Configure security, select stacks, generate Makefiles
 /ipa-prepare    →  Deploy prerequisite stacks
 /ipa-deploy     →  Build, deploy, and configure
 ```
 
-Each step is one skill invocation. The builder does not need to understand which stacks are deployed or how they are wired — the skills and Makefiles encode that knowledge. Sensible defaults minimize configuration, and the same sequence applies regardless of which stacks are composed [1][2].
+Each step is one skill invocation. The builder does not need to understand which stacks are deployed or how they are wired — the skills and Makefiles encode that knowledge. Sensible defaults minimize configuration, and the same sequence applies regardless of which stacks are composed. `/ipa-compose` auto-runs `/ipa-init` if the project isn't initialized, and handles security provisioning on first run [1][2].
 
 Security is a precondition, not a phase. The `/ipa-security` skill runs early in the sequence and provisions least-privilege IAM roles scoped to the composed stacks. As the composition evolves, re-running `/ipa-security` recalculates permissions from updated stack metadata [2][4]. For details on the security model, see the Skills reference documentation.
 

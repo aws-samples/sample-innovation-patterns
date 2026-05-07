@@ -35,8 +35,8 @@ pages:
     NODE_OPTIONS: "--max-old-space-size=3072"
   before_script:
     - corepack enable
-    - corepack prepare pnpm@latest --activate
     - cd docs
+    # Uses the pnpm version pinned in docs/package.json "packageManager"
     - pnpm install --frozen-lockfile
   script:
     - pnpm exec docusaurus build

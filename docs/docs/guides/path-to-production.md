@@ -24,7 +24,7 @@ Do not use this guide for initial development deployment — see "Composing a So
 
 Before you start, confirm the following:
 
-- A stable, tested composition is deployed in a development environment via `/ipa-init`, `/ipa-security`, `/ipa-compose`, and `/ipa-deploy`
+- A stable, tested composition is deployed in a development environment via `/ipa-init`, `/ipa-compose`, `/ipa-prepare`, and `/ipa-deploy`
 - `scripts/SECURITY-DISPOSITION.md` exists and has been reviewed at least once
 - CI/CD pipeline is configured (see "CI/CD with CodePipeline") or a plan for the customer pipeline is in place
 - Customer deployment requirements have been gathered: naming conventions, network constraints, compliance requirements, and tagging standards

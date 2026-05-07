@@ -6,7 +6,9 @@ model: opus
 
 # /ipa-init — Initialize IPA Project Configuration
 
-This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-security`, `/ipa-compose`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding. After configuration, it automatically chains to `/ipa-security` if security infrastructure has not been provisioned.
+This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding.
+
+**Lifecycle**: **`/ipa-init`** → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`
 
 ---
 
@@ -343,25 +345,18 @@ APP_IAC=cloudformation
 
 ---
 
-## Step 5: Security Chain
+## Step 5: Next Step Guidance
 
-After `.env` and `.env.example` are written, check whether security infrastructure has been provisioned:
+After `.env` and `.env.example` are written, display:
 
-1. Read the `.env` file just written.
-2. Check if `APP_BUILDER_ROLE_ARN` is present.
-3. **If `APP_BUILDER_ROLE_ARN` is absent**:
-   - Display: "Security infrastructure has not been provisioned yet. Running `/ipa-security` to set up IAM roles and log bucket..."
-   - Invoke `/ipa-security`.
-4. **If `APP_BUILDER_ROLE_ARN` is present**:
-   - Display:
-     ```
-     Initialization complete. Security infrastructure is already configured.
+```
+Initialization complete.
 
-     Next steps:
-       • Run `/ipa-compose` to compose infrastructure and generate Makefiles
-       • Run `/ipa-security` to review or update IAM roles and log bucket
-     ```
-   - Do not invoke `/ipa-security`.
+Next: Run `/ipa-compose` to compose infrastructure and generate Makefiles.
+      Security configuration is handled automatically on first compose.
+```
+
+Do NOT invoke any other skill. The builder runs `/ipa-compose` next.
 
 ---
 

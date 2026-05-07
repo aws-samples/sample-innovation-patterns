@@ -45,7 +45,7 @@ Read `.env` at the project root and check for these variables (written by `/ipa-
 
 Check if `.env` contains `APP_CODEBUILD_ROLE_ARN`:
 
-**If missing**: STOP with: "Cannot proceed — `APP_CODEBUILD_ROLE_ARN` is not set. Run `/ipa-security` first to provision the CodeBuild execution role."
+**If missing**: STOP with: "Cannot proceed — `APP_CODEBUILD_ROLE_ARN` is not set. Run `/ipa-compose` to configure security infrastructure (which provisions the CodeBuild execution role)."
 
 ### 1.3 Verify Compose Prerequisites
 
@@ -388,7 +388,7 @@ If the CloudFormation stack exists but `.env` doesn't have `PIPELINE_STACK_NAME`
 | Missing | Error Message |
 |---------|---------------|
 | `.env` init vars | "Run `/ipa-init` first to configure project defaults." |
-| `APP_CODEBUILD_ROLE_ARN` | "Run `/ipa-security` first to provision the CodeBuild execution role." |
+| `APP_CODEBUILD_ROLE_ARN` | "Run `/ipa-compose` to configure security infrastructure." |
 | `scripts/deploy.mk` | "Run `/ipa-compose` first to generate Makefiles." |
 | ECR stack | "Run `/ipa-prepare` first to deploy prerequisite stacks." |
 | Cognito stack | "Run `/ipa-prepare` first to deploy prerequisite stacks." |

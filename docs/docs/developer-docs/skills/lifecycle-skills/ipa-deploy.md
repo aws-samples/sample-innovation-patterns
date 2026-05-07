@@ -1,6 +1,6 @@
 ---
 title: /ipa-deploy
-sidebar_position: 6
+sidebar_position: 5
 ---
 
 # /ipa-deploy
@@ -20,15 +20,15 @@ Deploy a composed infrastructure pattern by executing generated Makefiles in seq
 | Requirement | Source |
 |-------------|--------|
 | `.env` with IPA variables | `/ipa-init` |
-| Security stack deployed | `/ipa-security` |
+| Security stack deployed | `/ipa-compose` (security phase) |
 | `scripts/deploy.mk`, `scripts/build.mk`, `scripts/post-deploy.mk` | `/ipa-compose` |
-| Prepare stacks deployed | `/ipa-prepare` |
+| Prepare stacks deployed | `/ipa-prepare` (must be run manually before deploy) |
 | AWS credentials valid | AWS CLI configuration |
 | GNU Make installed | System dependency |
 
 ## What It Does
 
-1. **Pre-flight validation** — Confirms `.env` exists, required variables are present, Makefiles exist, prepare stacks are deployed, security stack is deployed, AWS credentials are valid, and Make is installed. If prepare stacks are missing, auto-triggers `/ipa-prepare`.
+1. **Pre-flight validation** — Confirms `.env` exists, required variables are present, Makefiles exist, prepare stacks are deployed, security stack is deployed, AWS credentials are valid, and Make is installed. If prepare stacks are missing, the skill stops and instructs the builder to run `/ipa-prepare` first (hard gate — no auto-prepare).
 
 2. **Display deployment plan** — Runs `make -n -f scripts/deploy.mk deploy` to show the dry-run plan.
 
@@ -82,5 +82,5 @@ Safe to re-run. Already-deployed stacks with no changes are skipped.
 ## Related Skills
 
 - [/ipa-compose](./ipa-compose.md) — Generates the Makefiles that `/ipa-deploy` executes
-- [/ipa-prepare](./ipa-prepare.md) — Auto-triggered if prepare stacks are missing
+- [/ipa-prepare](./ipa-prepare.md) — Must be run before `/ipa-deploy`; deploy will not auto-prepare
 - [/ipa-destroy](./ipa-destroy.md) — Tears down what `/ipa-deploy` created
