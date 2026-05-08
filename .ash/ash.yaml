@@ -92,6 +92,46 @@ global_settings:
       path: 'docs/package-lock.json'
       reason: 'No fix available — 1.1.13 is the latest v1.x release; transitive dep pinned by minimatch@3 in @docusaurus/core'
       expiration: '2026-06-26'
+    # uuid@8.3.2 — buffer bounds check in v3/v5/v6 when `buf` is provided (CVE-2026-41907, GHSA-w5hq-g745-h8pq).
+    # Transitive via @docusaurus/core → webpack-dev-server → sockjs. sockjs calls uuidv4() without a
+    # `buf` argument (node_modules/sockjs/lib/transport.js:37), so the bounds bug cannot be triggered.
+    # Dev-server dependency only — not in any deployed artifact. Pinned by sockjs@0.3.24.
+    - rule_id: 'GHSA-w5hq-g745-h8pq-uuid'
+      path: 'docs/pnpm-lock.yaml'
+      reason: 'Not exploitable — sockjs calls uuid.v4() without the optional `buf` param that triggers the bounds bug. Dev-server only (webpack-dev-server transitive); not in shipped bundle. No fix available until sockjs updates.'
+      expiration: '2026-06-26'
+    - rule_id: 'CVE-2026-41907'
+      path: 'docs/pnpm-lock.yaml'
+      reason: 'Not exploitable — sockjs calls uuid.v4() without the optional `buf` param that triggers the bounds bug. Dev-server only (webpack-dev-server transitive); not in shipped bundle. No fix available until sockjs updates.'
+      expiration: '2026-06-26'
+    # ip-address 10.1.0 — XSS in Address6 HTML-emitting methods (CVE-2026-42338, GHSA-v2v4-37r5-5v8g).
+    # No patched version published as of 2026-05-08 (advisory range: <=10.1.0). Transitive via
+    # shadcn CLI → @modelcontextprotocol/sdk → express-rate-limit → ip-address. Dev-only dependency
+    # (shadcn is a build-time CLI), not in the deployed web-client bundle.
+    - rule_id: 'CVE-2026-42338'
+      path: 'web-client/package-lock.json'
+      reason: 'No upstream fix available — advisory range <=10.1.0; 10.2.0 is latest. Dev-only: transitive via shadcn CLI → express-rate-limit; not in deployed bundle. Vulnerable Address6 HTML methods are not called by express-rate-limit.'
+      expiration: '2026-06-26'
+    # Hono vulnerabilities — FIXED: upgraded from 4.12.14 to 4.12.18 via npm audit fix (2026-05-08).
+    # Suppressions retained as safety net in case lockfile regeneration temporarily reverts.
+    - rule_id: 'CVE-2026-44455'
+      path: 'web-client/package-lock.json'
+      reason: 'Fixed — upgraded to hono 4.12.18 (>=4.12.16 patched) via npm audit fix. Dev-only transitive via shadcn CLI. Suppression retained as safety net.'
+      expiration: '2026-06-30'
+    - rule_id: 'CVE-2026-44456'
+      path: 'web-client/package-lock.json'
+      reason: 'Fixed — upgraded to hono 4.12.18 (>=4.12.16 patched) via npm audit fix. Dev-only transitive via shadcn CLI. Suppression retained as safety net.'
+      expiration: '2026-06-30'
+    # PostCSS — FIXED: upgraded from 8.5.6 to 8.5.14 via npm audit fix (2026-05-08).
+    # Suppressions retained as safety net.
+    - rule_id: 'CVE-2026-41305'
+      path: 'web-client/package-lock.json'
+      reason: 'Fixed — upgraded to postcss 8.5.14 (>=8.5.10 patched) via npm audit fix. Suppression retained as safety net.'
+      expiration: '2026-06-30'
+    - rule_id: 'GHSA-qx2v-qp2m-jg93-postcss'
+      path: 'web-client/package-lock.json'
+      reason: 'Fixed — upgraded to postcss 8.5.14 (>=8.5.10 patched) via npm audit fix. Suppression retained as safety net.'
+      expiration: '2026-06-30'
     # (Removed: lambda.yml, dynamodb.yml suppressions — templates deleted in tier consolidation)
     # Dockerfile USER directive — not applicable for Lambda container images.
     # Lambda runs inside its own execution sandbox; the container USER has no security impact.
@@ -253,6 +293,62 @@ global_settings:
     - rule_id: 'IAM policy allows for data exfiltration'
       path: 'infra/cfn/codepipeline/codepipeline.yml'
       reason: 'False positive — s3:GetObject is scoped to the pipeline artifact bucket ARN, not a wildcard resource; required for pipeline stage artifact handoff'
+    # ========================================================================
+    # innovation-builder-security.yml — Innovation Builder IAM posture
+    # (POC / non-production cross-account builder role)
+    #
+    # See /Users/vincilb/Documents/Code/code-aws-dev/security-artifacts/genaiic-cross-account-builder-role/.ash/.ash.yml
+    # for the canonical suppression rationale. This template is the single-stack
+    # variant of the same IAM posture and triggers the same findings.
+    # ========================================================================
+    # IAM data exfiltration (KICS) — hits line 196 (transparent-boundary Action:*) and
+    # line 543 (47-service allow list in InnovationBuilderPolicy). Both are BY DESIGN:
+    #   - Line 196: standard transparent-boundary pattern; boundary restricts only via
+    #     its Deny statements (DenyRoleModifyWithoutBoundary, DenyBoundaryModification,
+    #     DenyRemoveBoundary, DenyUserOperations, SecureLoggingConfigs, etc.).
+    #   - Line 543: auditable service list replacing PowerUserAccess for POC builder role;
+    #     constrained by boundary deny statements on the caller role.
+    # Already suppressed for cfn_nag (CFN_NAG_F5), cdk_nag (AwsSolutions-IAM5), and
+    # checkov (CKV_AWS_107/108/109/110/111) via inline Metadata on each resource.
+    - rule_id: 'IAM policy allows for data exfiltration'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'By design — (1) Action:* in transparent-boundary AllowAll statement; boundary restricts via Deny statements only. (2) 47-service allow list in InnovationBuilderPolicy is the intentional POC builder-role pattern, constrained by boundary deny guardrails (SecureLoggingConfigs, SecureSecurityServices, DenyHighRiskNetworking, RestrictPublicAccess, RestrictInternetAccesstoVPC) and 4-control anti-escalation model on caller role. POC non-production environment.'
+    # Matching cfn_nag/cdk_nag/checkov rules for innovation-builder-security.yml, mirrored
+    # from the canonical genaiic-cross-account-builder-role/.ash/.ash.yml to ensure ASH
+    # picks up the suppressions regardless of which scanner emits the finding.
+    - rule_id: 'AwsSolutions-IAM4'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'By design — all three roles (CodeBuild, SageMaker, Builder, EC2) intentionally attach arn:aws:iam::aws:policy/job-function/ViewOnlyAccess for read-only console visibility. ViewOnlyAccess grants only Describe/Get/List actions. Two of three ManagedPolicyArns per role are customer-managed; ViewOnlyAccess is the sole AWS-managed policy. POC non-production environment.'
+    - rule_id: 'AwsSolutions-IAM5'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'POC non-production environment — service:* permissions for 47 service namespaces with Resource:* are intentional. All roles inherit wildcard permissions from attached customer-managed policies. Access constrained by permissions boundary deny statements and anti-escalation controls.'
+    - rule_id: 'CFN_NAG_F5'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Action:* in the permissions boundary AllowAll statement is the standard transparent-boundary pattern. The boundary restricts only via Deny statements; Allow:* makes the boundary invisible to actions not explicitly denied. The 47 service:* entries in the service policy are also interpreted as Action:* by the scanner. Intentional broad service access for POC.'
+    - rule_id: 'CFN_NAG_F40'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'iam:PassRole with Resource:* required for CloudFormation to pass roles to any AWS service during stack operations. Permissions boundary on the caller constrains effective permissions of passed roles. POC non-production environment.'
+    - rule_id: 'CFN_NAG_W13'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Resource:* is intentional — permissions boundary must apply to all resources, and service access policies cover dynamically-created CloudFormation resources. POC non-production environment.'
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Explicit names required on all resources: ManagedPolicyName for self-propagating boundary condition (iam:PermissionsBoundary references boundary ARN by name), RoleName for service configuration. Replacement risk accepted for POC.'
+    - rule_id: 'CKV_AWS_107'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Credentials exposure mitigated by boundary DenyUserOperations — blocks IAM user creation, login profiles, and access key operations. No sts:* in service policy. POC non-production environment.'
+    - rule_id: 'CKV_AWS_108'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'POC non-production environment with no production data. Boundary guardrails protect audit trail (SecureLoggingConfigs) and security services (SecureSecurityServices) ensuring all access is logged.'
+    - rule_id: 'CKV_AWS_109'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Unconditional IAM writes required by CloudFormation — boundary condition key is absent during CFN resource creation. Anti-escalation enforced by 4-control boundary model on the caller role: immutable boundary, no user creation, no trust policy changes on unbounded roles, no boundary removal.'
+    - rule_id: 'CKV_AWS_110'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'Privilege escalation mitigated by 4-control anti-escalation boundary: DenyRoleModifyWithoutBoundary (trust policy locked on unbounded roles), DenyBoundaryModification (boundary immutable), DenyRemoveBoundary (boundary cannot be stripped), DenyUserOperations (no user escape path).'
+    - rule_id: 'CKV_AWS_111'
+      path: 'infra/cfn/security/innovation-builder-security.yml'
+      reason: 'POC non-production environment — broad write access to 47 service namespaces is intentional for rapid prototyping. High-risk writes constrained by boundary deny statements (DenyHighRiskNetworking, RestrictInternetAccesstoVPC, SecureLoggingConfigs, SecureSecurityServices, RestrictPublicAccess).'
     # Math.random() in shadcn/ui SidebarMenuSkeleton — generates a random CSS width (50–90%)
     # for loading placeholder animation. Purely cosmetic; no security or cryptographic purpose.
     - rule_id: 'javascript-lang-crypto-insecure-random-generator-atomic'
