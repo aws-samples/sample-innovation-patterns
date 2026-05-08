@@ -3,11 +3,16 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import {existsSync} from 'fs';
+import {existsSync, readFileSync} from 'fs';
 import {resolve} from 'path';
 
 const showWorking = existsSync(resolve(__dirname, 'docs/working'));
 const showUserDocs = existsSync(resolve(__dirname, 'docs/user-docs'));
+
+const versionPath = resolve(__dirname, '../VERSION');
+const version = existsSync(versionPath)
+  ? readFileSync(versionPath, 'utf-8').trim()
+  : null;
 
 const docsTarget = process.env.DOCS_TARGET || 'gitlab';
 
@@ -68,6 +73,17 @@ const config: Config = {
           label: 'Working',
           position: 'left' as const,
         }] : []),
+        ...(version ? [{
+          type: 'html' as const,
+          position: 'right' as const,
+          value: `<span class="navbar-version">v${version}</span>`,
+        }] : []),
+        {
+          href: 'https://github.com/aws-samples/sample-innovation-patterns',
+          position: 'right' as const,
+          className: 'header-github-link',
+          'aria-label': 'GitHub repository',
+        },
       ],
     },
     footer: {
