@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The frontend stack is included automatically when selecting the frontend stack during `/ipa.compose`. Run the compose skill:
+The frontend stack is included automatically when selecting the frontend stack during `/ipa-compose`. Run the compose skill:
 
-    /ipa.compose
+    /ipa-compose
 
 Select the frontend stack when prompted for stacks to include. The compose process generates the deployment Makefile targets and wires the frontend stack into the correct deploy order.
 

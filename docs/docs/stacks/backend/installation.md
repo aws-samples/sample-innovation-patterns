@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The backend stack is included automatically when selecting the backend stack during `/ipa.compose`. Run the compose skill:
+The backend stack is included automatically when selecting the backend stack during `/ipa-compose`. Run the compose skill:
 
-    /ipa.compose
+    /ipa-compose
 
 Select the backend stack when prompted for stacks to include. The compose skill generates the deployment Makefile with all required parameter wiring.
 

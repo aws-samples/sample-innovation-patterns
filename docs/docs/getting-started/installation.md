@@ -17,7 +17,7 @@ This page lists the prerequisites for working with Innovation Patterns (IPA). In
 | AWS CLI | v2 | AWS service interaction and CloudFormation deployments |
 | Docker | Latest | Container image builds for Lambda deployment |
 | GNU Make | Any | Execution of generated Makefiles (`scripts/*.mk`) |
-| Claude Code | Latest | AI agent that runs IPA skills (`/ipa.*`) |
+| Claude Code | Latest | AI agent that runs IPA skills (`/ipa-*`) |
 
 ## Python 3.12
 
@@ -85,7 +85,7 @@ aws --version
 
 Install following the [AWS CLI installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 
-After installation, configure credentials for your target AWS account. IPA supports the default credential chain (environment variables, SSO, instance profiles) or a named profile. The `/ipa.init` skill configures which profile to use.
+After installation, configure credentials for your target AWS account. IPA supports the default credential chain (environment variables, SSO, instance profiles) or a named profile. The `/ipa-init` skill configures which profile to use.
 
 ## Docker
 
@@ -97,7 +97,7 @@ docker --version
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or Docker Engine (Linux).
 
-Ensure the Docker daemon is running before invoking `/ipa.deploy`.
+Ensure the Docker daemon is running before invoking `/ipa-deploy`.
 
 ## GNU Make
 
@@ -117,7 +117,7 @@ sudo apt install make
 
 ## Claude Code
 
-Claude Code is the AI agent CLI that executes IPA skills. All IPA workflows (`/ipa.init`, `/ipa.compose`, `/ipa.deploy`, etc.) run as Claude Code skills.
+Claude Code is the AI agent CLI that executes IPA skills. All IPA workflows (`/ipa-init`, `/ipa-compose`, `/ipa-deploy`, etc.) run as Claude Code skills.
 
 Install following the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code/overview).
 

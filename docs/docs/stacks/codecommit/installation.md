@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The CodeCommit stack is deployed automatically by the `/ipa.codepipeline` skill as a prepare-phase prerequisite. Run the codepipeline skill to provision both the repository and the pipeline:
+The CodeCommit stack is deployed automatically by the `/ipa-codepipeline` skill as a prepare-phase prerequisite. Run the codepipeline skill to provision both the repository and the pipeline:
 
-    /ipa.codepipeline
+    /ipa-codepipeline
 
 The skill generates the prepare Makefile with all required parameter wiring for the CodeCommit stack.
 

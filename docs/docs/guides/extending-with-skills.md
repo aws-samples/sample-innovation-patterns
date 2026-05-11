@@ -7,7 +7,7 @@ sidebar_position: 6
 
 ## Overview
 
-This guide walks through creating a custom IPA stack skill using `/ipa.author.stack`. By the end, the reader has authored a new stack skill with a CloudFormation template, SKILL.md, SECURITY.md, and TROUBLESHOOT.md that integrates with `/ipa.compose` and the Makefile generation pipeline.
+This guide walks through creating a custom IPA stack skill using `/ipa-author-stack`. By the end, the reader has authored a new stack skill with a CloudFormation template, SKILL.md, SECURITY.md, and TROUBLESHOOT.md that integrates with `/ipa-compose` and the Makefile generation pipeline.
 
 ## When to Use This Guide
 
@@ -15,7 +15,7 @@ Use this guide when:
 
 - An engagement requires an AWS service not covered by the built-in stacks (e.g., RDS, ElastiCache, Step Functions, SES)
 - A custom tier stack is needed that bundles multiple related services into a single deployable unit with feature flags
-- An existing CloudFormation template needs to be wrapped as a composable stack skill for use with `/ipa.compose`
+- An existing CloudFormation template needs to be wrapped as a composable stack skill for use with `/ipa-compose`
 - The stack library needs to be extended with a reusable stack skill for use across multiple engagements
 
 Do not use this guide to compose or deploy existing stacks — see [Composing a Solution](composing-solution.md) instead.
@@ -25,24 +25,24 @@ Do not use this guide to compose or deploy existing stacks — see [Composing a 
 Before starting, confirm the following:
 
 - `.env` file exists with `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_ACCOUNT_ID`, and `AWS_PROFILE` set
-- An initialized project with at least one successful `/ipa.compose` run (confirms the skill infrastructure is working)
+- An initialized project with at least one successful `/ipa-compose` run (confirms the skill infrastructure is working)
 - A CloudFormation template or design document for the new stack, including the AWS resources to create, parameters, and outputs
 - Familiarity with CloudFormation template authoring (parameters, resources, outputs, exports)
-- Understanding of the IPA skill directory layout: each stack skill lives at `.claude/skills/ipa.stack.NAME/` with SKILL.md, SECURITY.md, and TROUBLESHOOT.md
+- Understanding of the IPA skill directory layout: each stack skill lives at `.claude/skills/ipa-stack-NAME/` with SKILL.md, SECURITY.md, and TROUBLESHOOT.md
 
 Reference files for structural conventions:
 
-- `.claude/skills/ipa.author.stack/REFERENCE.md` — authoritative reference for all stack skill and pattern contracts
-- `.claude/skills/ipa.stack.ecr/` — simple prepare stack example (single service, no wirable parameters)
-- `.claude/skills/ipa.stack.backend/` — tier stack example (multiple services, feature flags, wirable parameters)
+- `.claude/skills/ipa-author-stack/REFERENCE.md` — authoritative reference for all stack skill and pattern contracts
+- `.claude/skills/ipa-stack-ecr/` — simple prepare stack example (single service, no wirable parameters)
+- `.claude/skills/ipa-stack-backend/` — tier stack example (multiple services, feature flags, wirable parameters)
 
 ## Before / Target State
 
 | Before | After |
 |--------|-------|
 | A CloudFormation template or design for infrastructure not part of the built-in stacks | CloudFormation template at `infra/cfn/NAME/NAME.yml` following IPA conventions |
-| No stack skill — the infrastructure cannot be selected or wired by `/ipa.compose` | Complete stack skill at `.claude/skills/ipa.stack.NAME/` with SKILL.md, SECURITY.md, and TROUBLESHOOT.md |
-| No compose integration | The new stack appears as a selectable option in `/ipa.compose` with auto-wiring support |
+| No stack skill — the infrastructure cannot be selected or wired by `/ipa-compose` | Complete stack skill at `.claude/skills/ipa-stack-NAME/` with SKILL.md, SECURITY.md, and TROUBLESHOOT.md |
+| No compose integration | The new stack appears as a selectable option in `/ipa-compose` with auto-wiring support |
 
 ## Steps
 
@@ -69,12 +69,12 @@ Before invoking the authoring skill, plan the stack interface. Define the follow
 - Which existing stacks provide inputs to this stack?
 - Which downstream stacks consume this stack's outputs?
 
-### 2. Run /ipa.author.stack
+### 2. Run /ipa-author-stack
 
 To scaffold the stack skill, invoke the authoring skill:
 
 ```
-/ipa.author.stack create NAME
+/ipa-author-stack create NAME
 ```
 
 Replace `NAME` with the service name (lowercase, e.g., `rds`, `elasticache`, `stepfn`).
@@ -90,9 +90,9 @@ The skill detects the authoring mode based on the input:
 The skill walks through an interactive requirements gathering phase, collecting architecture overview, parameters, outputs, capabilities, security posture, and lifecycle classification. It then generates four artifacts:
 
 - `infra/cfn/NAME/NAME.yml` — CloudFormation template
-- `.claude/skills/ipa.stack.NAME/SKILL.md` — stack skill metadata
-- `.claude/skills/ipa.stack.NAME/SECURITY.md` — security advisory
-- `.claude/skills/ipa.stack.NAME/TROUBLESHOOT.md` — failure catalog
+- `.claude/skills/ipa-stack-NAME/SKILL.md` — stack skill metadata
+- `.claude/skills/ipa-stack-NAME/SECURITY.md` — security advisory
+- `.claude/skills/ipa-stack-NAME/TROUBLESHOOT.md` — failure catalog
 
 ### 3. Review the CloudFormation template
 
@@ -143,7 +143,7 @@ A successful validation returns the template description and parameter list. Fix
 
 ### 4. Verify SKILL.md compose compatibility
 
-Open `.claude/skills/ipa.stack.NAME/SKILL.md` and confirm it contains the four sections that `/ipa.compose` requires, with exact heading names:
+Open `.claude/skills/ipa-stack-NAME/SKILL.md` and confirm it contains the four sections that `/ipa-compose` requires, with exact heading names:
 
 | Section | Heading | Purpose |
 |---------|---------|---------|
@@ -152,29 +152,29 @@ Open `.claude/skills/ipa.stack.NAME/SKILL.md` and confirm it contains the four s
 | Parameter Classification | `### Parameter Classification` | Classification under Parameters, using `<-` arrow notation for wirable parameters |
 | Outputs | `## Outputs` | Output table with columns: Output, Description, Export Convention, Used By |
 
-The Parameter Classification section is critical for auto-wiring. Wirable parameters must use the arrow notation so `/ipa.compose` can resolve connections:
+The Parameter Classification section is critical for auto-wiring. Wirable parameters must use the arrow notation so `/ipa-compose` can resolve connections:
 
 ```markdown
 **Wirable — Required** (1) — sourced from upstream stack outputs:
-- ImageUri <- ipa.stack.ecr `RepositoryUri`
+- ImageUri <- ipa-stack-ecr `RepositoryUri`
 ```
 
 :::warning
-If any of the four required sections are missing or use different heading names, `/ipa.compose` validation (V3) rejects the stack skill. The heading names must match exactly.
+If any of the four required sections are missing or use different heading names, `/ipa-compose` validation (V3) rejects the stack skill. The heading names must match exactly.
 :::
 
 ### 5. Review the SECURITY.md
 
-Open `.claude/skills/ipa.stack.NAME/SECURITY.md` and confirm it documents:
+Open `.claude/skills/ipa-stack-NAME/SECURITY.md` and confirm it documents:
 
 - **Deployment Permissions** — IAM actions the Builder Execution Role needs, scoped to the tightest resource ARN possible
 - **Security Controls** — hardcoded security posture (encryption, access control, logging)
 - **Known Deferrals** — any security items deferred for POC scope, each with a Reason and Risk assessment
 
-After creating or updating the stack skill, run `/ipa.security` to recalculate the Builder Execution Role permissions for the new stack:
+After creating or updating the stack skill, run `/ipa-security` to recalculate the Builder Execution Role permissions for the new stack:
 
 ```
-/ipa.security
+/ipa-security
 ```
 
 ### 6. Test composition
@@ -182,7 +182,7 @@ After creating or updating the stack skill, run `/ipa.security` to recalculate t
 To verify the new stack integrates with the composition pipeline, run:
 
 ```
-/ipa.compose
+/ipa-compose
 ```
 
 Select the new stack when prompted. The compose skill reads the SKILL.md, validates the sections, resolves wiring, and generates Makefiles.
@@ -198,7 +198,7 @@ After composition completes, verify the generated artifacts in `scripts/`:
 To deploy the new stack, run:
 
 ```
-/ipa.deploy
+/ipa-deploy
 ```
 
 After deployment completes, confirm the stack was created:
@@ -227,7 +227,7 @@ The output table lists each exported key and its value.
 
 To verify the full workflow succeeded, confirm these checks:
 
-1. `/ipa.compose` lists the new stack as a selectable option and composes without validation errors.
+1. `/ipa-compose` lists the new stack as a selectable option and composes without validation errors.
 
 2. Generated Makefiles include targets for the new stack. To check:
 
@@ -261,14 +261,14 @@ To verify the full workflow succeeded, confirm these checks:
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
 | `aws cloudformation validate-template` fails with `Template format error` | Namespace or Environment parameter missing the required `AllowedPattern`, or YAML syntax error in the template | Add the exact `AllowedPattern` from REFERENCE.md Section 4 to both parameters. Run a YAML linter to check syntax. |
-| `/ipa.compose` validation fails with "missing required section" | SKILL.md is missing one of the four required sections (`## CloudFormation Contract`, `## Parameters`, `### Parameter Classification`, `## Outputs`) or uses a different heading name | Add the missing section with the exact heading name. See REFERENCE.md Section 8 for the required section list. |
-| Wiring resolution fails — parameter marked as "unresolved" | The `<-` arrow notation in Parameter Classification is missing, malformed, or references a stack not in the composition | Add or correct the arrow notation: `ParamName <- ipa.stack.source \`OutputKey\``. Confirm the source stack is included in the pattern. |
-| `CREATE_FAILED` during deployment with parameter validation error | A required parameter is missing from `--parameter-overrides` in the generated Makefile, or a parameter value does not match the `AllowedPattern` | Check the Makefile target for the missing parameter. Verify the parameter value format against the `AllowedPattern` in the CloudFormation template. Re-compose with `/ipa.compose` to regenerate. |
+| `/ipa-compose` validation fails with "missing required section" | SKILL.md is missing one of the four required sections (`## CloudFormation Contract`, `## Parameters`, `### Parameter Classification`, `## Outputs`) or uses a different heading name | Add the missing section with the exact heading name. See REFERENCE.md Section 8 for the required section list. |
+| Wiring resolution fails — parameter marked as "unresolved" | The `<-` arrow notation in Parameter Classification is missing, malformed, or references a stack not in the composition | Add or correct the arrow notation: `ParamName <- ipa-stack-source \`OutputKey\``. Confirm the source stack is included in the pattern. |
+| `CREATE_FAILED` during deployment with parameter validation error | A required parameter is missing from `--parameter-overrides` in the generated Makefile, or a parameter value does not match the `AllowedPattern` | Check the Makefile target for the missing parameter. Verify the parameter value format against the `AllowedPattern` in the CloudFormation template. Re-compose with `/ipa-compose` to regenerate. |
 
 ## Next Steps
 
 - **Compose the new stack into a solution** — see [Composing a Solution](composing-solution.md)
 - **Stack skills reference** — see [Stack Skills](/developer-docs/skills/stack-skills) for documentation on all built-in stack skills
-- **Author skills reference** — see [Author Skills](/developer-docs/skills/author-skills) for documentation on `/ipa.author.stack`
-- **Recalculate security permissions** — run `/ipa.security` to update the Builder Execution Role for the new stack
-- **Tear down the deployment** — run `/ipa.destroy` (see [Path to Production](path-to-production.md) for lifecycle management)
+- **Author skills reference** — see [Author Skills](/developer-docs/skills/author-skills) for documentation on `/ipa-author-stack`
+- **Recalculate security permissions** — run `/ipa-security` to update the Builder Execution Role for the new stack
+- **Tear down the deployment** — run `/ipa-destroy` (see [Path to Production](path-to-production.md) for lifecycle management)

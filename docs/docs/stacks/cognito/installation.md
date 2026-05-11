@@ -7,15 +7,15 @@ sidebar_position: 2
 
 ## Compose
 
-The Cognito stack is deployed as a prepare-lifecycle stack via `/ipa.compose` when any stack requiring authentication is selected. Run the compose skill:
+The Cognito stack is deployed as a prepare-lifecycle stack via `/ipa-compose` when any stack requiring authentication is selected. Run the compose skill:
 
-    /ipa.compose
+    /ipa-compose
 
 Select the stacks that require authentication (backend, queue) when prompted. The compose skill automatically includes Cognito as a prepare dependency and generates `scripts/prepare.mk` with all required parameter wiring for the Cognito stack.
 
 To deploy the prepare phase (which includes Cognito):
 
-    /ipa.prepare
+    /ipa-prepare
 
 The Cognito stack is deployed once per environment. Subsequent deployments of tier stacks reference its outputs through CloudFormation exports.
 

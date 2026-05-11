@@ -1,9 +1,9 @@
 ---
-title: /ipa.stack.queue
+title: /ipa-stack-queue
 sidebar_position: 8
 ---
 
-# /ipa.stack.queue
+# /ipa-stack-queue
 
 Queue tier stack: SQS queue with dead-letter queue, worker Lambda, Event Source Mapping, optional DynamoDB table, and CloudWatch dashboard.
 
@@ -78,7 +78,7 @@ The Queue stack provides outputs consumed by Backend:
 
 ## Related Skills
 
-- [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes queue URL and ARN for SQS integration
-- [/ipa.stack.ecr](./ipa-stack-ecr.md) — Provides the container image URI
-- [/ipa.stack.cognito](./ipa-stack-cognito.md) — Provides auth issuer and audience
-- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns
+- [/ipa-stack-backend](./ipa-stack-backend.md) — Consumes queue URL and ARN for SQS integration
+- [/ipa-stack-ecr](./ipa-stack-ecr.md) — Provides the container image URI
+- [/ipa-stack-cognito](./ipa-stack-cognito.md) — Provides auth issuer and audience
+- [/ipa-compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns

@@ -24,7 +24,7 @@ Do not use this guide for running the full FastAPI backend or React frontend loc
 
 Before you start, confirm the following:
 
-- Infrastructure is deployed via `/ipa.deploy` (DynamoDB tables, SQS queues, and Bedrock model access must exist in the target AWS account)
+- Infrastructure is deployed via `/ipa-deploy` (DynamoDB tables, SQS queues, and Bedrock model access must exist in the target AWS account)
 - Python 3.12 is installed
 - `.env` file exists in the project root with `APP_NAMESPACE`, `APP_ENV`, and `AWS_REGION` set (see `.env.example`)
 - AWS CLI is configured with credentials for the target account (via `AWS_PROFILE` or the default credential chain)
@@ -199,11 +199,11 @@ Then confirm AWS connectivity by running the DynamoDB table listing from Step 5.
 | `ModuleNotFoundError: No module named 'app_lib'` | Notebook is using a different kernel than the one linked to the `app-lib` environment. | Select **Python (app-lib)** from the kernel picker. If the kernel is not listed, re-run Step 2. |
 | `ResourceNotFoundException` on DynamoDB operations | `APP_NAMESPACE` or `APP_ENV` is not set, causing table name resolution to fail. | Confirm `.env` is loaded (`load_dotenv` returns `True`) and that `APP_NAMESPACE` and `APP_ENV` match the deployed stack. |
 | `AccessDeniedException` on Bedrock or DynamoDB calls | AWS credentials are not configured or lack required permissions. | Verify `aws sts get-caller-identity` returns the expected account. Confirm the IAM role has Bedrock and DynamoDB access. |
-| `SQS_QUEUE_URL not set` error when using SqsService | The queue stack is not deployed or the `.env` file does not include `SQS_QUEUE_URL`. | Deploy the queue stack with `/ipa.deploy`, then run `make -f scripts/env.mk update-env-sqs` to populate `SQS_QUEUE_URL` in `.env`. |
+| `SQS_QUEUE_URL not set` error when using SqsService | The queue stack is not deployed or the `.env` file does not include `SQS_QUEUE_URL`. | Deploy the queue stack with `/ipa-deploy`, then run `make -f scripts/env.mk update-env-sqs` to populate `SQS_QUEUE_URL` in `.env`. |
 
 ## Next Steps
 
 - **Run the full application locally** — see [Local Development](local-development.md) for running the FastAPI backend and React frontend
 - **Explore the app-lib module structure** — see `app-lib/README.md` for feature-centric layout conventions and the `AbstractDataService` interface
 - **Bedrock model reference** — consult the [Amazon Bedrock documentation](https://docs.aws.amazon.com/bedrock/) for supported models and API parameters
-- **Tear down deployed infrastructure** — run `/ipa.destroy` to remove stacks when no longer needed
+- **Tear down deployed infrastructure** — run `/ipa-destroy` to remove stacks when no longer needed

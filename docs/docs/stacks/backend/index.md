@@ -26,4 +26,4 @@ The backend stack is a consolidated tier that deploys a fully serverless API. It
 
 ## When to Use
 
-This stack is the compute and API layer. It is included via `/ipa.compose` when composing a serverless API. When the queue stack is also selected, the backend gains SQS send permissions through the `EnableSqsIntegration` feature flag, which the compose skill enables automatically. Any composition that requires a Lambda-backed HTTP endpoint should include this stack.
+This stack is the compute and API layer. It is included via `/ipa-compose` when composing a serverless API. When the queue stack is also selected, the backend gains SQS send permissions through the `EnableSqsIntegration` feature flag, which the compose skill enables automatically. Any composition that requires a Lambda-backed HTTP endpoint should include this stack.
