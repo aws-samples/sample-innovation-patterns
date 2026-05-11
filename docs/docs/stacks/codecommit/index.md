@@ -20,4 +20,4 @@ The CodeCommit stack deploys a single AWS CodeCommit repository for source code 
 
 ## When to Use
 
-This stack is required when deploying the CodePipeline CI/CD stack via `/ipa.codepipeline`. It provides the source repository that CodePipeline monitors for changes. The `/ipa.codepipeline` skill deploys this stack automatically as part of prepare-phase provisioning. Any project that requires AWS-native source control should include this stack.
+This stack is required when deploying the CodePipeline CI/CD stack via `/ipa-codepipeline`. It provides the source repository that CodePipeline monitors for changes. The `/ipa-codepipeline` skill deploys this stack automatically as part of prepare-phase provisioning. Any project that requires AWS-native source control should include this stack.

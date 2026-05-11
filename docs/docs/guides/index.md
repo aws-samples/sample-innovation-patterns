@@ -13,5 +13,5 @@ All guides follow the IPA builder workflow sequence: compose, prepare, deploy, i
 - **[Local Development](local-development.md)** — Run the FastAPI backend and React frontend locally against deployed AWS infrastructure.
 - **[Notebook Development](notebook-development.md)** — Prototype and test with Jupyter notebooks connected to deployed resources.
 - **[CI/CD with CodePipeline](codepipeline.md)** — Automate build, deploy, and test with CodePipeline executing the same Makefile targets.
-- **[Extending with Skills](extending-with-skills.md)** — Author a custom stack skill and integrate it with `/ipa.compose`.
+- **[Extending with Skills](extending-with-skills.md)** — Author a custom stack skill and integrate it with `/ipa-compose`.
 - **[Path to Production](path-to-production.md)** — Harden, document, and hand off a composition to the customer team.

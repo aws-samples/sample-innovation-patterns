@@ -1,9 +1,9 @@
 ---
-title: /ipa.stack.ecr
+title: /ipa-stack-ecr
 sidebar_position: 6
 ---
 
-# /ipa.stack.ecr
+# /ipa-stack-ecr
 
 ECR repository for container image storage. A prepare-lifecycle stack that persists across deploy/destroy cycles.
 
@@ -48,7 +48,7 @@ Other stacks consume ECR outputs:
 
 ## Related Skills
 
-- [/ipa.prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
-- [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes image URI
-- [/ipa.stack.queue](./ipa-stack-queue.md) — Consumes image URI
-- [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Consumes image URI for builds
+- [/ipa-prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
+- [/ipa-stack-backend](./ipa-stack-backend.md) — Consumes image URI
+- [/ipa-stack-queue](./ipa-stack-queue.md) — Consumes image URI
+- [/ipa-stack-codepipeline](./ipa-stack-codepipeline.md) — Consumes image URI for builds

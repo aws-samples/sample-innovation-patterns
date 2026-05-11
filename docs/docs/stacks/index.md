@@ -9,8 +9,8 @@ IPA stacks are CloudFormation-based infrastructure components that compose into 
 
 Stacks fall into two lifecycle categories:
 
-- **Prepare stacks** are one-time prerequisites that persist across teardown and redeployment cycles. Deploy them once with `/ipa.prepare`.
-- **Deploy stacks** (tiers) are application infrastructure created and torn down with each pattern deployment via `/ipa.deploy`.
+- **Prepare stacks** are one-time prerequisites that persist across teardown and redeployment cycles. Deploy them once with `/ipa-prepare`.
+- **Deploy stacks** (tiers) are application infrastructure created and torn down with each pattern deployment via `/ipa-deploy`.
 
 ## Deploy Stacks (Tiers)
 

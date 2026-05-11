@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Lifecycle refactor** — collapsed 5-skill lifecycle into 4-step flow: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. `/ipa-security` is now embedded in `/ipa-compose` (triggered on first compose) and supports three paths: existing role ARN, managed policy, or the new Innovation Builder Stack (recommended — permissions boundary + 47-service policy + four scoped roles). `/ipa-compose` auto-runs `/ipa-init` when `.env` is missing; `/ipa-deploy` hard-gates on prepare stacks instead of auto-triggering. Split `infra/cfn/generated/security.yml` into `iam.yml` + `log-bucket.yml`.
+- **Skill naming** — renamed all `ipa.*` skills to use `-` as the separator instead of `.` (e.g., `/ipa.compose` → `/ipa-compose`, `/ipa.stack.backend` → `/ipa-stack-backend`). Affects 17 skill directories, frontmatter, internal references, and all published documentation.
+
+### Added
+
+- **`/ipa-help`** — new diagnostic skill that reports IPA project state and suggests the next lifecycle skill to run. Read-only; does not invoke other skills.
+- **Innovation Builder Security stack** — new single-template CloudFormation stack at `infra/cfn/security/innovation-builder-security.yml` consolidating the IAM policy + permissions boundary, CodeBuild role, SageMaker execution role, builder role, and EC2 builder role into one deployable artifact. Consumed as-is by `/ipa-security`; deploy this OR the per-resource templates, not both.
+- **`/ipa-security` skill** — full implementation supporting three setup paths (existing role ARN, AWS managed policy, or the Innovation Builder Stack), with deploy/update/review flows, `.env` wiring for `DEPLOYMENT_ROLE_ARN`/`PERMISSIONS_BOUNDARY_ARN`, and stack drift handling.
+
+### Removed
+
+- **`/ipa-quickstart`** — removed; the 4-step lifecycle is the new quickstart.
+
 ## [0.1.1] - 2026-04-26
 
 ### Changed

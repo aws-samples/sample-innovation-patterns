@@ -25,7 +25,7 @@ graph LR
     Deploy --> CB
     PostDeploy --> CB
     CB -->|Artifacts| S3[ArtifactBucket<br/>SSE Encrypted]
-    CB -.->|Execution Role| IAM[CodeBuildRole<br/>from /ipa.security]
+    CB -.->|Execution Role| IAM[CodeBuildRole<br/>from /ipa-security]
 ```
 
 ## Resources
@@ -72,6 +72,6 @@ The CodeBuild project defines 9 environment variables. The first 7 are set at pr
 - **No wildcard IAM resources** -- all IAM policy statements in `PipelineRole` and `EventRuleRole` are scoped to specific resource ARNs
 - **Artifact bucket isolation** -- all four `PublicAccessBlockConfiguration` flags are enabled; a bucket policy denies any request where `aws:SecureTransport` is `false`
 - **Encryption at rest** -- artifacts use SSE-S3 by default; when `KmsKeyArn` is provided, the bucket and pipeline switch to SSE-KMS and the `PipelineRole` receives conditional `kms:Decrypt` and `kms:GenerateDataKey` permissions
-- **Separation of execution roles** -- the CodeBuild project uses an external execution role from `/ipa.security`, keeping build-time permissions (ECR pull, CloudFormation deploy, S3 sync) separate from the pipeline orchestration role
+- **Separation of execution roles** -- the CodeBuild project uses an external execution role from `/ipa-security`, keeping build-time permissions (ECR pull, CloudFormation deploy, S3 sync) separate from the pipeline orchestration role
 - **Privileged mode** -- enabled on the CodeBuild project to support Docker-in-Docker container image builds; the execution role controls what the build environment can access
 - **Event-driven triggers** -- `PollForSourceChanges` is set to `false`; the EventBridge rule provides push-based triggering with no polling interval

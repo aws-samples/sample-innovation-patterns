@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Queue
 
-The queue stack is a consolidated deploy tier for event-driven background processing. It provisions an SQS standard queue with an optional dead-letter queue, a container-packaged worker Lambda triggered through an EventSourceMapping, a feature-flagged DynamoDB table for job tracking, and a full CloudWatch observability layer. The stack is included via `/ipa.compose` when the application needs asynchronous processing, and deploys before the backend tier so that queue outputs can be wired into backend parameters.
+The queue stack is a consolidated deploy tier for event-driven background processing. It provisions an SQS standard queue with an optional dead-letter queue, a container-packaged worker Lambda triggered through an EventSourceMapping, a feature-flagged DynamoDB table for job tracking, and a full CloudWatch observability layer. The stack is included via `/ipa-compose` when the application needs asynchronous processing, and deploys before the backend tier so that queue outputs can be wired into backend parameters.
 
 **Template:** `infra/cfn/queue/queue.yml`
 **Lifecycle:** Deploy (tier)

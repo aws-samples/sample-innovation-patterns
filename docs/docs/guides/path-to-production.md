@@ -18,13 +18,13 @@ Use this guide when:
 - The security disposition register must be reviewed and findings resolved before production
 - Preparing Makefile-as-contract deliverables for the customer team to operate independently
 
-Do not use this guide for initial development deployment — see "Composing a Solution" and `/ipa.deploy` instead.
+Do not use this guide for initial development deployment — see "Composing a Solution" and `/ipa-deploy` instead.
 
 ## Before You Start
 
 Before you start, confirm the following:
 
-- A stable, tested composition is deployed in a development environment via `/ipa.init`, `/ipa.security`, `/ipa.compose`, and `/ipa.deploy`
+- A stable, tested composition is deployed in a development environment via `/ipa-init`, `/ipa-compose`, `/ipa-prepare`, and `/ipa-deploy`
 - `scripts/SECURITY-DISPOSITION.md` exists and has been reviewed at least once
 - CI/CD pipeline is configured (see "CI/CD with CodePipeline") or a plan for the customer pipeline is in place
 - Customer deployment requirements have been gathered: naming conventions, network constraints, compliance requirements, and tagging standards
@@ -79,7 +79,7 @@ Review the CloudFormation templates and update parameters for production use.
 | Frontend | Custom domain | CloudFront default `*.cloudfront.net` | Add ACM certificate and `Aliases` |
 | ECR | `ImageTagMutability` | `MUTABLE` | `IMMUTABLE` to prevent tag overwrites |
 
-After making changes, re-run `/ipa.compose` to regenerate Makefiles with the updated parameter overrides.
+After making changes, re-run `/ipa-compose` to regenerate Makefiles with the updated parameter overrides.
 
 :::warning
 Token validity, PriceClass, custom domains, and ECR mutability are hardcoded in the CloudFormation templates. Changing these requires editing the YAML files in `infra/cfn/` directly — they are not configurable via Makefile parameter overrides alone.
@@ -123,7 +123,7 @@ c. **Custom domain** — If the customer requires a custom domain (for example, 
 To provision security infrastructure for the production environment, run:
 
 ```
-/ipa.security
+/ipa-security
 ```
 
 The skill reads `APP_NAMESPACE` and `APP_ENV` from `.env` and creates:
@@ -144,7 +144,7 @@ Inventory and organize the deliverables for the customer team. A complete handof
 | CloudFormation templates | `infra/cfn/**/*.yml` | Infrastructure definitions |
 | Environment template | `.env.example` | Configuration template for new environments |
 | Security register | `scripts/SECURITY-DISPOSITION.md` | Documented security findings and dispositions |
-| Pattern architecture | `.claude/skills/ipa.compose/patterns/*/ARCHITECTURE.md` | System architecture and deployment diagrams |
+| Pattern architecture | `.claude/skills/ipa-compose/patterns/*/ARCHITECTURE.md` | System architecture and deployment diagrams |
 
 Verify that `.env.example` includes all variables the customer needs with placeholder values. Remove any builder-specific credentials from the example file.
 
@@ -229,4 +229,4 @@ To confirm that the production readiness process is complete:
 - **Compose the solution** — see "Composing a Solution" for how Makefiles and wiring were generated
 - **Set up CI/CD** — see "CI/CD with CodePipeline" for automated build and deploy pipelines
 - **Stack reference** — see the Stacks section for per-stack parameters, outputs, and architecture diagrams
-- **Tear down infrastructure** — run `/ipa.destroy` to delete deployed stacks
+- **Tear down infrastructure** — run `/ipa-destroy` to delete deployed stacks

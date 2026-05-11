@@ -10,17 +10,18 @@ Lifecycle skills orchestrate the IPA project workflow from initialization throug
 ## Standard Workflow
 
 ```
-/ipa.init → /ipa.security → /ipa.compose → /ipa.prepare → /ipa.deploy
+/ipa-init → /ipa-compose → /ipa-prepare → /ipa-deploy
 ```
 
 ## Skills Reference
 
 | Skill | Purpose |
 |-------|---------|
-| [/ipa.init](./ipa-init.md) | Configure project environment variables |
-| [/ipa.security](./ipa-security.md) | Provision IAM roles and log bucket |
-| [/ipa.compose](./ipa-compose.md) | Generate deployment Makefiles from pattern definitions |
-| [/ipa.prepare](./ipa-prepare.md) | Deploy one-time prerequisite stacks (ECR, Cognito) |
-| [/ipa.deploy](./ipa-deploy.md) | Deploy the composed infrastructure pattern |
-| [/ipa.destroy](./ipa-destroy.md) | Tear down deployed pattern stacks |
-| [/ipa.codepipeline](./ipa-codepipeline.md) | Deploy CI/CD pipeline (CodeCommit + CodePipeline) |
+| [/ipa-init](./ipa-init.md) | Configure project environment variables |
+| [/ipa-compose](./ipa-compose.md) | Generate deployment Makefiles from pattern definitions. Embeds security provisioning on first compose. |
+| [/ipa-prepare](./ipa-prepare.md) | Deploy one-time prerequisite stacks (ECR, Cognito) |
+| [/ipa-deploy](./ipa-deploy.md) | Deploy the composed infrastructure pattern |
+| [/ipa-destroy](./ipa-destroy.md) | Tear down deployed pattern stacks |
+| [/ipa-help](./ipa-help.md) | Report project state and suggest the next lifecycle skill |
+| [/ipa-security](./ipa-security.md) | Backing skill for security provisioning (embedded in `/ipa-compose`; also usable standalone for right-sizing IAM) |
+| [/ipa-codepipeline](./ipa-codepipeline.md) | Deploy CI/CD pipeline (CodeCommit + CodePipeline) |
