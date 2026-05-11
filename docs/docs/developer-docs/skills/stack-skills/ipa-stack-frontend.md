@@ -1,9 +1,9 @@
 ---
-title: /ipa.stack.frontend
+title: /ipa-stack-frontend
 sidebar_position: 7
 ---
 
-# /ipa.stack.frontend
+# /ipa-stack-frontend
 
 Frontend tier stack: S3 static hosting with CloudFront distribution and Origin Access Control (OAC).
 
@@ -57,6 +57,6 @@ After deployment, `scripts/post-deploy.mk` performs:
 
 ## Related Skills
 
-- [/ipa.security](../lifecycle-skills/ipa-security.md) — Provides the log bucket for CloudFront access logs
-- [/ipa.stack.backend](./ipa-stack-backend.md) — Provides the API URL for frontend configuration
-- [/ipa.compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns
+- [/ipa-security](../lifecycle-skills/ipa-security.md) — Provides the log bucket for CloudFront access logs
+- [/ipa-stack-backend](./ipa-stack-backend.md) — Provides the API URL for frontend configuration
+- [/ipa-compose](../lifecycle-skills/ipa-compose.md) — Assembles this stack into deployment patterns

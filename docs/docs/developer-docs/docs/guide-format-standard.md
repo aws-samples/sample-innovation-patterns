@@ -85,7 +85,7 @@ Do not use the strict "How to [verb] [outcome]" pattern. Short titles are more s
 **Example:**
 
 > Use this guide when:
-> - You have a new IPA project initialized with `/ipa.init` and need to deploy infrastructure for the first time
+> - You have a new IPA project initialized with `/ipa-init` and need to deploy infrastructure for the first time
 > - You are adding a new environment (`stage` or `prod`) to an existing project
 >
 > Do not use this guide if you are updating an already-deployed stack — see "Updating a Deployed Stack" instead.
@@ -103,7 +103,7 @@ Do not use the strict "How to [verb] [outcome]" pattern. Short titles are more s
 > Before you start, confirm the following:
 > - `.env` file exists with `APP_NAMESPACE`, `APP_ENV`, and `AWS_REGION` set
 > - AWS CLI is configured with credentials for the target account
-> - The `/ipa.prepare` prerequisites have been deployed (see "Deploying Prerequisites")
+> - The `/ipa-prepare` prerequisites have been deployed (see "Deploying Prerequisites")
 
 **What to avoid:** General setup instructions such as installing the AWS CLI or configuring git. Assume competence with standard development tooling — list only IPA-specific prerequisites [1].
 
@@ -200,7 +200,7 @@ This section is one of the hybrid additions distinguishing IPA guides from gener
 > |---------|-------------|-----|
 > | `CREATE_FAILED` on Lambda resource | Missing `APP_NAMESPACE` in `.env` | Add `APP_NAMESPACE=<project-name>` to `.env` and re-run |
 > | API Gateway returns 403 | Cognito authorizer not configured | Deploy the Cognito stack first — see "Deploying Prerequisites" |
-> | Stack stuck in `ROLLBACK_IN_PROGRESS` | Previous failed deployment | Wait for rollback to complete, then delete the stack with `/ipa.destroy` |
+> | Stack stuck in `ROLLBACK_IN_PROGRESS` | Previous failed deployment | Wait for rollback to complete, then delete the stack with `/ipa-destroy` |
 
 **What to avoid:** Speculative failure modes, edge cases encountered once, or issues requiring escalation to an administrator. Include only issues a builder can diagnose and fix independently.
 
@@ -208,13 +208,13 @@ This section is one of the hybrid additions distinguishing IPA guides from gener
 
 **Purpose:** Direct the reader to related guides, reference documentation, or logical follow-on tasks [6].
 
-**What to include:** A short bullet list (three to five links) using "what's next" framing. For guides that deploy infrastructure, include a link to `/ipa.destroy` and stack-specific teardown documentation for rollback and cleanup. Do not inline rollback steps — link to the existing destroy documentation instead.
+**What to include:** A short bullet list (three to five links) using "what's next" framing. For guides that deploy infrastructure, include a link to `/ipa-destroy` and stack-specific teardown documentation for rollback and cleanup. Do not inline rollback steps — link to the existing destroy documentation instead.
 
 **Example:**
 
 > - **Add a frontend** — see "Deploying the Frontend Tier"
 > - **Set up CI/CD** — see "Path to Production"
-> - **Tear down this deployment** — run `/ipa.destroy` (see "Destroying Infrastructure")
+> - **Tear down this deployment** — run `/ipa-destroy` (see "Destroying Infrastructure")
 > - **Backend stack reference** — see the backend stack skill documentation for parameters, outputs, and wiring
 
 **What to avoid:** Summarizing what was accomplished (the Verification section already confirmed the outcome) or duplicating content from other guides.
@@ -321,7 +321,7 @@ Copy the template below to start a new guide. Each section contains a comment in
 
 ## Next Steps
 
-<!-- 3-5 links: related guides, reference docs, /ipa.destroy for teardown. -->
+<!-- 3-5 links: related guides, reference docs, /ipa-destroy for teardown. -->
 ```
 
 ## Sources

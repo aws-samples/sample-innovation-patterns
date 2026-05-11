@@ -1,19 +1,19 @@
 ---
-title: /ipa.codepipeline
+title: /ipa-codepipeline
 sidebar_position: 8
 ---
 
-# /ipa.codepipeline
+# /ipa-codepipeline
 
 Deploy a CI/CD pipeline that automates the same build, test, and deploy workflow that runs locally via Makefiles. Creates a CodeCommit repository and a CodePipeline with CodeBuild.
 
 ## Invocation
 
-    /ipa.codepipeline
+    /ipa-codepipeline
 
 ## Parameters
 
-`/ipa.codepipeline` prompts for configuration interactively.
+`/ipa-codepipeline` prompts for configuration interactively.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -24,16 +24,16 @@ Deploy a CI/CD pipeline that automates the same build, test, and deploy workflow
 
 | Variable | Source |
 |----------|--------|
-| `APP_NAMESPACE` | `/ipa.init` |
-| `APP_ENV` | `/ipa.init` |
-| `AWS_ACCOUNT_ID` | `/ipa.init` |
-| `AWS_REGION` | `/ipa.init` |
-| `APP_CODEBUILD_ROLE_ARN` | `/ipa.security` |
-| Composed Makefiles in `scripts/` | `/ipa.compose` |
+| `APP_NAMESPACE` | `/ipa-init` |
+| `APP_ENV` | `/ipa-init` |
+| `AWS_ACCOUNT_ID` | `/ipa-init` |
+| `AWS_REGION` | `/ipa-init` |
+| `APP_CODEBUILD_ROLE_ARN` | `/ipa-compose` (security phase) |
+| Composed Makefiles in `scripts/` | `/ipa-compose` |
 
 ## What It Does
 
-1. **Pre-flight checks** — Verifies `.env` has init, security, and compose prerequisites. Detects any existing pipeline.
+1. **Pre-flight checks** — Verifies `.env` has init and compose prerequisites (including security variables from the compose security phase). Detects any existing pipeline.
 
 2. **Source configuration** — Prompts for repository name and branch.
 
@@ -69,20 +69,19 @@ When an existing pipeline is detected, the skill displays the current configurat
 
 **Set up CI/CD for the first time:**
 
-    /ipa.codepipeline
+    /ipa-codepipeline
 
 Provide a repository name and branch. The skill deploys CodeCommit and CodePipeline stacks, then displays the clone URL and pipeline URL.
 
 **Update an existing pipeline:**
 
-    /ipa.codepipeline
+    /ipa-codepipeline
 
 The skill detects the existing pipeline configuration and offers to update it with current prepare stack outputs.
 
 ## Related Skills
 
-- [/ipa.init](./ipa-init.md) — Provides base `.env` variables
-- [/ipa.security](./ipa-security.md) — Provides the CodeBuild execution role
-- [/ipa.compose](./ipa-compose.md) — Generates the Makefiles that the pipeline executes
-- [/ipa.stack.codecommit](../stack-skills/ipa-stack-codecommit.md) — CodeCommit stack reference
-- [/ipa.stack.codepipeline](../stack-skills/ipa-stack-codepipeline.md) — CodePipeline stack reference
+- [/ipa-init](./ipa-init.md) — Provides base `.env` variables
+- [/ipa-compose](./ipa-compose.md) — Generates the Makefiles that the pipeline executes and provides the CodeBuild execution role (via embedded security phase)
+- [/ipa-stack-codecommit](../stack-skills/ipa-stack-codecommit.md) — CodeCommit stack reference
+- [/ipa-stack-codepipeline](../stack-skills/ipa-stack-codepipeline.md) — CodePipeline stack reference

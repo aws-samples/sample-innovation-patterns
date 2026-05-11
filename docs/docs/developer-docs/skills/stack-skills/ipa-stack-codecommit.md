@@ -1,11 +1,11 @@
 ---
-title: /ipa.stack.codecommit
+title: /ipa-stack-codecommit
 sidebar_position: 3
 ---
 
-# /ipa.stack.codecommit
+# /ipa-stack-codecommit
 
-CodeCommit repository for source code management. Managed by `/ipa.codepipeline`, not by `/ipa.compose`.
+CodeCommit repository for source code management. Managed by `/ipa-codepipeline`, not by `/ipa-compose`.
 
 ## Stack Identity
 
@@ -20,7 +20,7 @@ CodeCommit repository for source code management. Managed by `/ipa.codepipeline`
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `RepositoryName` | *(prompted by `/ipa.codepipeline`)* | CodeCommit repository name. Alphanumeric characters, dots, underscores, and hyphens. |
+| `RepositoryName` | *(prompted by `/ipa-codepipeline`)* | CodeCommit repository name. Alphanumeric characters, dots, underscores, and hyphens. |
 | `RepositoryDescription` | `IPA-managed source repository` | Repository description |
 | `KmsKeyArn` | *(none)* | Optional KMS key ARN for encryption |
 
@@ -34,5 +34,5 @@ CodeCommit repository for source code management. Managed by `/ipa.codepipeline`
 
 ## Related Skills
 
-- [/ipa.codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
-- [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Pipeline stack that reads from this repository
+- [/ipa-codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
+- [/ipa-stack-codepipeline](./ipa-stack-codepipeline.md) — Pipeline stack that reads from this repository

@@ -18,4 +18,4 @@ The frontend stack deploys a secure static web hosting tier using Amazon S3, Ama
 
 ## When to Use
 
-Include the frontend stack when the deployment requires a static frontend application. It is included via `/ipa.compose` when composing a web application with a static frontend. The stack handles only the hosting infrastructure: the S3 bucket, CloudFront distribution, OAC, and bucket policy. Post-deploy phases handle the frontend build upload (`aws s3 sync`), CDN cache invalidation, and Cognito callback URL wiring. If the application does not include a browser-based frontend, this stack is not needed.
+Include the frontend stack when the deployment requires a static frontend application. It is included via `/ipa-compose` when composing a web application with a static frontend. The stack handles only the hosting infrastructure: the S3 bucket, CloudFront distribution, OAC, and bucket policy. Post-deploy phases handle the frontend build upload (`aws s3 sync`), CDN cache invalidation, and Cognito callback URL wiring. If the application does not include a browser-based frontend, this stack is not needed.

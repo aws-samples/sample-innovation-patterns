@@ -29,11 +29,11 @@ Each stage overrides the `IPA_MAKEFILE` and `IPA_TARGET` environment variables o
 - **EventBridge push trigger** -- an EventBridge rule monitors CodeCommit for branch pushes, starting the pipeline within seconds of a commit (no polling interval)
 - **Artifact encryption** -- the artifact bucket uses SSE-S3 by default with optional KMS encryption via the `KmsKeyArn` parameter
 - **Scoped IAM roles** -- the PipelineRole restricts permissions to specific resource ARNs (CodeBuild project, artifact bucket, CodeCommit repository, optional KMS key); no wildcard resource policies
-- **External CodeBuild execution role** -- the CodeBuild project uses a role provisioned by `/ipa.security`, separating pipeline orchestration permissions from build-time permissions
+- **External CodeBuild execution role** -- the CodeBuild project uses a role provisioned by `/ipa-security`, separating pipeline orchestration permissions from build-time permissions
 - **Privileged mode** -- CodeBuild runs with privileged mode enabled, required for Docker-in-Docker image builds
 - **Inline buildspec** -- the buildspec is embedded in the CloudFormation template; no external `buildspec.yml` file is required
 - **Public access blocked** -- the artifact bucket enables all four S3 PublicAccessBlock flags and enforces SSL-only access through a bucket policy
 
 ## When to Use
 
-The CodePipeline stack is optional infrastructure deployed after the initial application stacks are operational. It is appropriate when the team requires automated CI/CD triggered by source commits. The stack depends on a CodeCommit repository (provisioned by the CodeCommit stack), an ECR repository (for container image URIs), a Cognito user pool (for OIDC parameters passed to build-time environment variables), and a CodeBuild execution role (from `/ipa.security`). If the project does not require automated pipelines -- for example, during early prototyping or when using an external CI/CD system -- this stack is not needed.
+The CodePipeline stack is optional infrastructure deployed after the initial application stacks are operational. It is appropriate when the team requires automated CI/CD triggered by source commits. The stack depends on a CodeCommit repository (provisioned by the CodeCommit stack), an ECR repository (for container image URIs), a Cognito user pool (for OIDC parameters passed to build-time environment variables), and a CodeBuild execution role (from `/ipa-security`). If the project does not require automated pipelines -- for example, during early prototyping or when using an external CI/CD system -- this stack is not needed.

@@ -1,11 +1,11 @@
 ---
-title: /ipa.stack.codepipeline
+title: /ipa-stack-codepipeline
 sidebar_position: 4
 ---
 
-# /ipa.stack.codepipeline
+# /ipa-stack-codepipeline
 
-CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by `/ipa.codepipeline`, not by `/ipa.compose`.
+CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by `/ipa-codepipeline`, not by `/ipa-compose`.
 
 ## Stack Identity
 
@@ -77,6 +77,6 @@ The pipeline injects these environment variables into CodeBuild, which are inher
 
 ## Related Skills
 
-- [/ipa.codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
-- [/ipa.stack.codecommit](./ipa-stack-codecommit.md) — Source repository for the pipeline
-- [/ipa.security](../lifecycle-skills/ipa-security.md) — Provides the CodeBuild execution role
+- [/ipa-codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
+- [/ipa-stack-codecommit](./ipa-stack-codecommit.md) — Source repository for the pipeline
+- [/ipa-security](../lifecycle-skills/ipa-security.md) — Provides the CodeBuild execution role

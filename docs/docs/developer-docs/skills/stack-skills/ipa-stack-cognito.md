@@ -1,9 +1,9 @@
 ---
-title: /ipa.stack.cognito
+title: /ipa-stack-cognito
 sidebar_position: 5
 ---
 
-# /ipa.stack.cognito
+# /ipa-stack-cognito
 
 Cognito User Pool with OAuth 2.0 Hosted UI and OIDC endpoints. A prepare-lifecycle stack that persists across deploy/destroy cycles.
 
@@ -56,7 +56,7 @@ Other stacks consume Cognito outputs:
 
 ## Related Skills
 
-- [/ipa.prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
-- [/ipa.stack.backend](./ipa-stack-backend.md) — Consumes auth issuer and audience
-- [/ipa.stack.queue](./ipa-stack-queue.md) — Consumes auth issuer and audience
-- [/ipa.stack.codepipeline](./ipa-stack-codepipeline.md) — Consumes OIDC endpoints
+- [/ipa-prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
+- [/ipa-stack-backend](./ipa-stack-backend.md) — Consumes auth issuer and audience
+- [/ipa-stack-queue](./ipa-stack-queue.md) — Consumes auth issuer and audience
+- [/ipa-stack-codepipeline](./ipa-stack-codepipeline.md) — Consumes OIDC endpoints

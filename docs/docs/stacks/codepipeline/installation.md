@@ -7,9 +7,9 @@ sidebar_position: 2
 
 ## Compose
 
-The CodePipeline stack is provisioned through the `/ipa.codepipeline` process skill. This skill generates the prepare-phase Makefile and wires all cross-stack parameters automatically:
+The CodePipeline stack is provisioned through the `/ipa-codepipeline` process skill. This skill generates the prepare-phase Makefile and wires all cross-stack parameters automatically:
 
-    /ipa.codepipeline
+    /ipa-codepipeline
 
 The skill reads `.env` for namespace, environment, and account configuration, then prompts for the CodeCommit repository name and branch. The resulting Makefile is placed in `scripts/` alongside the other prepare-phase targets.
 
@@ -27,7 +27,7 @@ The skill reads `.env` for namespace, environment, and account configuration, th
 
 | Parameter | Type | Source | Description |
 |-----------|------|--------|-------------|
-| `CodeBuildRoleArn` | String | `/ipa.security` | CodeBuild execution role ARN provisioned by the security stack. |
+| `CodeBuildRoleArn` | String | `/ipa-security` | CodeBuild execution role ARN provisioned by the security stack. |
 | `EcrRepoUri` | String | ECR stack `RepositoryUri` | Full ECR repository URI for container image references. |
 | `OidcIssuer` | String | Cognito stack `IssuerUrl` | Cognito OIDC issuer URL for JWT validation. |
 | `OidcClientId` | String | Cognito stack `UserPoolClientId` | Cognito app client ID for OIDC audience. |
@@ -50,11 +50,11 @@ The skill reads `.env` for namespace, environment, and account configuration, th
 
 ## Wiring
 
-The CodePipeline stack receives values from multiple upstream stacks. The `/ipa.codepipeline` skill wires these references automatically in the generated Makefile.
+The CodePipeline stack receives values from multiple upstream stacks. The `/ipa-codepipeline` skill wires these references automatically in the generated Makefile.
 
 | CodePipeline Parameter | Source Stack | Source Output | Notes |
 |------------------------|-------------|---------------|-------|
-| `CodeBuildRoleArn` | Security | `APP_CODEBUILD_ROLE_ARN` | Stored in `.env` by `/ipa.security` |
+| `CodeBuildRoleArn` | Security | `APP_CODEBUILD_ROLE_ARN` | Stored in `.env` by `/ipa-security` |
 | `EcrRepoUri` | ECR | `RepositoryUri` | Full ECR URI without tag |
 | `OidcIssuer` | Cognito | `IssuerUrl` | OIDC issuer endpoint |
 | `OidcClientId` | Cognito | `UserPoolClientId` | OIDC client ID |

@@ -249,7 +249,7 @@ getting-started/
 **Content Conventions:**
 
 - Action-oriented and minimal on theory. Link to the Concepts subdirectory for deeper background rather than inlining explanations.
-- The Quickstart page should get a user from zero to a deployed stack in a single page, using `/ipa.init`, `/ipa.compose`, and `/ipa.deploy`.
+- The Quickstart page should get a user from zero to a deployed stack in a single page, using `/ipa-init`, `/ipa-compose`, and `/ipa-deploy`.
 - The Installation page should list IPA-specific prerequisites only. Do not include general development tooling setup (for example, installing git).
 
 **Template** for a new Getting Started page:
@@ -307,7 +307,7 @@ stacks/
 
 - Every stack subdirectory follows the same three-page structure: Overview, Installation, and Deployment Architecture.
 - The **Overview** page covers what the stack is, its features, and when to use it.
-- The **Installation** page documents the specific `/ipa.compose` incantation for adding this stack to a project.
+- The **Installation** page documents the specific `/ipa-compose` incantation for adding this stack to a project.
 - The **Deployment Architecture** page includes a Mermaid UML diagram showing the deployed AWS resources and their relationships.
 
 **Template** for a new Stack documentation set:
@@ -346,7 +346,7 @@ sidebar_position: 2
 
 To add the {stack-name} stack to the project, run:
 
-    /ipa.compose
+    /ipa-compose
 
 Select `{stack-name}` when prompted for the stack to add.
 
@@ -435,25 +435,25 @@ developer-docs/skills/
 
 **Content Conventions:**
 
-- Each skill page documents: invocation (the `/ipa.*` command), parameters and inputs, outputs and artifacts produced, usage examples, and related skills.
+- Each skill page documents: invocation (the `/ipa-*` command), parameters and inputs, outputs and artifacts produced, usage examples, and related skills.
 - Skill documentation should be completable from the skill file itself (located in `.claude/skills/`) without requiring information that exists only in a human author's memory.
-- Lifecycle skills (ipa.init, ipa.compose, etc.) and stack skills (ipa.stack.*) are organized into separate subdirectories because they serve different purposes: lifecycle skills orchestrate workflows, while stack skills define individual CloudFormation stacks.
+- Lifecycle skills (ipa-init, ipa-compose, etc.) and stack skills (ipa.stack.*) are organized into separate subdirectories because they serve different purposes: lifecycle skills orchestrate workflows, while stack skills define individual CloudFormation stacks.
 
 **Template** for a new skill documentation page:
 
 ```markdown
 ---
-title: /ipa.{skill-name}
+title: /ipa-{skill-name}
 sidebar_position: N
 ---
 
-# /ipa.{skill-name}
+# /ipa-{skill-name}
 
 Brief description of what this skill does.
 
 ## Invocation
 
-    /ipa.{skill-name}
+    /ipa-{skill-name}
 
 ## Parameters
 

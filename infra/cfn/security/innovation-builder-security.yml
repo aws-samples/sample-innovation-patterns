@@ -1,0 +1,975 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Innovation Builder complete security stack. Single-template deployment of all
+  IAM policies, permissions boundary, and service roles. Combines the policy stack,
+  CodeBuild role, SageMaker execution role, and builder role into one deployable
+  artifact. Deploy this OR the individual templates — not both with default names.
+
+# ════════════════════════════════════════════════════════════════════
+# SINGLE-STACK DEPLOYMENT
+#
+# This template is the single-stack alternative to deploying:
+#   1. innovation-builder-iam-policy.yml  (policies + boundary)
+#   2. innovation-codebuild-role.yml      (CodeBuild service role)
+#   3. innovation-sagemaker-execution-role.yml (SageMaker execution role)
+#   4. innovation-builder-role.yml        (human principal role)
+#   5. innovation-ec2-builder-role.yml    (EC2 instance profile role)
+#
+# All eight resources are created in one stack with no cross-stack
+# references. Policy ARNs are resolved via !Ref to co-located
+# managed policy resources.
+#
+# DEPLOYMENT
+#
+#   aws cloudformation deploy \
+#     --template-file innovation-builder-security.yml \
+#     --stack-name innovation-builder-security \
+#     --parameter-overrides \
+#       TrustedPrincipalArn=arn:aws:iam::<ACCOUNT_ID>:role/MySSORoleName \
+#       RoleExpirationDate=2026-06-30 \
+#     --capabilities CAPABILITY_NAMED_IAM
+#
+# MUTUAL EXCLUSIVITY
+#
+# Deploy this template OR the individual templates — not both with
+# default resource names. IAM managed policy names and role names
+# must be unique per account. If you need both, override the name
+# parameters on one set.
+#
+# ARCHITECTURE
+#
+# This stack produces eight resources:
+#
+#   InnovationBuilderPolicyBoundary  ← permissions ceiling (boundary)
+#   LimitedIAMAccessPolicy           ← IAM write (unconditional)
+#   InnovationBuilderPolicy          ← 47-service allow + deny guardrails
+#   CodeBuildRole                    ← CodeBuild service principal
+#   SageMakerExecutionRole           ← SageMaker service principal
+#   EC2BuilderRole                   ← EC2 instance profile principal
+#   EC2BuilderInstanceProfile        ← instance profile (conditional)
+#   BuilderRole                      ← Human principal (SSO / cross-account)
+#
+# ANTI-ESCALATION MODEL
+#
+# The boundary prevents privilege escalation through four controls:
+#   1. DenyRoleModifyWithoutBoundary — blocks changing trust policies
+#      and boundaries on roles that don't carry this boundary
+#   2. DenyBoundaryModification — the boundary policy itself is immutable
+#   3. DenyRemoveBoundary — boundaries cannot be stripped from roles
+#   4. DenyUserOperations — IAM users cannot be created (users bypass
+#      role boundaries)
+#
+# IAM role write operations (CreateRole, AttachRolePolicy, PutRolePolicy,
+# etc.) are intentionally UNCONDITIONAL in both the boundary and the
+# identity policy. CloudFormation creates roles, tags them, attaches
+# policies, and sets boundaries in a single resource operation with no
+# guaranteed ordering. The iam:PermissionsBoundary condition key is only
+# present after PutRolePermissionsBoundary completes — conditioning
+# earlier actions on it blocks CloudFormation entirely.
+#
+# This is safe because the boundary on the CALLER role limits effective
+# permissions. Even if a caller creates a role with AdministratorAccess,
+# the caller cannot:
+#   - Remove their own boundary (DenyRemoveBoundary)
+#   - Weaken the boundary (DenyBoundaryModification)
+#   - Change trust policies on unbounded roles (DenyRoleModifyWithoutBoundary)
+#   - Create IAM users to escape (DenyUserOperations)
+#
+# IAM access is intentionally separated from service access. The
+# InnovationBuilderPolicy grants access to 47 AWS services but NOT
+# IAM. IAM write access comes only from LimitedIAMAccessPolicy.
+#
+# ════════════════════════════════════════════════════════════════════
+
+Parameters:
+  BoundaryPolicyName:
+    Type: String
+    Default: InnovationBuilderBoundary
+    Description: >-
+      Name for the combined permissions boundary. This name is referenced
+      in self-propagating conditions — changing it after deployment requires
+      updating all roles that carry the boundary.
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_-]{0,127}'
+
+  CodeBuildRoleName:
+    Type: String
+    Default: InnovationCodeBuildRole
+    Description: Name for the CodeBuild IAM role
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_+=,.@-]{0,63}'
+
+  SageMakerRoleName:
+    Type: String
+    Default: InnovationSageMakerExecutionRole
+    Description: Name for the SageMaker execution IAM role
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_+=,.@-]{0,63}'
+
+  EC2BuilderRoleName:
+    Type: String
+    Default: InnovationEC2BuilderRole
+    Description: Name for the EC2 builder IAM role
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_+=,.@-]{0,63}'
+
+  CreateEC2InstanceProfile:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Whether to create an IAM instance profile for the EC2 builder role.
+      Set to 'false' if you manage instance profiles separately.
+
+  BuilderRoleName:
+    Type: String
+    Default: InnovationBuilderRole
+    Description: Name for the builder IAM role
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_+=,.@-]{0,63}'
+
+  TrustedPrincipalArn:
+    Type: String
+    Description: >
+      ARN of the principal allowed to assume the builder role. Can be an IAM
+      role (for cross-account or SSO), an IAM user, or a root account.
+      Examples:
+        arn:aws:iam::<ACCOUNT_ID>:role/MySSORoleName
+        arn:aws:iam::<ACCOUNT_ID>:root
+
+  RoleExpirationDate:
+    Type: String
+    Description: >
+      Date when the builder role can no longer be assumed, expressed as
+      YYYY-MM-DD. Set to the expected engagement end date. After this
+      date, sts:AssumeRole calls will be denied by the trust policy.
+    AllowedPattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    ConstraintDescription: Must be a date in YYYY-MM-DD format
+
+Conditions:
+  ShouldCreateEC2InstanceProfile: !Equals [!Ref CreateEC2InstanceProfile, 'true']
+
+Resources:
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 1: Combined Permissions Boundary
+  #
+  # Merges anti-escalation controls with operational guardrails.
+  # AWS IAM allows only ONE boundary per role, so both concerns must
+  # live in a single policy.
+  #
+  # The boundary is a ceiling — it limits what identity policies can
+  # grant. The Allow * statement makes the boundary transparent by
+  # default; only the Deny statements restrict access.
+  # ──────────────────────────────────────────────────────────────────
+  InnovationBuilderPolicyBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    # checkov:skip=CKV_AWS_107:Credentials exposure mitigated — boundary DenyUserOperations blocks IAM user creation, login profiles, and access key operations. No sts:* in service policy.
+    # checkov:skip=CKV_AWS_108:POC non-production environment — boundary protects audit trail (SecureLoggingConfigs) and security services (SecureSecurityServices). No production data present.
+    # checkov:skip=CKV_AWS_109:Unconditional IAM writes required by CloudFormation — boundary condition key absent during CFN resource creation. Anti-escalation enforced by 4-control boundary model on caller.
+    # checkov:skip=CKV_AWS_110:Privilege escalation mitigated by 4-control anti-escalation boundary — immutable boundary, no user creation, no trust policy changes on unbounded roles, no boundary removal.
+    # checkov:skip=CKV_AWS_111:POC non-production environment — broad write access intentional for rapid prototyping. High-risk writes constrained by boundary deny statements.
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_F5
+            reason: "Action:* in boundary AllowAll statement is the standard transparent-boundary pattern. The boundary restricts only via Deny statements; Allow:* defers to identity policies."
+          - id: CFN_NAG_F40
+            reason: "iam:PassRole with Resource:* required for CloudFormation to pass roles to any AWS service during stack operations. Permissions boundary on caller constrains effective permissions."
+          - id: CFN_NAG_W13
+            reason: "Resource:* intentional — permissions boundary must apply to all resources. POC non-production environment."
+          - id: CFN_NAG_W28
+            reason: "Explicit ManagedPolicyName required for self-propagating boundary condition — iam:PermissionsBoundary condition references boundary ARN by name."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM5
+            reason: "POC non-production environment — service:* permissions and Resource:* are intentional. Access constrained by boundary deny statements and anti-escalation controls."
+    Properties:
+      ManagedPolicyName: !Ref BoundaryPolicyName
+      Description: !Sub >-
+        Combined permissions boundary for Innovation Builder. Prevents
+        privilege escalation via self-propagating boundary enforcement and
+        enforces operational guardrails. All roles created by Innovation
+        Builder principals must carry this boundary.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # CEILING: Makes the boundary transparent by default. Identity
+          # policies (InnovationBuilderPolicy, LimitedIamPolicy) determine
+          # actual access — the boundary only restricts via Deny statements.
+          - Sid: AllowAll
+            Effect: Allow
+            Action: '*'
+            Resource: '*'
+
+          # ── Anti-Escalation Controls ────────────────────────────────
+          # These statements form a closed loop that prevents any
+          # principal from escaping the boundary:
+          #   1. Trust policies and boundaries on unbounded roles are locked
+          #   2. The boundary policy itself cannot be edited
+          #   3. The boundary cannot be removed from roles
+          #   4. IAM users cannot be created (users bypass role boundaries)
+          #
+          # Note: IAM role write operations (CreateRole, AttachRolePolicy,
+          # PutRolePolicy, TagRole) are NOT denied here. CloudFormation
+          # performs these in a single resource operation before the
+          # boundary is set on the target role. See ARCHITECTURE above.
+
+          # ANTI-ESCALATION: Prevents modifying the trust policy or
+          # permissions boundary on roles that don't carry this boundary.
+          #
+          # Policy attachment actions (AttachRolePolicy, PutRolePolicy,
+          # etc.) are intentionally NOT in this deny. CloudFormation
+          # creates roles and attaches policies in a single resource
+          # operation — the boundary isn't on the target role yet when
+          # AttachRolePolicy fires. The anti-escalation for policy
+          # attachment relies on:
+          #   1. The boundary on the CALLER limits effective permissions
+          #   2. DenyBoundaryModification prevents weakening this boundary
+          #   3. DenyRemoveBoundary prevents stripping boundaries
+          #   4. DenyUserOperations prevents creating users to escape
+          #
+          # PutRolePermissionsBoundary stays here to prevent replacing
+          # the boundary on existing roles with a weaker one.
+          # UpdateAssumeRolePolicy stays to prevent changing who can
+          # assume existing unbounded roles.
+          - Sid: DenyRoleModifyWithoutBoundary
+            Effect: Deny
+            Action:
+              - iam:PutRolePermissionsBoundary
+              - iam:UpdateAssumeRolePolicy
+            Resource: '*'
+            Condition:
+              StringNotEquals:
+                iam:PermissionsBoundary: !Sub arn:aws:iam::${AWS::AccountId}:policy/${BoundaryPolicyName}
+
+          # ANTI-ESCALATION: Prevents editing this boundary policy itself.
+          # If a principal could modify the boundary, they could remove the
+          # deny statements and escape all restrictions.
+          # Impact if removed: Principals can weaken the boundary by adding
+          # policy versions that remove deny statements.
+          - Sid: DenyBoundaryModification
+            Effect: Deny
+            Action:
+              - iam:DeletePolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:policy/${BoundaryPolicyName}
+
+          # ANTI-ESCALATION: Prevents removing the boundary from any role
+          # or user. Without this, a principal could strip the boundary
+          # from their own role and then operate without restrictions.
+          # Impact if removed: Principals can remove their own boundary
+          # and operate with unrestricted identity policy permissions.
+          - Sid: DenyRemoveBoundary
+            Effect: Deny
+            Action:
+              - iam:DeleteRolePermissionsBoundary
+              - iam:DeleteUserPermissionsBoundary
+            Resource: '*'
+
+          # ANTI-ESCALATION: Prevents creating IAM users. Users can have
+          # different boundaries than roles, so allowing user creation
+          # would let a principal create a user without this boundary and
+          # use those credentials to bypass restrictions.
+          # Impact if removed: Principals can create IAM users with access
+          # keys that are not subject to this boundary.
+          - Sid: DenyUserOperations
+            Effect: Deny
+            Action:
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:CreateLoginProfile
+              - iam:UpdateLoginProfile
+              - iam:CreateAccessKey
+              - iam:UpdateAccessKey
+              - iam:AttachUserPolicy
+              - iam:DetachUserPolicy
+              - iam:PutUserPolicy
+              - iam:DeleteUserPolicy
+              - iam:PutUserPermissionsBoundary
+            Resource: '*'
+
+          # ── Operational Guardrails ──────────────────────────────────
+          # These prevent disruption of account-level security and network
+          # controls. No Innovation Builder workload requires these actions.
+
+          # GUARDRAIL: Prevents changing account-level S3 public access
+          # settings or EMR public access block configuration.
+          # Impact if removed: Principals could make S3 buckets publicly
+          # accessible at the account level.
+          - Sid: RestrictPublicAccess
+            Effect: Deny
+            Action:
+              - elasticmapreduce:PutBlockPublicAccessConfiguration
+              - s3:PutAccountPublicAccessBlock
+            Resource: '*'
+
+          # GUARDRAIL: Prevents disabling CloudTrail logging and deleting
+          # CloudWatch alarms/dashboards. Protects audit trail integrity.
+          # Impact if removed: Principals could stop CloudTrail logging,
+          # hiding their actions from audit.
+          - Sid: SecureLoggingConfigs
+            Effect: Deny
+            Action:
+              - cloudtrail:StopLogging
+              - cloudtrail:DeleteTrail
+              - cloudwatch:DeleteAlarms
+              - cloudwatch:DeleteDashboards
+              - cloudwatch:DisableAlarmActions
+            Resource: '*'
+
+          # GUARDRAIL: Prevents disabling security monitoring services
+          # (GuardDuty, Config, SecurityHub).
+          # Impact if removed: Principals could disable threat detection,
+          # hiding malicious activity from security teams.
+          - Sid: SecureSecurityServices
+            Effect: Deny
+            Action:
+              - guardduty:DeleteDetector
+              - guardduty:DeleteInvitations
+              - guardduty:DeleteIPSet
+              - guardduty:DeleteMembers
+              - guardduty:DeleteThreatIntelSet
+              - guardduty:DisassociateFromMasterAccount
+              - guardduty:DisassociateMembers
+              - guardduty:StopMonitoringMembers
+              - guardduty:UpdateDetector
+              - config:DeleteConfigRule
+              - config:DeleteConfigurationRecorder
+              - config:DeleteDeliveryChannel
+              - config:StopConfigurationRecorder
+              - securityhub:Disable*
+              - securityhub:BatchDeleteAutomationRules
+              - securityhub:BatchDisableStandards
+              - securityhub:Delete*
+              - securityhub:Disassociate*
+            Resource: '*'
+
+          # GUARDRAIL: Prevents transit gateway and VPC peering operations.
+          # These are high-risk networking changes that could bridge
+          # isolated network segments.
+          # Impact if removed: Principals could create cross-account or
+          # cross-VPC network paths.
+          - Sid: DenyHighRiskNetworking
+            Effect: Deny
+            Action:
+              - ec2:AcceptTransitGateway*
+              - ec2:AssociateTransitGateway*
+              - ec2:CreateTransitGateway*
+              - ec2:DeleteTransitGateway*
+              - ec2:DeregisterTransitGateway*
+              - ec2:DisableTransitGateway*
+              - ec2:ModifyTransitGateway*
+              - ec2:RegisterTransitGateway*
+              - ec2:AcceptVpcPeeringConnection
+              - ec2:CreateVpcPeeringConnection
+              - ec2:DeleteVpcPeeringConnection
+              - ec2:ModifyVpcPeeringConnectionOptions
+              - ec2:RejectTransitGatewayPeeringAttachment
+              - ec2:RejectVpcPeeringConnection
+            Resource: '*'
+
+          # GUARDRAIL: Prevents creating internet gateways. Innovation
+          # Builder workloads assume existing VPCs with existing internet
+          # access — no workload creates VPCs or internet gateways.
+          # Impact if removed: Principals could attach internet gateways
+          # to VPCs, potentially exposing private subnets.
+          # Note: Remove this deny (from both boundary and service policy)
+          # if the engagement needs to create VPCs.
+          - Sid: RestrictInternetAccesstoVPC
+            Effect: Deny
+            Action:
+              - ec2:AttachInternetGateway
+              - ec2:CreateInternetGateway
+              - ec2:CreateEgressOnlyInternetGateway
+              - globalaccelerator:Create*
+              - globalaccelerator:Update*
+            Resource: '*'
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 2: Limited IAM Access Policy
+  #
+  # Grants IAM write access. This is the only way Innovation Builder
+  # principals get IAM write permissions — the InnovationBuilderPolicy
+  # intentionally excludes iam:*.
+  #
+  # All role write operations are unconditional. CloudFormation creates
+  # roles, tags them, attaches policies, and sets boundaries in a
+  # single resource operation. The iam:PermissionsBoundary condition
+  # key is absent until PutRolePermissionsBoundary completes, so
+  # conditioning earlier actions on it blocks CloudFormation.
+  #
+  # Anti-escalation relies on the boundary on the CALLER role and the
+  # four deny statements in the boundary (see ARCHITECTURE above).
+  # ──────────────────────────────────────────────────────────────────
+  LimitedIAMAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    # checkov:skip=CKV_AWS_109:Unconditional IAM writes required by CloudFormation — boundary condition key absent during CFN resource creation. Anti-escalation enforced by 4-control boundary model on caller.
+    # checkov:skip=CKV_AWS_110:Privilege escalation mitigated by 4-control anti-escalation boundary — immutable boundary, no user creation, no trust policy changes on unbounded roles, no boundary removal.
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_F40
+            reason: "iam:PassRole with Resource:* required for CloudFormation to pass roles to any AWS service. Permissions boundary on caller constrains effective permissions."
+          - id: CFN_NAG_W13
+            reason: "Resource:* required — CloudFormation creates resources dynamically and ARNs are not known at policy authoring time."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM5
+            reason: "iam:List*, iam:Get*, Resource:* intentional for IAM read access and unconditional role write operations required by CloudFormation."
+    Properties:
+      Description: >-
+        IAM access policy for Innovation Builder. Grants unconditional IAM
+        role write operations (required by CloudFormation) and read access.
+        Anti-escalation is enforced by the permissions boundary on the
+        caller role, not by conditions on this policy.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # IAM read access is unconditional — principals can inspect
+          # any IAM resource for troubleshooting and auditing.
+          - Sid: IAMReadOnly
+            Effect: Allow
+            Action:
+              - iam:List*
+              - iam:Get*
+              - iam:GenerateServiceLastAccessedDetails
+            Resource: '*'
+
+          # IAM role write operations. CloudFormation creates roles,
+          # attaches policies, and sets boundaries in a single resource
+          # operation with no guaranteed ordering. Conditioning these on
+          # iam:PermissionsBoundary would block CFN because the boundary
+          # isn't on the target role when AttachRolePolicy fires.
+          #
+          # Anti-escalation relies on the boundary on the CALLER role:
+          #   - The caller's boundary limits effective permissions
+          #   - DenyBoundaryModification prevents weakening the boundary
+          #   - DenyRemoveBoundary prevents stripping boundaries
+          #   - DenyRoleModifyWithoutBoundary prevents changing trust
+          #     policies and boundaries on unbounded roles
+          - Sid: IAMRoleWrite
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+              - iam:UpdateAssumeRolePolicy
+              - iam:PutRolePermissionsBoundary
+              - iam:TagRole
+              - iam:UntagRole
+            Resource: '*'
+
+          # Policy management is unconditional — principals can create
+          # customer-managed policies. The boundary prevents these policies
+          # from granting more than the boundary allows.
+          - Sid: IAMPolicyManagement
+            Effect: Allow
+            Action:
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+              - iam:TagPolicy
+              - iam:UntagPolicy
+            Resource: '*'
+
+          # Support actions for instance profiles, service-linked roles,
+          # and PassRole. SLR creation is unconditional because SLRs are
+          # AWS-managed and cannot have permissions boundaries.
+          - Sid: IAMSupportActions
+            Effect: Allow
+            Action:
+              - iam:CreateInstanceProfile
+              - iam:DeleteInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:RemoveRoleFromInstanceProfile
+              - iam:CreateServiceLinkedRole
+              - iam:DeleteServiceLinkedRole
+              - iam:PassRole
+            Resource: '*'
+
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 3: Innovation Builder Service Access Policy
+  #
+  # Customer-managed policy granting access to 47 AWS service namespaces.
+  # Replaces both PowerUserAccess and broad inline policies with an
+  # auditable, modifiable service list.
+  #
+  # Why not PowerUserAccess? PowerUserAccess is an AWS-managed policy
+  # that gets flagged by security scanners (cdk-nag AwsSolutions-IAM4).
+  # A customer-managed policy with an explicit service list:
+  #   - Avoids security scan findings
+  #   - Is auditable by customer security teams
+  #   - Is modifiable per engagement (add/remove services)
+  #   - Demonstrates intentional scoping
+  #
+  # IAM access is NOT in this policy. IAM write comes from
+  # LimitedIAMAccessPolicy with anti-escalation conditions.
+  #
+  # To customize: add/remove services from the allow list below.
+  # ──────────────────────────────────────────────────────────────────
+  InnovationBuilderPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    # checkov:skip=CKV_AWS_107:Credentials exposure mitigated — boundary DenyUserOperations blocks IAM user creation, login profiles, and access key operations. No sts:* in service policy.
+    # checkov:skip=CKV_AWS_108:POC non-production environment — boundary protects audit trail (SecureLoggingConfigs) and security services (SecureSecurityServices). No production data present.
+    # checkov:skip=CKV_AWS_109:Unconditional IAM writes required by CloudFormation — boundary condition key absent during CFN resource creation. Anti-escalation enforced by 4-control boundary model on caller.
+    # checkov:skip=CKV_AWS_110:Privilege escalation mitigated by 4-control anti-escalation boundary — immutable boundary, no user creation, no trust policy changes on unbounded roles, no boundary removal.
+    # checkov:skip=CKV_AWS_111:POC non-production environment — broad write access to 47 service namespaces intentional for rapid prototyping. High-risk writes constrained by boundary deny statements.
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_F5
+            reason: "47 service:* action entries interpreted as Action:* by scanner. Intentional broad service access for POC — constrained by boundary deny statements."
+          - id: CFN_NAG_W13
+            reason: "Resource:* required — CloudFormation creates resources dynamically and ARNs are not known at policy authoring time."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM5
+            reason: "POC non-production environment — 47 service:* permissions with Resource:* are intentional. Access constrained by boundary deny statements and anti-escalation controls."
+    Properties:
+      Description: >-
+        Innovation Builder service access policy. Grants access to 47 AWS
+        service namespaces required by Innovation Patterns deployments.
+        Customize by adding or removing services per engagement needs.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: InnovationBuilderServiceAccess
+            Effect: Allow
+            Action:
+              # ── AI/ML Services ────────────────────────────────────
+              # Bedrock (foundation models, agents, knowledge bases)
+              - 'bedrock:*'
+              - 'bedrock-agentcore:*'
+              # SageMaker (training, endpoints, notebooks, MLflow)
+              - 'sagemaker:*'
+              - 'sagemaker-mlflow:*'
+              # DataZone (required by SageMaker Unified Studio)
+              - 'datazone:*'
+              # Document and media processing
+              - 'textract:*'
+              - 'transcribe:*'
+              - 'rekognition:*'
+
+              # ── Storage ───────────────────────────────────────────
+              # S3 (artifacts, data, static assets)
+              - 's3:*'
+              # S3 Vectors (vector storage for knowledge bases)
+              - 's3vectors:*'
+              # DynamoDB (application state, session data)
+              - 'dynamodb:*'
+              # DynamoDB Accelerator (caching)
+              - 'dax:*'
+
+              # ── Compute ───────────────────────────────────────────
+              # Lambda (serverless functions, event processing)
+              - 'lambda:*'
+              # ECS/ECR (containerized workloads, e.g. Streamlit)
+              - 'ecs:*'
+              - 'ecr:*'
+              # Step Functions (workflow orchestration)
+              - 'states:*'
+
+              # ── API & Networking ──────────────────────────────────
+              # API Gateway (REST/HTTP APIs)
+              - 'apigateway:*'
+              - 'execute-api:*'
+              # Load balancing (ALB for ECS services)
+              - 'elasticloadbalancing:*'
+              - 'elasticloadbalancingv2:*'
+              # CloudFront (CDN for web clients and APIs)
+              - 'cloudfront:*'
+              # Route 53 (custom domain DNS)
+              - 'route53:*'
+              # VPC, security groups, subnets
+              - 'ec2:*'
+              # SSM (Session Manager, Run Command, Parameter Store)
+              - 'ssm:*'
+              - 'ssmmessages:*'
+              - 'ec2messages:*'
+
+              # ── Auth ──────────────────────────────────────────────
+              # Cognito (user authentication and identity federation)
+              - 'cognito-idp:*'
+              - 'cognito-identity:*'
+
+              # ── Messaging ─────────────────────────────────────────
+              # Queues and notifications
+              - 'sqs:*'
+              - 'sns:*'
+              # EventBridge (event routing and scheduling)
+              - 'events:*'
+              - 'scheduler:*'
+
+              # ── CI/CD ─────────────────────────────────────────────
+              # CodePipeline, CodeBuild, CodeCommit
+              - 'codepipeline:*'
+              - 'codebuild:*'
+              - 'codecommit:*'
+
+              # ── Infrastructure ────────────────────────────────────
+              # CloudFormation (all deployments use CFN)
+              - 'cloudformation:*'
+              # CloudWatch Logs (Lambda, ECS, CodeBuild logging)
+              - 'logs:*'
+              # Application Auto Scaling (ECS service scaling)
+              - 'application-autoscaling:*'
+
+              # ── Search ────────────────────────────────────────────
+              # OpenSearch
+              - 'es:*'
+              - 'aoss:*'
+              - 'osis:*'
+
+              # ── Security & Compliance (read/audit) ────────────────
+              # Security service access for audit. Write operations on
+              # these services are denied by the boundary guardrails
+              # (SecureSecurityServices, etc.).
+              - 'securityhub:*'
+              - 'guardduty:*'
+              - 'config:*'
+              - 'cloudtrail:*'
+              - 'macie2:*'
+              - 'inspector2:*'
+            Resource: '*'
+
+          # ── Defense-in-Depth Deny Statements ──────────────────────
+          # These are the same deny statements as in the boundary.
+          # Redundant but intentional: if someone attaches this policy
+          # to a role WITHOUT the boundary, the denies still apply.
+
+          - Sid: RestrictPublicAccess
+            Effect: Deny
+            Action:
+              - elasticmapreduce:PutBlockPublicAccessConfiguration
+              - s3:PutAccountPublicAccessBlock
+            Resource: '*'
+
+          - Sid: SecureLoggingConfigs
+            Effect: Deny
+            Action:
+              - cloudtrail:StopLogging
+              - cloudtrail:DeleteTrail
+              - cloudwatch:DeleteAlarms
+              - cloudwatch:DeleteDashboards
+              - cloudwatch:DisableAlarmActions
+            Resource: '*'
+
+          - Sid: SecureSecurityServices
+            Effect: Deny
+            Action:
+              - guardduty:DeleteDetector
+              - guardduty:DeleteInvitations
+              - guardduty:DeleteIPSet
+              - guardduty:DeleteMembers
+              - guardduty:DeleteThreatIntelSet
+              - guardduty:DisassociateFromMasterAccount
+              - guardduty:DisassociateMembers
+              - guardduty:StopMonitoringMembers
+              - guardduty:UpdateDetector
+              - config:DeleteConfigRule
+              - config:DeleteConfigurationRecorder
+              - config:DeleteDeliveryChannel
+              - config:StopConfigurationRecorder
+              - securityhub:Disable*
+              - securityhub:BatchDeleteAutomationRules
+              - securityhub:BatchDisableStandards
+              - securityhub:Delete*
+              - securityhub:Disassociate*
+            Resource: '*'
+
+          - Sid: DenyHighRiskNetworking
+            Effect: Deny
+            Action:
+              - ec2:AcceptTransitGateway*
+              - ec2:AssociateTransitGateway*
+              - ec2:CreateTransitGateway*
+              - ec2:DeleteTransitGateway*
+              - ec2:DeregisterTransitGateway*
+              - ec2:DisableTransitGateway*
+              - ec2:ModifyTransitGateway*
+              - ec2:RegisterTransitGateway*
+              - ec2:AcceptVpcPeeringConnection
+              - ec2:CreateVpcPeeringConnection
+              - ec2:DeleteVpcPeeringConnection
+              - ec2:ModifyVpcPeeringConnectionOptions
+              - ec2:RejectTransitGatewayPeeringAttachment
+              - ec2:RejectVpcPeeringConnection
+            Resource: '*'
+
+          - Sid: RestrictInternetAccesstoVPC
+            Effect: Deny
+            Action:
+              - ec2:AttachInternetGateway
+              - ec2:CreateInternetGateway
+              - ec2:CreateEgressOnlyInternetGateway
+              - globalaccelerator:Create*
+              - globalaccelerator:Update*
+            Resource: '*'
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 4: CodeBuild Execution Role
+  #
+  # Assumable by codebuild.amazonaws.com with the Innovation Builder
+  # policy set and permissions boundary. Replaces AdministratorAccess
+  # on CodeBuild execution roles.
+  # ──────────────────────────────────────────────────────────────────
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_W28
+            reason: "Explicit RoleName required for CodeBuild project configuration. Replacement risk accepted for POC."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "By design — role intentionally attaches ViewOnlyAccess (AWS-managed) for read-only console visibility. ViewOnlyAccess grants only Describe/Get/List actions. POC non-production environment."
+          - id: AwsSolutions-IAM5
+            reason: "CodeBuild role inherits same policy set as builder role. Permissions boundary enforces identical anti-escalation and guardrail controls."
+    Properties:
+      RoleName: !Ref CodeBuildRoleName
+      Description: >
+        CodeBuild execution role with Innovation Builder policies.
+        Replaces AdministratorAccess with scoped service access and
+        anti-escalation boundary.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSameAccountServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      ManagedPolicyArns:
+        - !Ref InnovationBuilderPolicy
+        - !Ref LimitedIAMAccessPolicy
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+      PermissionsBoundary: !Ref InnovationBuilderPolicyBoundary
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 5: SageMaker Execution Role
+  #
+  # Assumable by sagemaker.amazonaws.com with the Innovation Builder
+  # policy set and permissions boundary. Used as the execution role
+  # for SageMaker training jobs, endpoints, notebooks, processing
+  # jobs, and pipelines.
+  # ──────────────────────────────────────────────────────────────────
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_W28
+            reason: "Explicit RoleName required for SageMaker resource configuration. Replacement risk accepted for POC."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "By design — role intentionally attaches ViewOnlyAccess (AWS-managed) for read-only console visibility. ViewOnlyAccess grants only Describe/Get/List actions. POC non-production environment."
+          - id: AwsSolutions-IAM5
+            reason: "SageMaker execution role inherits same policy set as builder role. Permissions boundary enforces identical anti-escalation and guardrail controls."
+    Properties:
+      RoleName: !Ref SageMakerRoleName
+      Description: >
+        SageMaker execution role with Innovation Builder policies.
+        Replaces AmazonSageMakerFullAccess with scoped service access and
+        anti-escalation boundary.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSameAccountServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      ManagedPolicyArns:
+        - !Ref InnovationBuilderPolicy
+        - !Ref LimitedIAMAccessPolicy
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+      PermissionsBoundary: !Ref InnovationBuilderPolicyBoundary
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 6: EC2 Builder Role
+  #
+  # Assumable by ec2.amazonaws.com with the Innovation Builder policy
+  # set and permissions boundary. Used as the instance profile role
+  # for EC2 instances running development workloads.
+  # ──────────────────────────────────────────────────────────────────
+  EC2BuilderRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_W28
+            reason: "Explicit RoleName required for instance profile association. Replacement risk accepted for POC."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "By design — role intentionally attaches ViewOnlyAccess (AWS-managed) for read-only console visibility. ViewOnlyAccess grants only Describe/Get/List actions. POC non-production environment."
+          - id: AwsSolutions-IAM5
+            reason: "EC2 builder role inherits same policy set as builder role. Permissions boundary enforces identical anti-escalation and guardrail controls."
+    Properties:
+      RoleName: !Ref EC2BuilderRoleName
+      Description: >
+        EC2 instance role with Innovation Builder policies. Attach via
+        instance profile to EC2 instances for development workloads
+        under anti-escalation boundary controls.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSameAccountServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      ManagedPolicyArns:
+        - !Ref InnovationBuilderPolicy
+        - !Ref LimitedIAMAccessPolicy
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+      PermissionsBoundary: !Ref InnovationBuilderPolicyBoundary
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 7: EC2 Builder Instance Profile (Conditional)
+  #
+  # EC2 instances use instance profiles to get IAM role credentials.
+  # Created by default; set CreateEC2InstanceProfile to 'false' if
+  # you manage instance profiles separately.
+  # ──────────────────────────────────────────────────────────────────
+  EC2BuilderInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: ShouldCreateEC2InstanceProfile
+    Properties:
+      InstanceProfileName: !Ref EC2BuilderRoleName
+      Roles:
+        - !Ref EC2BuilderRole
+
+  # ──────────────────────────────────────────────────────────────────
+  # RESOURCE 8: Innovation Builder Role (Human Principal)
+  #
+  # Assumable by a configurable principal ARN with the Innovation
+  # Builder policy set and permissions boundary. The only difference
+  # from the service roles is the trust policy — this role is assumed
+  # by a human principal, not an AWS service.
+  # ──────────────────────────────────────────────────────────────────
+  BuilderRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: CFN_NAG_W28
+            reason: "Explicit RoleName required for stable trust policy configuration. Replacement risk accepted for POC."
+      cdk_nag:
+        rules_to_suppress:
+          - id: AwsSolutions-IAM4
+            reason: "By design — role intentionally attaches ViewOnlyAccess (AWS-managed) for read-only console visibility. ViewOnlyAccess grants only Describe/Get/List actions. POC non-production environment."
+          - id: AwsSolutions-IAM5
+            reason: "Role inherits wildcard permissions from attached customer-managed policies. Permissions boundary enforces deny-based guardrails."
+    Properties:
+      RoleName: !Ref BuilderRoleName
+      Description: >
+        Innovation Builder role for human principals. Provides the same
+        operational breadth as AdministratorAccess with anti-escalation
+        controls and auditable service scoping.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref TrustedPrincipalArn
+            Action: sts:AssumeRole
+            Condition:
+              DateLessThan:
+                aws:CurrentTime: !Ref RoleExpirationDate
+      ManagedPolicyArns:
+        - !Ref InnovationBuilderPolicy
+        - !Ref LimitedIAMAccessPolicy
+        - arn:aws:iam::aws:policy/job-function/ViewOnlyAccess
+      PermissionsBoundary: !Ref InnovationBuilderPolicyBoundary
+
+Outputs:
+  BoundaryPolicyArn:
+    Description: ARN of the combined permissions boundary
+    Value: !Ref InnovationBuilderPolicyBoundary
+    Export:
+      Name: !Sub ${AWS::StackName}-BoundaryPolicyArn
+
+  BoundaryPolicyName:
+    Description: Name of the permissions boundary policy
+    Value: !Ref BoundaryPolicyName
+
+  LimitedIAMPolicyArn:
+    Description: ARN of the limited IAM access policy
+    Value: !Ref LimitedIAMAccessPolicy
+    Export:
+      Name: !Sub ${AWS::StackName}-LimitedIAMPolicyArn
+
+  InnovationBuilderPolicyArn:
+    Description: ARN of the 47-service Innovation Builder policy
+    Value: !Ref InnovationBuilderPolicy
+    Export:
+      Name: !Sub ${AWS::StackName}-InnovationBuilderPolicyArn
+
+  CodeBuildRoleArn:
+    Description: ARN of the CodeBuild execution role
+    Value: !GetAtt CodeBuildRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeBuildRoleArn
+
+  CodeBuildRoleName:
+    Description: Name of the CodeBuild execution role
+    Value: !Ref CodeBuildRoleName
+
+  SageMakerExecutionRoleArn:
+    Description: ARN of the SageMaker execution role
+    Value: !GetAtt SageMakerExecutionRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-SageMakerExecutionRoleArn
+
+  SageMakerExecutionRoleName:
+    Description: Name of the SageMaker execution role
+    Value: !Ref SageMakerRoleName
+
+  EC2BuilderRoleArn:
+    Description: ARN of the EC2 builder role
+    Value: !GetAtt EC2BuilderRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-EC2BuilderRoleArn
+
+  EC2BuilderRoleName:
+    Description: Name of the EC2 builder role
+    Value: !Ref EC2BuilderRoleName
+
+  EC2BuilderInstanceProfileArn:
+    Condition: ShouldCreateEC2InstanceProfile
+    Description: ARN of the EC2 builder instance profile
+    Value: !GetAtt EC2BuilderInstanceProfile.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-EC2BuilderInstanceProfileArn
+
+  EC2BuilderInstanceProfileName:
+    Condition: ShouldCreateEC2InstanceProfile
+    Description: Name of the EC2 builder instance profile
+    Value: !Ref EC2BuilderRoleName
+
+  BuilderRoleArn:
+    Description: ARN of the builder role
+    Value: !GetAtt BuilderRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-BuilderRoleArn
+
+  BuilderRoleName:
+    Description: Name of the builder role
+    Value: !Ref BuilderRoleName

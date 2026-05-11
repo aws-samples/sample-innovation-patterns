@@ -25,6 +25,7 @@ EXCLUDE_PATHS=(
   ".gitlab"
   ".specify"
   "docs/docs/guides/releasing.md"
+  "scripts/.gitignore"
 )
 
 git remote add "$GITHUB_REMOTE" "$GITHUB_REPO" 2>/dev/null || true
@@ -42,6 +43,21 @@ for path in "${EXCLUDE_PATHS[@]}"; do
     git rm -rf "$path"
   fi
 done
+
+# Defensively strip any generated artifacts that may have slipped into git.
+# These match scripts/.gitignore: top-level scripts/*.mk except test.mk, and
+# top-level scripts/*.md except INSTALL-RUNBOOK.md. scripts/util/ is untouched.
+while IFS= read -r -d '' path; do
+  if git ls-files --error-unmatch "$path" &>/dev/null; then
+    git rm -f "$path"
+  fi
+done < <(find scripts -maxdepth 1 -type f \( -name '*.mk' ! -name 'test.mk' \) -print0)
+
+while IFS= read -r -d '' path; do
+  if git ls-files --error-unmatch "$path" &>/dev/null; then
+    git rm -f "$path"
+  fi
+done < <(find scripts -maxdepth 1 -type f \( -name '*.md' ! -name 'INSTALL-RUNBOOK.md' \) -print0)
 
 git commit --amend --no-edit
 
