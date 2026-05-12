@@ -5,7 +5,7 @@ sidebar_position: 4
 
 # /ipa-prepare
 
-Deploy one-time prerequisite infrastructure (ECR repositories, Cognito User Pool) by executing `scripts/prepare.mk`. This is the third step in the IPA lifecycle, run after `/ipa-compose` generates the Makefiles.
+Deploy one-time prerequisite infrastructure by executing `scripts/prepare.mk`. This is the third step in the IPA lifecycle, run after `/ipa-compose` generates the Makefiles. Prerequisite stacks always include ECR and Cognito; if `/ipa-compose codepipeline` was run, CodeCommit and CodePipeline stacks are also deployed.
 
 ## Invocation
 
@@ -45,12 +45,20 @@ Deploy one-time prerequisite infrastructure (ECR repositories, Cognito User Pool
 |----------|-------------|
 | ECR stack | `{APP_NAMESPACE}-{APP_ENV}-ecr` — Container image repository |
 | Cognito stack | `{APP_NAMESPACE}-{APP_ENV}-cognito` — User Pool with OAuth 2.0 |
+| CodeCommit stack | `{APP_NAMESPACE}-{APP_ENV}-codecommit` — Source repository (when composed with `codepipeline`) |
+| CodePipeline stack | `{APP_NAMESPACE}-{APP_ENV}-codepipeline` — 5-stage CI/CD pipeline (when composed with `codepipeline`) |
 
 :::warning
 Prepare stacks are not removed by `/ipa-destroy`. To tear them down manually, run:
 
 ```
 make -f scripts/prepare.mk teardown-prepare
+```
+
+To tear down only the CI/CD stacks:
+
+```
+make -f scripts/prepare.mk teardown-codepipeline teardown-codecommit
 ```
 :::
 
@@ -60,7 +68,7 @@ make -f scripts/prepare.mk teardown-prepare
 
     /ipa-prepare
 
-Review the dry-run plan and confirm to deploy ECR and Cognito stacks.
+Review the dry-run plan and confirm to deploy ECR and Cognito stacks (plus CodeCommit and CodePipeline if composed).
 
 ## Related Skills
 

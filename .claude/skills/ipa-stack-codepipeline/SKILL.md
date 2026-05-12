@@ -7,11 +7,15 @@ description: "Deploy a CodePipeline CI/CD pipeline with CodeBuild for automated 
 
 Deploy a CI/CD pipeline that runs the same `scripts/*.mk` Makefiles the builder runs locally. Contains CodeBuild project, CodePipeline, artifacts bucket, EventBridge trigger rule, and scoped IAM roles.
 
-## CloudFormation Contract
+## Stack Identity
 
-- **Template**: `infra/cfn/codepipeline/codepipeline.yml`
-- **Stack name**: `{APP_NAMESPACE}-{APP_ENV}-codepipeline`
-- **Capabilities**: `CAPABILITY_NAMED_IAM`
+| Property | Value |
+|----------|-------|
+| Stack name | `{APP_NAMESPACE}-{APP_ENV}-codepipeline` |
+| Template | `infra/cfn/codepipeline/codepipeline.yml` |
+| Capabilities | `CAPABILITY_NAMED_IAM` |
+| Lifecycle | prepare (prerequisite stack) |
+| Tier | codepipeline |
 
 ## Parameters
 
@@ -28,15 +32,36 @@ Deploy a CI/CD pipeline that runs the same `scripts/*.mk` Makefiles the builder 
 | ComputeType | String | `BUILD_GENERAL1_LARGE` | CodeBuild compute type |
 | KmsKeyArn | String | *(empty)* | Optional KMS key ARN for encryption at rest |
 
-### Wirable Parameters (from other stacks)
+## Wirable Parameters
 
-| Parameter | Source Stack | Source Output | Description |
-|-----------|-------------|---------------|-------------|
-| CodeBuildRoleArn | `{ns}-{env}-security` | `CodeBuildRoleArn` | CodeBuild execution role from `/ipa-security` |
-| EcrRepoUri | `{ns}-{env}-ecr` | `RepositoryUri` | ECR repository URI |
-| OidcIssuer | `{ns}-{env}-cognito` | `IssuerUrl` | Cognito OIDC issuer URL |
-| OidcClientId | `{ns}-{env}-cognito` | `UserPoolClientId` | Cognito app client ID |
-| OidcEndSessionEndpoint | `{ns}-{env}-cognito` | `EndSessionEndpoint` | Cognito end session endpoint |
+Parameters that receive values from other stacks during composition:
+
+| Parameter | Source Stack | Source Output | Notes |
+|-----------|-------------|---------------|-------|
+| CodeBuildRoleArn | security | CodeBuildRoleArn | From `/ipa-security` stack |
+| EcrRepoUri | ecr | RepositoryUri | ECR repository URI |
+| OidcIssuer | cognito | IssuerUrl | OIDC issuer URL |
+| OidcClientId | cognito | UserPoolClientId | Cognito app client ID |
+| OidcEndSessionEndpoint | cognito | EndSessionEndpoint | Cognito end session endpoint |
+| SourceRepoName | codecommit | RepositoryName | CodeCommit repository name |
+
+## Deploy Order
+
+| Constraint | Reason |
+|------------|--------|
+| codepipeline deploys after codecommit | SourceRepoName wiring dependency |
+| codepipeline deploys after ecr | EcrRepoUri wiring dependency |
+| codepipeline deploys after cognito | OIDC wiring dependencies |
+
+## Compose Config
+
+Parameters prompted during `/ipa-compose`:
+
+| Parameter | Prompt | Default | Validation |
+|-----------|--------|---------|------------|
+| SourceBranch | "Branch to trigger pipeline?" | `main` | — |
+| BuildImage | — | `aws/codebuild/standard:7.0` | — (use default) |
+| ComputeType | — | `BUILD_GENERAL1_LARGE` | — (use default) |
 
 ## CodeBuild Environment Variables
 

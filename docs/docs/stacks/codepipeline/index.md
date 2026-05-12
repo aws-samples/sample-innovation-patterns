@@ -8,8 +8,9 @@ sidebar_position: 1
 The CodePipeline stack deploys a fully automated CI/CD pipeline using AWS CodePipeline and AWS CodeBuild. It provisions a five-stage pipeline (Source, Test, Build, Deploy, PostDeploy) that executes the same Makefiles used during local development, ensuring parity between local and automated workflows. An EventBridge rule triggers the pipeline on every push to the tracked branch in CodeCommit, replacing polling-based source detection. All pipeline artifacts are stored in a private, encrypted S3 bucket with public access blocked and non-SSL requests denied.
 
 **Template:** `infra/cfn/codepipeline/codepipeline.yml`
-**Lifecycle:** prepare (one-time)
+**Lifecycle:** prepare (one-time prerequisite stack)
 **Capabilities:** `CAPABILITY_NAMED_IAM`
+**Composed via:** `/ipa-compose codepipeline`
 
 ## Five-Stage Pipeline
 

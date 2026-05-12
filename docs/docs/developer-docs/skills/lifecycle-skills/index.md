@@ -24,4 +24,4 @@ Lifecycle skills orchestrate the IPA project workflow from initialization throug
 | [/ipa-destroy](./ipa-destroy.md) | Tear down deployed pattern stacks |
 | [/ipa-help](./ipa-help.md) | Report project state and suggest the next lifecycle skill |
 | [/ipa-security](./ipa-security.md) | Backing skill for security provisioning (embedded in `/ipa-compose`; also usable standalone for right-sizing IAM) |
-| [/ipa-codepipeline](./ipa-codepipeline.md) | Deploy CI/CD pipeline (CodeCommit + CodePipeline) |
+| [/ipa-codepipeline](./ipa-codepipeline.md) | ~~Deploy CI/CD pipeline~~ **Deprecated** — use `/ipa-compose codepipeline` + `/ipa-prepare` |

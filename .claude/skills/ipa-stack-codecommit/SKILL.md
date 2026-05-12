@@ -7,11 +7,15 @@ description: "Deploy a CodeCommit repository for source code management."
 
 Deploy a CodeCommit source code repository. Provides repository name, ARN, and clone URL outputs for the codepipeline stack and builder instructions.
 
-## CloudFormation Contract
+## Stack Identity
 
-- **Template**: `infra/cfn/codecommit/codecommit.yml`
-- **Stack name**: `{APP_NAMESPACE}-{APP_ENV}-codecommit`
-- **Capabilities**: none
+| Property | Value |
+|----------|-------|
+| Stack name | `{APP_NAMESPACE}-{APP_ENV}-codecommit` |
+| Template | `infra/cfn/codecommit/codecommit.yml` |
+| Capabilities | none |
+| Lifecycle | prepare (prerequisite stack) |
+| Tier | codecommit |
 
 ## Parameters
 
@@ -24,6 +28,19 @@ Deploy a CodeCommit source code repository. Provides repository name, ARN, and c
 | KmsKeyArn | String | *(empty)* | `/^(arn:aws:kms:[a-z0-9-]+:\d{12}:key\/[a-f0-9-]+)?$/` | "Invalid KMS key ARN format" |
 
 All parameters are **Configuration** type — sourced from `.env`, builder input, or defaults.
+
+## Wirable Parameters
+
+No wirable parameters — all parameters are configuration type (sourced from `.env` or builder input).
+
+## Compose Config
+
+Parameters prompted during `/ipa-compose`:
+
+| Parameter | Prompt | Default | Validation |
+|-----------|--------|---------|------------|
+| RepositoryName | "CodeCommit repository name?" | `{APP_NAMESPACE}-{APP_ENV}-repo` | `/^[a-zA-Z0-9._-]+$/` |
+| RepositoryDescription | — | `IPA-managed source repository` | — (use default) |
 
 ## Outputs
 

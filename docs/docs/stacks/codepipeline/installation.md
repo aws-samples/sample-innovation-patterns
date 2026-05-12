@@ -7,11 +7,15 @@ sidebar_position: 2
 
 ## Compose
 
-The CodePipeline stack is provisioned through the `/ipa-codepipeline` process skill. This skill generates the prepare-phase Makefile and wires all cross-stack parameters automatically:
+The CodePipeline stack is a composable prepare-lifecycle stack integrated into `/ipa-compose`. To add it to the composition:
 
-    /ipa-codepipeline
+    /ipa-compose codepipeline
 
-The skill reads `.env` for namespace, environment, and account configuration, then prompts for the CodeCommit repository name and branch. The resulting Makefile is placed in `scripts/` alongside the other prepare-phase targets.
+The compose skill auto-includes `codecommit` as a transitive dependency and prompts for the CodeCommit repository name and branch. The generated `prepare.mk` includes `prepare-codecommit` and `prepare-codepipeline` targets with all cross-stack wiring.
+
+To deploy the stacks:
+
+    /ipa-prepare
 
 ## Configuration
 
@@ -50,7 +54,7 @@ The skill reads `.env` for namespace, environment, and account configuration, th
 
 ## Wiring
 
-The CodePipeline stack receives values from multiple upstream stacks. The `/ipa-codepipeline` skill wires these references automatically in the generated Makefile.
+The CodePipeline stack receives values from multiple upstream stacks. The `/ipa-compose` skill wires these references automatically in the generated `prepare.mk`.
 
 | CodePipeline Parameter | Source Stack | Source Output | Notes |
 |------------------------|-------------|---------------|-------|
