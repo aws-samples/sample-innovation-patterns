@@ -23,6 +23,7 @@ Auto-generated from all feature plans. Last updated: 2026-04-10
 - Python 3.12 + FastAPI >=0.115, boto3 >=1.42 (Bedrock runtime), Pydantic (request validation) (013-sse-inference-routes)
 - N/A (stateless — no database persistence) (013-sse-inference-routes)
 - YAML (CloudFormation templates), Markdown (Claude Code skill files) — no executable code + Claude Code skill framework, AWS CLI, GNU Make (014-ipa-codepipeline)
+- Markdown (Claude Code skill format) — no executable code + Claude Code skill framework (015-compose-codepipeline)
 
 ## Project Structure
 
@@ -51,6 +52,7 @@ scripts/                   # Generated Makefiles (deploy.mk, prepare.mk, etc.)
 Markdown (Claude Code skill format): Follow standard conventions
 
 ## Recent Changes
+- 015-compose-codepipeline: Integrated codecommit + codepipeline as composable prepare stacks in /ipa-compose. Deprecated standalone /ipa-codepipeline process skill. Added Compose Config prompting, env.mk pipeline target, MAKEFILE_TEMPLATES.md codepipeline notes.
 - 014-ipa-codepipeline: Added YAML (CloudFormation templates), Markdown (Claude Code skill files) — no executable code + Claude Code skill framework, AWS CLI, GNU Make
 - 013-sse-inference-routes: Added Python 3.12 + FastAPI >=0.115, boto3 >=1.42 (Bedrock runtime), Pydantic (request validation)
 - 012-tier-stack-consolidation: Consolidated 10 per-service CFN stacks into 3 tier-based stacks (frontend, backend, queue). Removed add-stacks/add-pattern compose modes. Updated MAKEFILE_TEMPLATES.md for consolidated stack names.

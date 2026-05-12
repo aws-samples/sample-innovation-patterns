@@ -5,7 +5,7 @@ sidebar_position: 4
 
 # /ipa-stack-codepipeline
 
-CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by `/ipa-codepipeline`, not by `/ipa-compose`.
+CI/CD pipeline with CodeBuild for automated build, test, and deploy. Composed via `/ipa-compose codepipeline` as a prepare-lifecycle stack.
 
 ## Stack Identity
 
@@ -14,7 +14,8 @@ CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by 
 | Stack name | `{APP_NAMESPACE}-{APP_ENV}-codepipeline` |
 | Template | `infra/cfn/codepipeline/codepipeline.yml` |
 | Capabilities | `CAPABILITY_NAMED_IAM` |
-| Lifecycle | infrastructure |
+| Lifecycle | prepare (prerequisite stack) |
+| Tier | codepipeline |
 
 ## Parameters
 
@@ -25,7 +26,6 @@ CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by 
 | `Namespace` | *(from `.env`)* | Project namespace |
 | `Environment` | *(from `.env`)* | Environment label |
 | `AccountId` | *(from `.env`)* | AWS account ID |
-| `SourceRepoName` | *(prompted)* | CodeCommit repository name |
 | `SourceBranch` | `main` | Branch that triggers the pipeline |
 | `BuildImage` | `aws/codebuild/standard:7.0` | CodeBuild image |
 | `ComputeType` | `BUILD_GENERAL1_LARGE` | CodeBuild compute type |
@@ -33,13 +33,22 @@ CI/CD pipeline with CodeBuild for automated build, test, and deploy. Managed by 
 
 ### Wirable Parameters
 
-| Parameter | Source |
-|-----------|--------|
-| `CodeBuildRoleArn` | security.CodeBuildRoleArn |
-| `EcrRepoUri` | ecr.RepositoryUri |
-| `OidcIssuer` | cognito.IssuerUrl |
-| `OidcClientId` | cognito.UserPoolClientId |
-| `OidcEndSessionEndpoint` | cognito.EndSessionEndpoint |
+| Parameter | Source Stack | Source Output | Notes |
+|-----------|-------------|---------------|-------|
+| `CodeBuildRoleArn` | security | CodeBuildRoleArn | From `/ipa-security` stack |
+| `EcrRepoUri` | ecr | RepositoryUri | ECR repository URI |
+| `OidcIssuer` | cognito | IssuerUrl | OIDC issuer URL |
+| `OidcClientId` | cognito | UserPoolClientId | Cognito app client ID |
+| `OidcEndSessionEndpoint` | cognito | EndSessionEndpoint | Cognito end session endpoint |
+| `SourceRepoName` | codecommit | RepositoryName | CodeCommit repository name |
+
+### Compose Config
+
+| Parameter | Prompt | Default |
+|-----------|--------|---------|
+| `SourceBranch` | "Branch to trigger pipeline?" | `main` |
+| `BuildImage` | — | `aws/codebuild/standard:7.0` |
+| `ComputeType` | — | `BUILD_GENERAL1_LARGE` |
 
 ### CodeBuild Environment Variables
 
@@ -77,6 +86,7 @@ The pipeline injects these environment variables into CodeBuild, which are inher
 
 ## Related Skills
 
-- [/ipa-codepipeline](../lifecycle-skills/ipa-codepipeline.md) — Creates and manages this stack
+- [/ipa-compose](../lifecycle-skills/ipa-compose.md) — Composes this stack into the project
+- [/ipa-prepare](../lifecycle-skills/ipa-prepare.md) — Deploys this stack
 - [/ipa-stack-codecommit](./ipa-stack-codecommit.md) — Source repository for the pipeline
 - [/ipa-security](../lifecycle-skills/ipa-security.md) — Provides the CodeBuild execution role

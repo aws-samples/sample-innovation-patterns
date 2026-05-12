@@ -25,7 +25,7 @@ IPA has a small vocabulary — skills, stacks, tiers, and composition — that t
 
 Skills fall into three categories [2].
 
-**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. The core lifecycle is four steps: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. Additional process skills include `/ipa-destroy` (teardown), `/ipa-help` (state inspection), and `/ipa-codepipeline` (CI/CD). `/ipa-security` is a backing skill invoked by `/ipa-compose` for initial provisioning [2].
+**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. The core lifecycle is four steps: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. Additional process skills include `/ipa-destroy` (teardown) and `/ipa-help` (state inspection). `/ipa-security` is a backing skill invoked by `/ipa-compose` for initial provisioning [2].
 
 **Stack skills** (`/ipa.stack.*`) are infrastructure nouns. Each stack skill wraps a CloudFormation template with skill metadata — a `SKILL.md` describing the stack's parameters, outputs, and wiring contract, and a `SECURITY.md` documenting its security posture [2][4].
 
@@ -64,7 +64,7 @@ Each step is one skill invocation. The builder does not need to understand which
 
 Security is a precondition, not a phase. The `/ipa-security` skill runs early in the sequence and provisions least-privilege IAM roles scoped to the composed stacks. As the composition evolves, re-running `/ipa-security` recalculates permissions from updated stack metadata [2][4]. For details on the security model, see the Skills reference documentation.
 
-An optional sixth step, `/ipa-codepipeline`, configures a CI/CD pipeline (CodeCommit and CodePipeline) that executes the same Makefiles the builder used locally [2].
+An optional addition is CI/CD: running `/ipa-compose codepipeline` followed by `/ipa-prepare` configures a CodeCommit repository and CodePipeline that execute the same Makefiles the builder used locally [2].
 
 ## From Builder to Customer
 

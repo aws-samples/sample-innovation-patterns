@@ -77,6 +77,6 @@ Running `/ipa-compose` with no arguments when a previous composition exists trig
 
 ## Beyond the Core Cycle
 
-`/ipa-codepipeline` deploys a CI/CD pipeline (CodeCommit + CodePipeline) that executes the same `scripts/*.mk` Makefiles the builder runs locally. Local development and pipeline deployments use identical build and deploy logic — there is no separate CI/CD configuration to maintain.
+Running `/ipa-compose codepipeline` followed by `/ipa-prepare` deploys a CI/CD pipeline (CodeCommit + CodePipeline) that executes the same `scripts/*.mk` Makefiles the builder runs locally. Local development and pipeline deployments use identical build and deploy logic — there is no separate CI/CD configuration to maintain.
 
 `/ipa-destroy` tears down deploy-lifecycle stacks in reverse dependency order but preserves prepare and security stacks. The builder can destroy the application layer, modify code or templates, re-compose, and redeploy without re-provisioning prerequisites. This supports an experiment-and-iterate workflow where the cost of tearing down and rebuilding is low.

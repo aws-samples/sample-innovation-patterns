@@ -180,6 +180,18 @@ For each selected stack, read its `## Wirable Parameters` section. Every **Sourc
 
 Display: "Auto-including prepare stacks: {list of auto-included tier names}"
 
+#### 3.1.5 Prompt for Compose Config Values
+
+For each stack in the composition that has a `## Compose Config` section with `Prompt` values:
+
+1. Read the Compose Config table.
+2. For each row with a Prompt and a Default, use AskUserQuestion to present the default as the recommended option, with "Other" available for custom input.
+3. Validate input against the Validation regex (if specified).
+4. Store the resolved values in a `compose_config` map keyed by `{stack}.{parameter}`.
+5. These values are passed as `--parameter-overrides` in the generated prepare.mk targets.
+
+**Special wiring rule for codepipeline + codecommit**: When `codepipeline` is selected and `codecommit` is in its Wirable Parameters as a source, compose's auto-include resolver (Step 3.1) MUST add codecommit. The builder is prompted ONCE for `RepositoryName` (during codecommit's Compose Config), and codepipeline's `SourceRepoName` parameter is wired to codecommit's output via `$(eval)` in prepare.mk.
+
 #### 3.2 Derive Wiring Map
 
 Build the complete wiring map from all stacks' `## Wirable Parameters` sections. Each row in a stack's wirable parameters table becomes a wiring entry:
@@ -319,7 +331,9 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) prepare.mk template. Generat
 4. **Aggregate teardown target**: `teardown-prepare: teardown-{tierN} ... teardown-{tier1}` in reverse order.
 5. **Per-stack teardown targets**: `aws cloudformation delete-stack` + `wait stack-delete-complete`.
 
-**Note**: Environment variable writes (OIDC, ECR, SQS) are no longer generated in prepare.mk. They are consolidated in `env.mk` (see Step 6c). The prepare chain is simplified to: `prepare-cognito → prepare-ecr` (direct dependency, no env targets).
+**Note**: Environment variable writes (OIDC, ECR, SQS) are no longer generated in prepare.mk. They are consolidated in `env.mk` (see Step 6c). The prepare chain is simplified to: `prepare-cognito → prepare-ecr` (direct dependency, no env targets). When `codepipeline` is in the composition, `prepare-codecommit` and `prepare-codepipeline` are appended to the chain.
+
+**Security source stack special case**: When a wirable parameter's Source Stack is `security`, do NOT generate a `$(eval)` line to query the security CloudFormation stack. Instead, reference the `.env` variable directly (e.g., `CodeBuildRoleArn=$(APP_CODEBUILD_ROLE_ARN)`). The security stack is deployed by `/ipa-security` outside the compose/prepare flow, and its outputs are written to `.env` by that skill.
 
 **Critical rules**:
 - Same naming/variable conventions as deploy.mk
@@ -390,6 +404,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) env.mk template. Generate:
    - **cognito** → `update-env-cognito` (writes OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_DISCOVERY_URL, OIDC_END_SESSION_ENDPOINT, OIDC_USER_POOL_ID)
    - **ecr** → `update-env-ecr` (writes ECR_REPO_URI)
    - **queue** → `update-env-sqs` (writes SQS_QUEUE_URL)
+   - **codepipeline** → `update-env-pipeline` (writes PIPELINE_STACK_NAME, PIPELINE_NAME, CODEBUILD_PROJECT_NAME, CODECOMMIT_STACK_NAME, CODECOMMIT_REPO_NAME, CODECOMMIT_CLONE_URL)
 
 Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo` to idempotently write to `.env`.
 
@@ -397,6 +412,7 @@ Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo
 - Generate `update-env-cognito` when the composition includes `cognito` (any lifecycle)
 - Generate `update-env-ecr` when the composition includes `ecr` (any lifecycle)
 - Generate `update-env-sqs` when the composition includes `queue` (any lifecycle)
+- Generate `update-env-pipeline` when the composition includes `codepipeline` (any lifecycle)
 - If no stacks with env outputs are present, generate a no-op: `update-env: @echo "No environment variables to sync"`
 
 **Critical rules**:
@@ -585,3 +601,17 @@ Security deferrals by stack, included in SECURITY-DISPOSITION.md only when the s
 |----|---------|-----------|
 | SQS-1 | No FIFO queue support | POC scope — standard queue sufficient |
 | SQS-2 | No SSE streaming for job status | POC scope |
+
+### codecommit
+
+| ID | Finding | Rationale |
+|----|---------|-----------|
+| CC-1 | No KMS encryption at rest | POC scope — CodeCommit uses SSE by default |
+
+### codepipeline
+
+| ID | Finding | Rationale |
+|----|---------|-----------|
+| CP-1 | No KMS encryption for artifacts | POC scope — SSE-S3 default encryption used |
+| CP-2 | No cross-account pipeline support | POC scope — single-account deployment |
+| CP-3 | No approval stage | POC scope — auto-deploys on push |

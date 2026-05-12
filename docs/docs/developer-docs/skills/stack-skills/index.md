@@ -37,9 +37,9 @@ These stacks provide shared prerequisites and persist across deploy/destroy cycl
 | [/ipa-stack-ecr](./ipa-stack-ecr.md) | ECR repository for container images |
 | [/ipa-stack-cognito](./ipa-stack-cognito.md) | Cognito User Pool with OAuth 2.0 and OIDC |
 
-## Infrastructure Stacks
+## CI/CD Prepare Stacks
 
-These stacks support CI/CD and are managed by `/ipa-codepipeline`.
+These stacks support CI/CD and are composed via `/ipa-compose codepipeline`. They follow the prepare lifecycle.
 
 | Stack | Description |
 |-------|-------------|

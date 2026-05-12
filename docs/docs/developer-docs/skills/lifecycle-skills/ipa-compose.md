@@ -19,13 +19,23 @@ Optionally pass stack names or a natural-language description:
 
     /ipa-compose
     /ipa-compose I need a React frontend with a REST API backend and SQS queue
+    /ipa-compose codepipeline
 
 ## Parameters
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| Stack name(s) | No | One or more stack names (e.g., `backend`, `frontend`, `queue`). If omitted, the skill discovers available stacks and prompts for selection. |
+| Stack name(s) | No | One or more stack names (e.g., `backend`, `frontend`, `queue`, `codepipeline`). If omitted, the skill discovers available stacks and prompts for selection. |
 | Natural language | No | A description of the desired architecture. The skill maps it to matching stacks. |
+
+### Compose Config Prompting
+
+When composing prepare-lifecycle stacks that require configuration, the skill prompts for values before generating Makefiles. For example, `/ipa-compose codepipeline` prompts for:
+
+| Prompt | Default | Description |
+|--------|---------|-------------|
+| Repository name | `{APP_NAMESPACE}-{APP_ENV}-repo` | Name of the CodeCommit repository |
+| Trigger branch | `main` | Branch that triggers pipeline execution |
 
 **Prerequisites from `.env`:**
 
@@ -67,7 +77,7 @@ Creates seven artifacts in `scripts/`:
 
 | File | Purpose |
 |------|---------|
-| `scripts/prepare.mk` | One-time prerequisite stacks (ECR, Cognito) |
+| `scripts/prepare.mk` | One-time prerequisite stacks (ECR, Cognito, and optionally CodeCommit + CodePipeline) |
 | `scripts/deploy.mk` | Main deployment stacks in dependency order |
 | `scripts/build.mk` | Container and frontend build targets |
 | `scripts/post-deploy.mk` | Post-deployment operations (config generation, S3 upload, CDN invalidation) |
@@ -83,7 +93,7 @@ Displays a completion summary with generated files, next steps (`/ipa-prepare` â
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| Prepare Makefile | `scripts/prepare.mk` | Targets for prerequisite stack deployment |
+| Prepare Makefile | `scripts/prepare.mk` | Targets for prerequisite stack deployment (Cognito, ECR, and optionally CodeCommit + CodePipeline) |
 | Deploy Makefile | `scripts/deploy.mk` | Targets for composed stack deployment |
 | Build Makefile | `scripts/build.mk` | Container and frontend build targets |
 | Post-Deploy Makefile | `scripts/post-deploy.mk` | Post-deployment operational targets |
@@ -104,6 +114,12 @@ Discovers available stacks and prompts for selection. Generates Makefiles for th
     /ipa-compose
 
 Re-running compose detects existing composition and lets you add stacks or refresh the current selection.
+
+**Add CI/CD to an existing composition:**
+
+    /ipa-compose codepipeline
+
+Auto-includes `codecommit` as a transitive dependency. Prompts for repository name and trigger branch. Regenerates `prepare.mk` with `prepare-codecommit` and `prepare-codepipeline` targets, and adds `update-env-pipeline` to `env.mk`.
 
 **Re-compose after changes:**
 

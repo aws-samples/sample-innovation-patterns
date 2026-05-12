@@ -77,7 +77,7 @@ docs/docs/
 │   │   │   ├── ipa-prepare.md
 │   │   │   ├── ipa-deploy.md
 │   │   │   ├── ipa-destroy.md
-│   │   │   └── ipa-codepipeline.md
+│   │   │   └── ipa-codepipeline.md  # DEPRECATED — redirects to compose+prepare
 │   │   ├── stack-skills/
 │   │   │   └── index.md
 │   │   └── author-skills/
