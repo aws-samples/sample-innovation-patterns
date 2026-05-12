@@ -25,8 +25,7 @@ Do not use this guide if the composition has not been deployed successfully at l
 Before you start, confirm the following:
 
 - `/ipa-init` completed — `.env` contains `APP_NAMESPACE`, `APP_ENV`, `AWS_ACCOUNT_ID`, and `AWS_REGION`
-- `/ipa-security` completed — `.env` contains `APP_CODEBUILD_ROLE_ARN`
-- `/ipa-compose` completed — `scripts/` directory contains generated Makefiles (`deploy.mk`, `build.mk`, `test.mk`, `post-deploy.mk`)
+- `/ipa-compose` completed — `scripts/` directory contains generated Makefiles (`deploy.mk`, `build.mk`, `test.mk`, `post-deploy.mk`). Security is configured (`.env` contains `APP_CODEBUILD_ROLE_ARN`)
 - `/ipa-prepare` completed — ECR and Cognito stacks are deployed in the target account
 - `/ipa-deploy` completed at least once — the composition deploys successfully from local Makefile targets
 - AWS CLI configured with credentials that have `iam:CreateRole` and `iam:PassRole` permissions (required for pipeline IAM roles)
@@ -76,27 +75,33 @@ ls scripts/deploy.mk scripts/build.mk scripts/test.mk scripts/post-deploy.mk
 
 All four files are listed. If any prerequisite is missing, complete the corresponding skill (`/ipa-init`, `/ipa-compose`, `/ipa-prepare`) before continuing.
 
-### 2. Run /ipa-codepipeline
+### 2. Compose the codepipeline stacks
 
-To deploy the pipeline infrastructure, invoke the codepipeline skill:
+To add CI/CD infrastructure to the composition, invoke `/ipa-compose` with the `codepipeline` argument:
 
 ```
-/ipa-codepipeline
+/ipa-compose codepipeline
 ```
 
-The skill performs the following:
+The compose skill performs the following:
 
-1. Validates `.env` prerequisites (init variables, CodeBuild role, Makefiles)
+1. Auto-includes `codecommit` as a transitive dependency of `codepipeline`
 2. Prompts for a **repository name** (default: `{APP_NAMESPACE}-{APP_ENV}-repo`) and **trigger branch** (default: `main`)
-3. Queries the ECR and Cognito stacks for output values needed as CodeBuild environment variables
-4. Displays a confirmation summary with all settings and their sources
-5. Deploys the **CodeCommit stack** (`infra/cfn/codecommit/codecommit.yml`) — creates the source repository
-6. Deploys the **CodePipeline stack** (`infra/cfn/codepipeline/codepipeline.yml`) — creates the pipeline, CodeBuild project, artifact bucket, and EventBridge trigger
-7. Writes pipeline variables to `.env`
+3. Regenerates all Makefiles — `prepare.mk` now includes `prepare-codecommit` and `prepare-codepipeline` targets
+4. Updates `env.mk` with an `update-env-pipeline` target
+5. Updates `SECURITY-DISPOSITION.md` with codecommit and codepipeline deferrals
 
-When both stacks deploy successfully, the skill displays the pipeline console URL, clone URL, and push instructions.
+### 3. Deploy prepare stacks
 
-### 3. Review the pipeline stages
+To deploy the CI/CD infrastructure alongside other prepare stacks, run:
+
+```
+/ipa-prepare
+```
+
+This deploys all prepare stacks in dependency order: cognito → ecr → codecommit → codepipeline. The codepipeline stack wires automatically to the security, ECR, Cognito, and CodeCommit stacks.
+
+### 4. Review the pipeline stages
 
 The deployed pipeline has five stages. Each stage runs the corresponding Makefile target in a CodeBuild environment with the same environment variables the builder uses locally.
 
@@ -114,7 +119,7 @@ The buildspec is inline in the CloudFormation template — no `buildspec.yml` fi
 The CodeBuild project installs Python 3.12, Node.js 22, and `uv` in the install phase of every stage. Privileged mode is enabled for Docker builds.
 :::
 
-### 4. Push source code to CodeCommit
+### 5. Push source code to CodeCommit
 
 To add the CodeCommit repository as a remote and push the source code, run:
 
@@ -129,7 +134,7 @@ Replace `main` with the branch name configured in step 2 if a different branch w
 The pipeline triggers automatically on the first push. Verify that all Makefile targets pass locally before pushing to avoid a failed initial pipeline run.
 :::
 
-### 5. Monitor the pipeline
+### 6. Monitor the pipeline
 
 To check the pipeline status from the CLI, run:
 
@@ -150,7 +155,7 @@ https://{AWS_REGION}.console.aws.amazon.com/codesuite/codepipeline/pipelines/{PI
 
 Replace `{AWS_REGION}` and `{PIPELINE_NAME}` with the values from `.env`.
 
-### 6. Trigger subsequent pipeline runs
+### 7. Trigger subsequent pipeline runs
 
 After the initial push, the pipeline triggers automatically on every push to the configured branch. The EventBridge rule watches for `referenceCreated` and `referenceUpdated` events on the CodeCommit repository and starts a new pipeline execution.
 
@@ -198,8 +203,8 @@ Verify the deployed application is functional by testing its endpoints. The depl
 |---------|-------------|-----|
 | Stack creation fails with "Role ARN does not exist" on CodeBuildProject | The `APP_CODEBUILD_ROLE_ARN` in `.env` references a role that does not exist or was deleted. | Run `/ipa-security` to create the CodeBuild execution role. Verify `APP_CODEBUILD_ROLE_ARN` in `.env` matches the security stack output. |
 | Stack creation fails with "BucketAlreadyExists" | The S3 artifact bucket name `{namespace}-{env}-pipeline-artifacts-{account_id}` collides with an existing bucket. S3 bucket names are globally unique. | Change `APP_NAMESPACE` via `/ipa-init` to produce a different bucket name, or delete the existing bucket if it is unused. |
-| Pipeline Source stage fails with "Repository not found" | The CodeCommit repository referenced by `SourceRepoName` does not exist, or the codecommit stack failed to deploy. | Verify the codecommit stack deployed successfully: `source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name ${APP_NAMESPACE}-${APP_ENV}-codecommit`. Re-run `/ipa-codepipeline` if the stack is missing. |
-| CodeBuild stages fail with empty environment variables (`ECR_REPO_URI`, `OIDC_ISSUER`) | The prepare stacks (ECR, Cognito) were redeployed with different outputs after the pipeline was created, but the pipeline stack was not updated. | Re-run `/ipa-codepipeline` and select "Yes, update" to re-query prepare-stack outputs and update the pipeline stack. |
+| Pipeline Source stage fails with "Repository not found" | The CodeCommit repository referenced by `SourceRepoName` does not exist, or the codecommit stack failed to deploy. | Verify the codecommit stack deployed successfully: `source .env 2>/dev/null; aws cloudformation describe-stacks --stack-name ${APP_NAMESPACE}-${APP_ENV}-codecommit`. Re-run `/ipa-prepare` if the stack is missing. |
+| CodeBuild stages fail with empty environment variables (`ECR_REPO_URI`, `OIDC_ISSUER`) | The prepare stacks (ECR, Cognito) were redeployed with different outputs after the pipeline was created, but the pipeline stack was not updated. | Re-run `/ipa-compose` to regenerate Makefiles, then `/ipa-prepare` to update the pipeline stack with current prepare-stack outputs. |
 | Pipeline triggers immediately after creation before code is pushed | This is expected behavior. EventBridge may trigger on initial repository state. The Test stage fails because no source code exists. | Push code to the CodeCommit repository. The next pipeline run will succeed. The initial auto-trigger failure is harmless. |
 
 ## Next Steps
@@ -207,5 +212,5 @@ Verify the deployed application is functional by testing its endpoints. The depl
 - **Harden for production** — see [Path to Production](path-to-production.md) for configuration changes, security hardening, and customer handoff procedures
 - **CodePipeline stack reference** — see the stack skill documentation at `.claude/skills/ipa-stack-codepipeline/` for template parameters, outputs, and resource details
 - **CodeCommit stack reference** — see the stack skill documentation at `.claude/skills/ipa-stack-codecommit/` for repository configuration options
-- **Tear down the pipeline** — run `/ipa-destroy` to remove the pipeline and repository stacks (see [the destroy skill documentation](/developer-docs/skills/lifecycle-skills/ipa-destroy))
-- **Update the pipeline** — re-run `/ipa-codepipeline` at any time to update the pipeline configuration with current prepare-stack outputs
+- **Tear down the pipeline** — prepare stacks are not auto-destroyed by `/ipa-destroy`. To tear down manually: `make -f scripts/prepare.mk teardown-codepipeline teardown-codecommit`
+- **Update the pipeline** — re-run `/ipa-compose` to regenerate Makefiles, then `/ipa-prepare` to update the pipeline stack with current prepare-stack outputs

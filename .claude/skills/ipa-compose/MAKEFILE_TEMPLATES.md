@@ -221,6 +221,135 @@ prepare-cognito:
 
 **Note**: Environment variable writes (`OIDC_*`, `ECR_REPO_URI`, `SQS_QUEUE_URL`) are consolidated in `env.mk` (see env.mk Template section below). The prepare chain no longer includes env-writing targets.
 
+### Per-Stack Prepare Target — CodeCommit
+
+When the composition includes `codecommit`, generate a target with the builder-prompted `RepositoryName` passed as a `--parameter-overrides` value:
+
+```makefile
+CODECOMMIT_REPO_NAME ?= $(APP_NAMESPACE)-$(APP_ENV)-repo
+
+prepare-codecommit:
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codecommit \
+		--template-file infra/cfn/codecommit/codecommit.yml \
+		--parameter-overrides \
+			Namespace=$(APP_NAMESPACE) \
+			Environment=$(APP_ENV) \
+			RepositoryName=$(CODECOMMIT_REPO_NAME) \
+			RepositoryDescription="IPA-managed source repository" \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),) \
+		--no-fail-on-empty-changeset
+```
+
+The `CODECOMMIT_REPO_NAME` variable is set at the top of `prepare.mk` using `?=` (conditional assignment), allowing the builder to override at runtime via `make CODECOMMIT_REPO_NAME=my-repo -f scripts/prepare.mk prepare`. The compose-time default is set to the value the builder confirmed during `/ipa-compose`.
+
+### Per-Stack Prepare Target — CodePipeline
+
+When the composition includes `codepipeline`, generate a target that wires to security (via `.env`), ecr, cognito, and codecommit. All four dependency prepare targets are prerequisites:
+
+```makefile
+PIPELINE_SOURCE_BRANCH ?= main
+
+prepare-codepipeline: prepare-codecommit prepare-ecr prepare-cognito
+	$(eval CODECOMMIT_REPO_NAME_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codecommit \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval ECR_REPO_URI_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_ISSUER_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_CLIENT_ID_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval OIDC_END_SESSION_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	aws cloudformation deploy \
+		--template-file infra/cfn/codepipeline/codepipeline.yml \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codepipeline \
+		--parameter-overrides \
+			Namespace=$(APP_NAMESPACE) \
+			Environment=$(APP_ENV) \
+			AccountId=$(AWS_ACCOUNT_ID) \
+			CodeBuildRoleArn=$(APP_CODEBUILD_ROLE_ARN) \
+			SourceRepoName=$(CODECOMMIT_REPO_NAME_VAL) \
+			SourceBranch=$(PIPELINE_SOURCE_BRANCH) \
+			EcrRepoUri=$(ECR_REPO_URI_VAL) \
+			OidcIssuer=$(OIDC_ISSUER_VAL) \
+			OidcClientId=$(OIDC_CLIENT_ID_VAL) \
+			OidcEndSessionEndpoint=$(OIDC_END_SESSION_VAL) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),) \
+		--no-fail-on-empty-changeset
+```
+
+**Key notes**:
+- `CodeBuildRoleArn` is sourced from `$(APP_CODEBUILD_ROLE_ARN)` (loaded from `.env`), NOT via `$(eval)` from a CloudFormation stack query. The security stack is deployed by `/ipa-security` outside the compose/prepare flow.
+- `PIPELINE_SOURCE_BRANCH` uses `?=` (conditional assignment) with the compose-time default. Override at runtime via `make PIPELINE_SOURCE_BRANCH=develop -f scripts/prepare.mk prepare`.
+- The prepare dependency chain adds: `prepare-codecommit` → `prepare-codepipeline` (after cognito/ecr).
+- `prepare-codepipeline` requires `CAPABILITY_NAMED_IAM`.
+
+### Per-Stack env.mk Target — Pipeline
+
+When the composition includes `codepipeline`, generate an `update-env-pipeline` target:
+
+```makefile
+update-env-pipeline:
+	$(eval PIPELINE_NAME_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codepipeline \
+		--query 'Stacks[0].Outputs[?OutputKey==`PipelineName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval CODEBUILD_PROJECT_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codepipeline \
+		--query 'Stacks[0].Outputs[?OutputKey==`CodeBuildProjectName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval CODECOMMIT_REPO_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codecommit \
+		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval CODECOMMIT_CLONE_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codecommit \
+		--query 'Stacks[0].Outputs[?OutputKey==`CloneUrlHttp`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
+		$(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing pipeline configuration to .env..."
+	@grep -v '^PIPELINE_STACK_NAME=\|^PIPELINE_NAME=\|^CODEBUILD_PROJECT_NAME=\|^CODECOMMIT_STACK_NAME=\|^CODECOMMIT_REPO_NAME=\|^CODECOMMIT_CLONE_URL=\|^# Pipeline Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# Pipeline Configuration (written by /ipa-deploy after codepipeline deploy)" >> .env
+	@echo "PIPELINE_STACK_NAME=$(APP_NAMESPACE)-$(APP_ENV)-codepipeline" >> .env
+	@echo "PIPELINE_NAME=$(PIPELINE_NAME_VAL)" >> .env
+	@echo "CODEBUILD_PROJECT_NAME=$(CODEBUILD_PROJECT_VAL)" >> .env
+	@echo "CODECOMMIT_STACK_NAME=$(APP_NAMESPACE)-$(APP_ENV)-codecommit" >> .env
+	@echo "CODECOMMIT_REPO_NAME=$(CODECOMMIT_REPO_VAL)" >> .env
+	@echo "CODECOMMIT_CLONE_URL=$(CODECOMMIT_CLONE_VAL)" >> .env
+```
+
 ### Aggregate Teardown Target
 
 ```makefile
