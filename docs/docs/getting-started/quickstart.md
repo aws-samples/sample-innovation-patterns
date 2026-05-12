@@ -196,6 +196,6 @@ All IPA skills are idempotent. Re-run `/ipa-deploy` at any time to update the de
 
 ## Next Steps
 
-- Run `/ipa-codepipeline` to set up CI/CD with CodePipeline
+- Run `/ipa-compose codepipeline` then `/ipa-prepare` to set up CI/CD with CodePipeline
 - Explore the [Stacks](/stacks) section for per-stack reference documentation
 - Read the [Developer Docs](/developer-docs) for codebase conventions and contribution guidelines
