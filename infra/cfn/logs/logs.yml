@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "IPA Log Bucket — centralized S3 log bucket for CloudFront, S3 access, and VPC flow logs"
+
+Parameters:
+  Namespace:
+    Type: String
+  Environment:
+    Type: String
+  AccountId:
+    Type: String
+  Region:
+    Type: String
+  KmsKeyArn:
+    Type: String
+    Default: ""
+
+Conditions:
+  UseKmsKey: !Not [!Equals [!Ref KmsKeyArn, ""]]
+
+Resources:
+  LogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Namespace}-${Environment}-logs-${AccountId}-${Region}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [UseKmsKey, "aws:kms", "AES256"]
+              KMSMasterKeyID: !If [UseKmsKey, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireLogs
+            Status: Enabled
+            ExpirationInDays: 90
+
+  LogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowS3ServerAccessLogs
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: "s3:PutObject"
+            Resource: !Sub "arn:aws:s3:::${LogBucket}/s3-access-logs/*"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref AccountId
+          - Sid: AllowCloudFrontLogs
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: "s3:PutObject"
+            Resource: !Sub "arn:aws:s3:::${LogBucket}/cloudfront-logs/*"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref AccountId
+          - Sid: AllowVPCFlowLogs
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: "s3:PutObject"
+            Resource: !Sub "arn:aws:s3:::${LogBucket}/vpc-flow-logs/*"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Ref AccountId
+          - Sid: DenyNonSSL
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "arn:aws:s3:::${LogBucket}"
+              - !Sub "arn:aws:s3:::${LogBucket}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+Outputs:
+  LogBucketName:
+    Value: !Ref LogBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-LogBucketName"
+  LogBucketArn:
+    Value: !GetAtt LogBucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-LogBucketArn"

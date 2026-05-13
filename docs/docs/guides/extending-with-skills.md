@@ -171,11 +171,7 @@ Open `.claude/skills/ipa-stack-NAME/SECURITY.md` and confirm it documents:
 - **Security Controls** — hardcoded security posture (encryption, access control, logging)
 - **Known Deferrals** — any security items deferred for POC scope, each with a Reason and Risk assessment
 
-After creating or updating the stack skill, run `/ipa-security` to recalculate the Builder Execution Role permissions for the new stack:
-
-```
-/ipa-security
-```
+If the new stack requires IAM actions not covered by the current Builder Execution Role, update the role's policy or re-run `/ipa-security` to switch configuration paths.
 
 ### 6. Test composition
 
@@ -270,5 +266,5 @@ To verify the full workflow succeeded, confirm these checks:
 - **Compose the new stack into a solution** — see [Composing a Solution](composing-solution.md)
 - **Stack skills reference** — see [Stack Skills](/developer-docs/skills/stack-skills) for documentation on all built-in stack skills
 - **Author skills reference** — see [Author Skills](/developer-docs/skills/author-skills) for documentation on `/ipa-author-stack`
-- **Recalculate security permissions** — run `/ipa-security` to update the Builder Execution Role for the new stack
+- **Update security permissions** — run `/ipa-security` if the new stack requires IAM actions not covered by the current role
 - **Tear down the deployment** — run `/ipa-destroy` (see [Path to Production](path-to-production.md) for lifecycle management)

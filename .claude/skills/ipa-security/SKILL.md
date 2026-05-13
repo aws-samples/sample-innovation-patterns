@@ -1,18 +1,18 @@
 ---
 name: ipa-security
-description: "Provision or update centralized security infrastructure (IAM roles, log bucket) for an IPA project. Use when the user says 'security', 'set up security', 'IAM roles', or invokes /ipa-security."
+description: "Provision or update centralized security infrastructure (IAM roles) for an IPA project. Use when the user says 'security', 'set up security', 'IAM roles', or invokes /ipa-security."
 model: opus
 ---
 
 # /ipa-security — Provision Security Infrastructure
 
-This skill provisions or updates centralized security infrastructure for an IPA project: IAM execution roles and a centralized S3 log bucket. It supports three configuration paths:
+This skill provisions or updates centralized security infrastructure for an IPA project: IAM execution roles. It supports three configuration paths:
 
 1. **Existing Role ARN** — Builder provides pre-provisioned role ARNs (no IAM creation)
 2. **Managed Policy ARN** — IPA creates Builder and CodeBuild roles with a chosen managed policy
 3. **Innovation Builder Stack** — Deploys IPA's pre-authored security stack (permissions boundary + 47-service policy + Builder/CodeBuild/SageMaker/EC2 roles)
 
-All paths produce two CloudFormation stacks: `{namespace}-{env}-security` (IAM/roles) and `{namespace}-{env}-logs` (centralized log bucket). The resulting identifiers are written to `.env` for consumption by downstream IPA skills (`/ipa-compose`, `/ipa-deploy`, `/ipa-codepipeline`).
+All paths produce one CloudFormation stack: `{namespace}-{env}-security` (IAM/roles). The resulting identifiers are written to `.env` for consumption by downstream IPA skills (`/ipa-compose`, `/ipa-deploy`, `/ipa-codepipeline`).
 
 Initial security provisioning is triggered automatically on first `/ipa-compose` run. Direct invocation of `/ipa-security` is reserved for reviewing or updating an existing configuration.
 
@@ -32,7 +32,6 @@ The skill manages these variables in the `.env` file's `# IPA Security Configura
 
 > **Derived at runtime (not stored in `.env`)**:
 > - Security stack name: `{APP_NAMESPACE}-{APP_ENV}-security` (convention)
-> - Log bucket name: `{APP_NAMESPACE}-{APP_ENV}-logs-{AWS_ACCOUNT_ID}-{AWS_REGION}` (convention)
 > - Managed policy: read from CloudFormation stack parameters via `describe-stacks`
 
 ### .env File Format
@@ -219,8 +218,6 @@ Proceed to **Step 5: Confirmation Summary** with path = "Innovation Builder Stac
 
 ## Step 5: Confirmation Summary
 
-> **Note**: KMS encryption is not prompted. The log bucket always uses SSE-S3 (AES-256) encryption. The CloudFormation template retains the `KmsKeyArn` parameter with its default empty string for backwards compatibility — always pass `KmsKeyArn=""` during deployment.
-
 Display a confirmation table before deployment. Adapt the content based on the chosen path.
 
 ### Managed Policy Path Example:
@@ -234,8 +231,6 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ Builder Role         │ (will be created)                               │ generated     │
 │ CodeBuild Role       │ (will be created)                               │ generated     │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
-│ Log Bucket           │ myproject-dev-logs-123456789012-us-east-1       │ computed      │
-│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
@@ -249,8 +244,6 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ Builder Role ARN     │ arn:aws:iam::123456789012:role/my-builder       │ prompted      │
 │ CodeBuild Role ARN   │ (skipped — deferred to /ipa-codepipeline)      │ skipped       │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
-│ Log Bucket Stack     │ myproject-dev-logs                              │ computed      │
-│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
@@ -268,8 +261,6 @@ Display a confirmation table before deployment. Adapt the content based on the c
 │ SageMaker Role       │ (will be created: myproject-dev-sagemaker)      │ generated     │
 │ EC2 Builder Role     │ (will be created: myproject-dev-ec2-builder)    │ generated     │
 │ Security Stack       │ myproject-dev-security                          │ computed      │
-│ Log Bucket Stack     │ myproject-dev-logs                              │ computed      │
-│ Encryption           │ SSE-S3 (AES-256)                                │ default       │
 └──────────────────────┴─────────────────────────────────────────────────┴───────────────┘
 ```
 
@@ -353,141 +344,18 @@ Outputs:
 
 ### 6b: Existing Role ARN Path
 
-No template generated — the log bucket stack (Step 6d) is the only deployment.
+No template generated — roles already exist. Skip to Step 7.
 
 ### 6c: Innovation Builder Stack Path
 
 No template generated — uses the existing vendored template at
 `infra/cfn/security/innovation-builder-security.yml` (consumed as-is, never modified).
 
-### 6d: Log Bucket Template — Generate `infra/cfn/generated/log-bucket.yml`
-
-Shared by all three paths. Write `infra/cfn/generated/log-bucket.yml`:
-
-```yaml
-AWSTemplateFormatVersion: "2010-09-09"
-Description: "IPA Log Bucket — centralized S3 log bucket for CloudFront, S3 access, and VPC flow logs"
-
-Parameters:
-  Namespace:
-    Type: String
-  Environment:
-    Type: String
-  AccountId:
-    Type: String
-  Region:
-    Type: String
-  KmsKeyArn:
-    Type: String
-    Default: ""
-
-Conditions:
-  UseKmsKey: !Not [!Equals [!Ref KmsKeyArn, ""]]
-
-Resources:
-  LogBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${Namespace}-${Environment}-logs-${AccountId}-${Region}"
-      OwnershipControls:
-        Rules:
-          - ObjectOwnership: BucketOwnerPreferred
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: !If [UseKmsKey, "aws:kms", "AES256"]
-              KMSMasterKeyID: !If [UseKmsKey, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      LifecycleConfiguration:
-        Rules:
-          - Id: ExpireLogs
-            Status: Enabled
-            ExpirationInDays: 90
-
-  LogBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref LogBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowS3ServerAccessLogs
-            Effect: Allow
-            Principal:
-              Service: logging.s3.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/s3-access-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: AllowCloudFrontLogs
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/cloudfront-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: AllowVPCFlowLogs
-            Effect: Allow
-            Principal:
-              Service: delivery.logs.amazonaws.com
-            Action: "s3:PutObject"
-            Resource: !Sub "arn:aws:s3:::${LogBucket}/vpc-flow-logs/*"
-            Condition:
-              StringEquals:
-                "aws:SourceAccount": !Ref AccountId
-          - Sid: DenyNonSSL
-            Effect: Deny
-            Principal: "*"
-            Action: "s3:*"
-            Resource:
-              - !Sub "arn:aws:s3:::${LogBucket}"
-              - !Sub "arn:aws:s3:::${LogBucket}/*"
-            Condition:
-              Bool:
-                "aws:SecureTransport": "false"
-
-Outputs:
-  LogBucketName:
-    Value: !Ref LogBucket
-    Export:
-      Name: !Sub "${AWS::StackName}-LogBucketName"
-  LogBucketArn:
-    Value: !GetAtt LogBucket.Arn
-    Export:
-      Name: !Sub "${AWS::StackName}-LogBucketArn"
-```
-
 ---
 
-## Step 7: Deploy Security Stacks
+## Step 7: Deploy Security Stack
 
-All paths deploy two stacks in this order:
-1. **Log bucket first**: `{APP_NAMESPACE}-{APP_ENV}-logs`
-2. **Security/IAM second**: `{APP_NAMESPACE}-{APP_ENV}-security`
-
-### 7.1 Deploy Log Bucket (all paths)
-
-```bash
-source .env 2>/dev/null; aws cloudformation deploy \
-  --template-file infra/cfn/generated/log-bucket.yml \
-  --stack-name {APP_NAMESPACE}-{APP_ENV}-logs \
-  --parameter-overrides \
-    Namespace={APP_NAMESPACE} \
-    Environment={APP_ENV} \
-    AccountId={AWS_ACCOUNT_ID} \
-    Region={AWS_REGION} \
-    KmsKeyArn="" \
-  --no-fail-on-empty-changeset
-```
+Deploy one CloudFormation stack: `{APP_NAMESPACE}-{APP_ENV}-security`.
 
 ### 7.2a Deploy Security Stack — Managed Policy Path
 
@@ -528,9 +396,9 @@ source .env 2>/dev/null; aws cloudformation deploy \
 
 ### 7.3 Wait for Deployment
 
-Monitor each deployment. If either fails, proceed to the **Error Handling** section.
+Monitor the deployment. If it fails, proceed to the **Error Handling** section.
 
-If both deployments succeed, proceed to **Step 8: Write .env**.
+If the deployment succeeds, proceed to **Step 8: Write .env**.
 
 ---
 
@@ -601,8 +469,7 @@ Written to .env:
   APP_BUILDER_ROLE_ARN={value}
   APP_CODEBUILD_ROLE_ARN={value}
 
-Stacks deployed:
-  {APP_NAMESPACE}-{APP_ENV}-logs     (log bucket)
+Stack deployed:
   {APP_NAMESPACE}-{APP_ENV}-security (IAM roles)
 ```
 
@@ -672,8 +539,6 @@ Current Security Configuration:
 │ Builder Role ARN     │ {from .env APP_BUILDER_ROLE_ARN}               │
 │ CodeBuild Role ARN   │ {from .env APP_CODEBUILD_ROLE_ARN}             │
 │ Security Stack       │ {APP_NAMESPACE}-{APP_ENV}-security (computed)   │
-│ Log Bucket           │ {from stack output or computed}                 │
-│ Encryption           │ SSE-S3 (AES-256)                                │
 └──────────────────────┴─────────────────────────────────────────────────┘
 ```
 
