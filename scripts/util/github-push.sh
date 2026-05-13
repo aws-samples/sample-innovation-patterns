@@ -24,6 +24,7 @@ EXCLUDE_PATHS=(
   ".gitlab-ci.yml"
   ".gitlab"
   ".specify"
+  "docs/docs/developer-docs/internal"
   "docs/docs/guides/releasing.md"
   "scripts/.gitignore"
 )
