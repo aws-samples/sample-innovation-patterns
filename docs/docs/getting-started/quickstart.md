@@ -25,8 +25,8 @@ IPA deploys infrastructure through four skills:
 | Skill | What It Does |
 |-------|-------------|
 | `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account |
-| `/ipa-compose` | Reads stack skills and generates Makefiles for build, deploy, and teardown. On first run, prompts for security configuration (IAM roles + log bucket). |
-| `/ipa-prepare` | Deploys one-time prerequisite stacks (Cognito, ECR) |
+| `/ipa-compose` | Reads stack skills and generates Makefiles for build, deploy, and teardown. On first run, prompts for security configuration (IAM roles). |
+| `/ipa-prepare` | Deploys one-time prerequisite stacks (log bucket, Cognito, ECR) |
 | `/ipa-deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring |
 
 :::tip

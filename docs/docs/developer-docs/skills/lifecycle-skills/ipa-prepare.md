@@ -5,7 +5,7 @@ sidebar_position: 4
 
 # /ipa-prepare
 
-Deploy one-time prerequisite infrastructure by executing `scripts/prepare.mk`. This is the third step in the IPA lifecycle, run after `/ipa-compose` generates the Makefiles. Prerequisite stacks always include ECR and Cognito; if `/ipa-compose codepipeline` was run, CodeCommit and CodePipeline stacks are also deployed.
+Deploy one-time prerequisite infrastructure by executing `scripts/prepare.mk`. This is the third step in the IPA lifecycle, run after `/ipa-compose` generates the Makefiles. Prerequisite stacks include the centralized log bucket, ECR, and Cognito; if `/ipa-compose codepipeline` was run, CodeCommit and CodePipeline stacks are also deployed.
 
 ## Invocation
 
@@ -20,7 +20,7 @@ Deploy one-time prerequisite infrastructure by executing `scripts/prepare.mk`. T
 | Requirement | Source |
 |-------------|--------|
 | `.env` with IPA variables | `/ipa-init` |
-| Security stack deployed | `/ipa-security` |
+| IAM roles provisioned | `/ipa-security` (embedded in first compose) |
 | `scripts/prepare.mk` | `/ipa-compose` |
 | AWS credentials valid | AWS CLI configuration |
 | GNU Make installed | System dependency |
@@ -43,6 +43,7 @@ Deploy one-time prerequisite infrastructure by executing `scripts/prepare.mk`. T
 
 | Artifact | Description |
 |----------|-------------|
+| Logs stack | `{APP_NAMESPACE}-{APP_ENV}-logs` — Centralized S3 log bucket for access and flow logs |
 | ECR stack | `{APP_NAMESPACE}-{APP_ENV}-ecr` — Container image repository |
 | Cognito stack | `{APP_NAMESPACE}-{APP_ENV}-cognito` — User Pool with OAuth 2.0 |
 | CodeCommit stack | `{APP_NAMESPACE}-{APP_ENV}-codecommit` — Source repository (when composed with `codepipeline`) |

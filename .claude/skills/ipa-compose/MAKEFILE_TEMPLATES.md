@@ -60,7 +60,7 @@ List all per-stack deploy targets in deployment order (from the composition's St
 
 Deploy targets resolve cross-stack values from two sources depending on the stack's lifecycle:
 
-- **Prepare-stack outputs** (ECR, Cognito) — resolved from `.env` variables. These values are written to `.env` by `prepare-*-env` targets in `scripts/prepare.mk` and are stable after initial deployment. Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`. No `$(eval)` needed.
+- **Prepare-stack outputs** (ECR, Cognito, Logs) — resolved from `.env` variables. These values are written to `.env` by `update-env-*` targets in `scripts/env.mk` and are stable after initial deployment. Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`, `$(LOG_BUCKET_NAME)`. No `$(eval)` needed.
 
 - **Deploy-stack outputs** (SQS queue, frontend, security) — resolved via `$(eval)` at deploy time. These stacks are created or updated during the same deploy cycle, so their outputs aren't available in `.env`. Use the standard `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern.
 
@@ -350,6 +350,65 @@ update-env-pipeline:
 	@echo "CODECOMMIT_CLONE_URL=$(CODECOMMIT_CLONE_VAL)" >> .env
 ```
 
+### Per-Stack Prepare Target — Logs
+
+When the composition includes `logs` (auto-included when any stack's Wirable Parameters has Source Stack = `logs`), generate a target with no dependencies:
+
+```makefile
+prepare-logs:
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-logs \
+		--template-file infra/cfn/logs/logs.yml \
+		--parameter-overrides \
+			Namespace=$(APP_NAMESPACE) \
+			Environment=$(APP_ENV) \
+			AccountId=$(AWS_ACCOUNT_ID) \
+			Region=$(AWS_REGION) \
+			KmsKeyArn="" \
+		--no-fail-on-empty-changeset
+```
+
+`prepare-logs` has no dependencies on other prepare stacks and is listed FIRST in the aggregate `prepare:` target.
+
+### Per-Stack env.mk Target — Logs
+
+When the composition includes `logs`, generate an `update-env-logs` target:
+
+```makefile
+update-env-logs:
+	$(eval LOG_BUCKET_NAME_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-logs \
+		--query 'Stacks[0].Outputs[?OutputKey==`LogBucketName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing log bucket configuration to .env..."
+	@grep -v '^LOG_BUCKET_NAME\|^# Log Bucket Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# Log Bucket Configuration (written by /ipa-deploy after logs deploy)" >> .env
+	@echo "LOG_BUCKET_NAME=$(LOG_BUCKET_NAME_VAL)" >> .env
+```
+
+### Logs Pre-Check Pattern
+
+When a deploy target references `$(LOG_BUCKET_NAME)` from `.env` (wired from `logs` prepare stack), emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists before proceeding:
+
+```makefile
+deploy-{suffix}:
+	@aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-logs \
+		--query 'Stacks[0].StackStatus' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),) \
+		>/dev/null 2>&1 \
+		|| (echo "ERROR: Log bucket stack '$(APP_NAMESPACE)-$(APP_ENV)-logs' not found. Run 'make -f scripts/prepare.mk prepare-logs' first." && exit 1)
+	aws cloudformation deploy \
+		...
+		LogBucketDomainName=$(LOG_BUCKET_NAME).s3.amazonaws.com \
+		...
+```
+
+Emit the pre-check for ANY deploy target that has a `logs`-sourced wiring (not just frontend).
+
 ### Aggregate Teardown Target
 
 ```makefile
@@ -358,7 +417,7 @@ update-env-pipeline:
 teardown-prepare: teardown-{suffixN} ... teardown-{suffix1}
 ```
 
-Reverse order of prepare stacks.
+Reverse order of prepare stacks. `teardown-logs` is LAST (bucket may still be receiving logs from CloudFront until frontend stack is torn down).
 
 ### Per-Stack Teardown Target
 

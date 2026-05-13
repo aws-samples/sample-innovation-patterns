@@ -118,7 +118,7 @@ c. **Custom domain** — If the customer requires a custom domain (for example, 
    - Add the certificate ARN and domain alias to the frontend CloudFormation template at `infra/cfn/frontend/frontend.yml`
    - Configure DNS (CNAME or Route 53 alias) to point to the CloudFront distribution
 
-### 5. Recalculate IAM permissions
+### 5. Provision IAM roles
 
 To provision security infrastructure for the production environment, run:
 
@@ -130,9 +130,10 @@ The skill reads `APP_NAMESPACE` and `APP_ENV` from `.env` and creates:
 
 - **Builder execution role**: `{APP_NAMESPACE}-{APP_ENV}-builder` — for deployments
 - **CodeBuild execution role**: `{APP_NAMESPACE}-{APP_ENV}-codebuild` — for CI/CD pipelines
-- **Centralized log bucket**: `{APP_NAMESPACE}-{APP_ENV}-logs-{AWS_ACCOUNT_ID}-{AWS_REGION}` — with versioning enabled, 90-day lifecycle, and SSL-only access policy
 
 The skill writes `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` to `.env`. If the customer provides pre-provisioned IAM roles instead, select the "Existing Role ARNs" path when prompted.
+
+The centralized log bucket (`{APP_NAMESPACE}-{APP_ENV}-logs-{AWS_ACCOUNT_ID}-{AWS_REGION}`) is deployed automatically by `/ipa-prepare` as a prerequisite stack — no manual step is needed.
 
 ### 6. Prepare handoff artifacts
 

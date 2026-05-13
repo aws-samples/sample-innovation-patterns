@@ -15,7 +15,7 @@ Stacks are classified into two lifecycle categories that determine when they are
 
 | Lifecycle | Deployed By | Removed By | Examples |
 |-----------|-------------|------------|----------|
-| **prepare** | `/ipa-prepare` | Manual (`make -f scripts/prepare.mk teardown-prepare`) | ECR, Cognito |
+| **prepare** | `/ipa-prepare` | Manual (`make -f scripts/prepare.mk teardown-prepare`) | Logs, ECR, Cognito |
 | **deploy** | `/ipa-deploy` | `/ipa-destroy` | Backend, Frontend, Queue |
 
 ## Solution Tier Stacks
@@ -34,6 +34,7 @@ These stacks provide shared prerequisites and persist across deploy/destroy cycl
 
 | Stack | Description |
 |-------|-------------|
+| [/ipa-stack-logs](./ipa-stack-logs.md) | Centralized S3 log bucket for access and flow logs |
 | [/ipa-stack-ecr](./ipa-stack-ecr.md) | ECR repository for container images |
 | [/ipa-stack-cognito](./ipa-stack-cognito.md) | Cognito User Pool with OAuth 2.0 and OIDC |
 
