@@ -33,6 +33,18 @@ before build and deploy scripts can run.
 - Does not run build or deploy — use `/ipa-deploy`
 - Does not support per-stack targeting — always runs the aggregate `prepare` target
 
+## Prepare Stacks
+
+| Stack | Skill | Description |
+|-------|-------|-------------|
+| `{ns}-{env}-logs` | `ipa-stack-logs` | Centralized S3 log bucket (CloudFront, S3 access, VPC flow logs) |
+| `{ns}-{env}-cognito` | `ipa-stack-cognito` | Cognito User Pool with OIDC |
+| `{ns}-{env}-ecr` | `ipa-stack-ecr` | ECR container repository |
+| `{ns}-{env}-codecommit` | `ipa-stack-codecommit` | CodeCommit source repository |
+| `{ns}-{env}-codepipeline` | `ipa-stack-codepipeline` | CI/CD pipeline |
+
+**Log bucket teardown**: CloudFormation cannot delete non-empty S3 buckets. If `teardown-logs` fails, empty the bucket manually (`aws s3 rm s3://{bucket} --recursive`) and re-run.
+
 ## Invocation
 
 This skill is always invoked manually by the builder. `/ipa-deploy` does NOT auto-invoke

@@ -22,7 +22,7 @@ The following `.env` variables map to the stack parameters:
 | Namespace | `APP_NAMESPACE` | Yes | -- | Project namespace prefix for resource naming. Must match `^[a-z][a-z0-9-]{0,11}$`. |
 | Environment | `APP_ENV` | Yes | -- | Deployment environment (`dev`, `staging`, or `prod`). |
 | BucketNameSuffix | -- | No | `web` | Suffix appended to the bucket name. The full bucket name follows the pattern `{ns}-{env}-{suffix}-{account_id}`. |
-| LogBucketDomainName | -- | Yes | -- | S3 domain name of the centralized log bucket (e.g., `{bucket}.s3.amazonaws.com`). Resolved from the security stack output. |
+| LogBucketDomainName | -- | Yes | -- | S3 domain name of the centralized log bucket (e.g., `{bucket}.s3.amazonaws.com`). Resolved from the `LOG_BUCKET_NAME` variable in `.env` (written by `update-env-logs` after deploying the logs prepare stack). |
 
 ## Outputs
 

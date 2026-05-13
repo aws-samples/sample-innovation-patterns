@@ -33,7 +33,7 @@ Parameters that receive values from other stacks during composition:
 
 | Parameter | Source Stack | Source Output | Notes |
 |-----------|-------------|---------------|-------|
-| LogBucketDomainName | security | LogBucketName | Append `.s3.amazonaws.com` to output value |
+| LogBucketDomainName | logs | LogBucketName | Append `.s3.amazonaws.com` to output value |
 
 ## Outputs
 

@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.3]
+## [0.1.4] - 2026-05-13
+
+### Added
+
+- **`/ipa-stack-logs`** — new prepare-lifecycle stack for a centralized S3 log bucket (CloudFront, S3 access, VPC flow logs). Composed via `/ipa-compose` and auto-included as a transitive dependency when a downstream stack wires `LogBucketName`. Generates `update-env-logs` env.mk target and a `prepare.mk` teardown note for non-empty buckets.
+
+### Changed
+
+- **`/ipa-security`** — log bucket extracted from the security stack into the new `/ipa-stack-logs` prepare stack. `/ipa-security` now provisions only IAM roles (one CloudFormation stack instead of two). The frontend tier's `LogBucketDomainName` parameter now sources from `logs` instead of `security`.
+- **`/ipa-compose`** — recursive auto-include now resolves `logs` alongside `cognito`/`ecr`/`codecommit`. Generated deploy targets that reference `$(LOG_BUCKET_NAME)` now emit a pre-check that validates the `{ns}-{env}-logs` stack exists before deploying.
+
+### Fixed
+
+- **Release pipeline** — combined `auto-tag` and `github-release` into a single `auto-tag-and-release` job. Separate jobs were unreliable because `CI_JOB_TOKEN`-authenticated tag pushes do not trigger follow-up pipelines, so the tag-driven release job never fired. Trade-off: manually pushed tags no longer trigger a GitHub release.
+- **Docs site** — Docusaurus `baseUrl` now derives from `CI_PAGES_URL` so the GitLab Pages deploy tracks the project slug instead of a hardcoded path.
+
+## [0.1.3] - 2026-05-12
 
 ### Changed
 
@@ -68,7 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security** — ASH integration in GitLab CI, least-privilege IAM, encryption by default
 - **Generated Makefiles** — plain GNU Make with inline `aws` CLI calls; no runtime dependency on IPA
 
-[Unreleased]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/aws-samples/sample-innovation-patterns/releases/tag/v0.1.0

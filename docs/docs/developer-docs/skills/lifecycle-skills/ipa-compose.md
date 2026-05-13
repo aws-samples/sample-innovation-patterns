@@ -57,7 +57,7 @@ If `.env` does not exist, auto-runs `/ipa-init` to configure the project before 
 
 ### Phase 0.5 — Security
 
-If `APP_BUILDER_ROLE_ARN` is absent from `.env`, triggers the `/ipa-security` phase to provision IAM roles and a log bucket. Supports three paths: (A) Existing Role ARN, (B) Managed Policy, or (C) Innovation Builder Stack (recommended).
+If `APP_BUILDER_ROLE_ARN` is absent from `.env`, triggers the `/ipa-security` phase to provision IAM roles. Supports three paths: (A) Existing Role ARN, (B) Managed Policy, or (C) Innovation Builder Stack (recommended).
 
 ### Phase 1 — Parse Intent
 

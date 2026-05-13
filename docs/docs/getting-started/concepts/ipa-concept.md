@@ -25,7 +25,7 @@ IPA has a small vocabulary — skills, stacks, tiers, and composition — that t
 
 Skills fall into three categories [2].
 
-**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. The core lifecycle is four steps: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. Additional process skills include `/ipa-destroy` (teardown) and `/ipa-help` (state inspection). `/ipa-security` is a backing skill invoked by `/ipa-compose` for initial provisioning [2].
+**Process skills** are workflow verbs. They drive the IPA lifecycle but do not themselves define infrastructure. The core lifecycle is four steps: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. Additional process skills include `/ipa-destroy` (teardown) and `/ipa-help` (state inspection). `/ipa-security` is a backing skill invoked by `/ipa-compose` for initial IAM provisioning [2].
 
 **Stack skills** (`/ipa.stack.*`) are infrastructure nouns. Each stack skill wraps a CloudFormation template with skill metadata — a `SKILL.md` describing the stack's parameters, outputs, and wiring contract, and a `SECURITY.md` documenting its security posture [2][4].
 
@@ -35,7 +35,7 @@ All skills are idempotent. Running a skill multiple times does not destroy exist
 
 ### Stacks and Tiers
 
-A **stack** is the atomic deployment unit — a single CloudFormation stack. Stacks have one of two lifecycle classifications. Prepare stacks are one-time prerequisites — Cognito user pools, ECR repositories — that persist across teardown and redeployment cycles. Deploy stacks are application infrastructure that is created and torn down with the composition [2][3].
+A **stack** is the atomic deployment unit — a single CloudFormation stack. Stacks have one of two lifecycle classifications. Prepare stacks are one-time prerequisites — log buckets, Cognito user pools, ECR repositories — that persist across teardown and redeployment cycles. Deploy stacks are application infrastructure that is created and torn down with the composition [2][3].
 
 A **tier** is a consolidated stack that bundles related AWS services into a single CloudFormation template. The backend tier, for example, bundles Lambda, API Gateway v2, DynamoDB, and CloudWatch. Services within a tier are wired internally through CloudFormation references — no cross-stack parameters are needed. Feature flags (`Enable*` parameters, defaulting to `false`) toggle optional resources within a tier without requiring separate stacks [3].
 
@@ -62,7 +62,7 @@ The core workflow is a linear sequence of four skill invocations [2]:
 
 Each step is one skill invocation. The builder does not need to understand which stacks are deployed or how they are wired — the skills and Makefiles encode that knowledge. Sensible defaults minimize configuration, and the same sequence applies regardless of which stacks are composed. `/ipa-compose` auto-runs `/ipa-init` if the project isn't initialized, and handles security provisioning on first run [1][2].
 
-Security is a precondition, not a phase. The `/ipa-security` skill runs early in the sequence and provisions least-privilege IAM roles scoped to the composed stacks. As the composition evolves, re-running `/ipa-security` recalculates permissions from updated stack metadata [2][4]. For details on the security model, see the Skills reference documentation.
+Security is a precondition, not a phase. The `/ipa-security` skill runs early in the sequence and provisions least-privilege IAM roles scoped to the composed stacks. Re-running `/ipa-security` allows switching between configuration paths or updating role policies [2][4]. For details on the security model, see the Skills reference documentation.
 
 An optional addition is CI/CD: running `/ipa-compose codepipeline` followed by `/ipa-prepare` configures a CodeCommit repository and CodePipeline that execute the same Makefiles the builder used locally [2].
 

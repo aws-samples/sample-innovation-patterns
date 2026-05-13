@@ -5,7 +5,7 @@ sidebar_position: 7
 
 # /ipa-security
 
-Provision centralized IAM execution roles and an S3 log bucket for an IPA project. This skill is embedded in `/ipa-compose` and runs automatically on first compose when `APP_BUILDER_ROLE_ARN` is absent from `.env`. It can also be invoked standalone to right-size IAM permissions or switch configuration paths after initial setup.
+Provision centralized IAM execution roles for an IPA project. This skill is embedded in `/ipa-compose` and runs automatically on first compose when `APP_BUILDER_ROLE_ARN` is absent from `.env`. It can also be invoked standalone to switch configuration paths or update role policies after initial setup.
 
 ## Invocation
 
@@ -38,9 +38,9 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
    |------|------|-------------|
    | A | **Existing Role ARN** | The user provides pre-provisioned role ARNs and IPA stores them in `.env`. No CloudFormation deployed. |
    | B | **Managed Policy** | IPA generates a CloudFormation template that creates a Builder role and a CodeBuild role with an attached managed policy (`PowerUserAccess`). |
-   | C | **Innovation Builder Stack** (recommended) | IPA deploys a purpose-built security stack with scoped IAM roles, a log bucket, and boundary policies. Best balance of speed and least-privilege. |
+   | C | **Innovation Builder Stack** (recommended) | IPA deploys a purpose-built security stack with scoped IAM roles and boundary policies. Best balance of speed and least-privilege. |
 
-3. **Deploys the security stack** (Paths B and C) — Creates CloudFormation stack `{namespace}-{env}-security` containing IAM roles and an S3 log bucket with SSE-S3 (AES-256) encryption.
+3. **Deploys the security stack** (Paths B and C) — Creates CloudFormation stack `{namespace}-{env}-security` containing IAM roles.
 
 4. **Writes security variables to `.env`:**
    - `APP_BUILDER_ROLE_ARN` — Builder execution role ARN
@@ -49,7 +49,7 @@ Provision centralized IAM execution roles and an S3 log bucket for an IPA projec
 5. **Handles re-runs** — Detects an existing security stack and offers to update it. Warns before switching configuration paths.
 
 :::info Embedded in /ipa-compose
-In the standard workflow, this skill is triggered automatically by `/ipa-compose` on first compose. You only need to invoke `/ipa-security` directly to right-size IAM after initial setup or to switch between configuration paths.
+In the standard workflow, this skill is triggered automatically by `/ipa-compose` on first compose. You only need to invoke `/ipa-security` directly to switch between configuration paths or update role policies after initial setup.
 :::
 
 ## Outputs
@@ -57,8 +57,11 @@ In the standard workflow, this skill is triggered automatically by `/ipa-compose
 | Artifact | Description |
 |----------|-------------|
 | CloudFormation stack | `{APP_NAMESPACE}-{APP_ENV}-security` |
-| S3 log bucket | `{namespace}-{env}-logs-{account-id}-{region}` |
 | `.env` variables | `APP_BUILDER_ROLE_ARN`, `APP_CODEBUILD_ROLE_ARN` |
+
+:::note Log bucket
+The centralized S3 log bucket is no longer provisioned by `/ipa-security`. It is deployed as a prepare stack (`{namespace}-{env}-logs`) via `/ipa-prepare`. The compose skill auto-includes it when any stack requires log bucket wiring.
+:::
 
 ## Examples
 

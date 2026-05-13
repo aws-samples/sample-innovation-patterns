@@ -13,7 +13,7 @@ This guide walks through selecting IPA stacks and composing them into a deployab
 
 Use this guide when:
 
-- A new IPA project has been initialized with `/ipa-init` and secured with `/ipa-security`, and infrastructure needs to be composed for the first time
+- A new IPA project has been initialized with `/ipa-init` and infrastructure needs to be composed for the first time
 - An existing composition needs additional stacks — for example, adding a queue tier to a project that already has frontend and backend
 - Stack configuration has changed and the generated Makefiles need to be regenerated
 - Understanding what `/ipa-compose` generates is needed before running it
@@ -25,7 +25,7 @@ Do not use this guide to deploy infrastructure — see `/ipa-deploy` instead. Do
 Before you start, confirm the following:
 
 - `/ipa-init` has been completed and `.env` exists with `APP_NAMESPACE`, `APP_ENV`, `AWS_REGION`, `AWS_ACCOUNT_ID`, and `AWS_PROFILE` set
-- `/ipa-security` has been completed and IAM roles are provisioned
+- IAM roles are provisioned (either via `/ipa-security` on first compose, or pre-existing roles)
 - AWS CLI is configured with credentials for the target account
 
 ## Before / Target State
