@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`developer-docs/internal/`** — new internal-only docs section. Committed to GitLab, filtered from the GitHub release (`scripts/util/github-push.sh` `EXCLUDE_PATHS`) and from the GitLab Pages build (`.gitlab-ci.yml` `pages` job removes the directory before Docusaurus build). Visible in the local sidebar whenever the directory is present on disk.
+
+### Fixed
+
+- **Release pipeline** — combined `auto-tag` and `github-release` into a single `auto-tag-and-release` job. Separate jobs were unreliable because `CI_JOB_TOKEN`-authenticated tag pushes do not trigger follow-up pipelines, so the tag-driven release job never fired. Trade-off: manually pushed tags no longer trigger a GitHub release.
+
 ## [0.1.4] - 2026-05-13
 
 ### Added
@@ -18,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Release pipeline** — combined `auto-tag` and `github-release` into a single `auto-tag-and-release` job. Separate jobs were unreliable because `CI_JOB_TOKEN`-authenticated tag pushes do not trigger follow-up pipelines, so the tag-driven release job never fired. Trade-off: manually pushed tags no longer trigger a GitHub release.
 - **Docs site** — Docusaurus `baseUrl` now derives from `CI_PAGES_URL` so the GitLab Pages deploy tracks the project slug instead of a hardcoded path.
 
 ## [0.1.3] - 2026-05-12
