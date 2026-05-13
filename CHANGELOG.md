@@ -5,11 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.4] - 2026-05-13
 
 ### Added
 
-- **`developer-docs/internal/`** — new internal-only docs section. Committed to GitLab, filtered from the GitHub release (`scripts/util/github-push.sh` `EXCLUDE_PATHS`) and from the GitLab Pages build (`.gitlab-ci.yml` `pages` job removes the directory before Docusaurus build). Visible in the local sidebar whenever the directory is present on disk.
+- N/A
 
 ### Fixed
 
