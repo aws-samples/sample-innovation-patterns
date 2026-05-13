@@ -13,7 +13,7 @@ The frontend stack deploys a secure static web hosting tier using Amazon S3, Ama
 - **CloudFront CDN** with Origin Access Control using sigv4 request signing
 - **HTTPS-only** viewer policy with a minimum TLS version of TLSv1.2_2021
 - **SPA routing** via custom error responses that redirect 403 and 404 errors to `index.html` with a 200 status code, allowing the client-side router to handle all paths
-- **Access logging** for both S3 and CloudFront to a centralized log bucket provisioned by the security stack
+- **Access logging** for both S3 and CloudFront to a centralized log bucket (deployed as a prepare stack via `/ipa-prepare`)
 - **No IAM capabilities required** -- the stack creates no IAM roles or policies
 
 ## When to Use

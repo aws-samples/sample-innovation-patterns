@@ -24,8 +24,8 @@ The four skills execute in dependency order. Each skill reads artifacts produced
 | Skill | Phase | What It Produces |
 |-------|-------|------------------|
 | `/ipa-init` | Configure | `.env` file with project namespace, environment, region, and AWS account ID |
-| `/ipa-compose` | Generate | Six Makefiles (`prepare.mk`, `deploy.mk`, `build.mk`, `post-deploy.mk`, `env.mk`, `test.mk`) and a security disposition register. On first compose, also provisions security infrastructure (IAM roles + S3 log bucket) via the embedded `/ipa-security` phase. |
-| `/ipa-prepare` | Provision | One-time prerequisite CloudFormation stacks (e.g., Cognito, ECR) |
+| `/ipa-compose` | Generate | Six Makefiles (`prepare.mk`, `deploy.mk`, `build.mk`, `post-deploy.mk`, `env.mk`, `test.mk`) and a security disposition register. On first compose, also provisions security infrastructure (IAM roles) via the embedded `/ipa-security` phase. |
+| `/ipa-prepare` | Provision | One-time prerequisite CloudFormation stacks (e.g., log bucket, Cognito, ECR) |
 | `/ipa-deploy` | Deploy | Application CloudFormation stacks, built container images, and post-deploy wiring |
 
 The `.env` file acts as the shared configuration bus. Every skill reads it; `/ipa-init`, `/ipa-compose` (security phase), and `/ipa-prepare` write to it. A skill is a Claude Code instruction document in `.claude/skills/` that the builder invokes as a slash command (e.g., `/ipa-compose`). A pattern is a reusable deployment template in `patterns/` that defines a multi-stack architecture, its dependencies, and parameter wiring.
@@ -45,7 +45,7 @@ Every stack in a pattern is classified as either `prepare` or `deploy`. This cla
 | `prepare` | `/ipa-prepare` | Once per project setup | Manual only: `make -f scripts/prepare.mk teardown-prepare` |
 | `deploy` | `/ipa-deploy` | Every deployment | `/ipa-destroy` or `make -f scripts/deploy.mk teardown` |
 
-In a typical full-stack composition, Cognito and ECR are prepare stacks; backend and frontend are deploy stacks. The distinction exists because some infrastructure must be provisioned before build and deploy can run — ECR must exist before container images can be pushed, and Cognito must exist before OIDC configuration can be wired into the backend.
+In a typical full-stack composition, the log bucket, Cognito, and ECR are prepare stacks; backend and frontend are deploy stacks. The distinction exists because some infrastructure must be provisioned before build and deploy can run — ECR must exist before container images can be pushed, Cognito must exist before OIDC configuration can be wired into the backend, and the log bucket must exist before the frontend stack can configure access logging.
 
 `/ipa-compose` reads the `(prepare)` annotation in each pattern's stack sequence and routes targets to the corresponding Makefile. Prepare stacks go into `prepare.mk`; deploy stacks go into `deploy.mk`. The builder does not need to manage this routing — composition handles it automatically.
 
@@ -59,7 +59,7 @@ After the first deployment, the builder does not re-run the full four-step pipel
 | New pattern added | `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy` | Regenerates Makefiles with merged patterns; prepare deploys any new prerequisite stacks |
 | CloudFormation template modified | `/ipa-compose` → `/ipa-deploy` | Regenerates Makefiles from updated templates; deploys changes |
 | Namespace or environment changed | `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy` | Reconfigures `.env`; regenerates Makefiles with new naming; full redeploy |
-| IAM permissions changed | `/ipa-security` → `/ipa-deploy` | Updates security stack; redeploys with new role |
+| IAM permissions changed | `/ipa-security` → `/ipa-deploy` | Updates security stack; redeploys with new roles |
 
 Every skill is idempotent. Re-running a skill that has nothing new to do succeeds without side effects. CloudFormation handles state diffing — the builder does not need to track which stacks changed or which parameters differ. This idempotency is what makes the cycle safe to repeat: when in doubt, re-run the pipeline from wherever it makes sense and let the tools sort out what actually needs to change.
 

@@ -1,5 +1,0 @@
-*.mk
-!test.mk
-
-*.md
-!INSTALL-RUNBOOK.md

@@ -178,6 +178,8 @@ For each selected stack, read `.claude/skills/ipa.stack.{tier}/SKILL.md` and ext
 
 For each selected stack, read its `## Wirable Parameters` section. Every **Source Stack** column value that is not already in the selected set must be auto-included. Recursively resolve until no new stacks are added.
 
+When any selected stack's Wirable Parameters has Source Stack = `logs`, auto-include `logs` via the same recursive resolution as cognito/ecr/codecommit.
+
 Display: "Auto-including prepare stacks: {list of auto-included tier names}"
 
 #### 3.1.5 Prompt for Compose Config Values
@@ -299,6 +301,8 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. G
 4. **Aggregate teardown target**: `teardown: teardown-{tierN} ... teardown-{tier1}` in reverse deployment order.
 5. **Per-stack teardown targets**: `aws cloudformation delete-stack --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{tier}` followed by `aws cloudformation wait stack-delete-complete --stack-name $(APP_NAMESPACE)-$(APP_ENV)-{tier}`.
 
+**Logs pre-check pattern**: When a deploy target references `$(LOG_BUCKET_NAME)` from `.env` (wired from `logs` prepare stack), emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists. Exit with a clear error message if missing. See [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) Logs Pre-Check Pattern.
+
 **Critical rules**:
 - All stack names use `$(APP_NAMESPACE)-$(APP_ENV)-{tier}` — never literal values.
 - All targets are `.PHONY`.
@@ -409,6 +413,7 @@ Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) env.mk template. Generate:
 Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo` to idempotently write to `.env`.
 
 **Stack presence rules**:
+- Generate `update-env-logs` when the composition includes `logs` (any lifecycle)
 - Generate `update-env-cognito` when the composition includes `cognito` (any lifecycle)
 - Generate `update-env-ecr` when the composition includes `ecr` (any lifecycle)
 - Generate `update-env-sqs` when the composition includes `queue` (any lifecycle)
