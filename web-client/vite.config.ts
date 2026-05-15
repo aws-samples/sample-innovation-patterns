@@ -3,7 +3,7 @@
 import { execSync } from 'child_process'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react-swc'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 function getVersion(subcommand: string): string {
