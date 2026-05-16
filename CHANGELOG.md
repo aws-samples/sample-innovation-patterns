@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- N/A
+- **web-client cross-platform lockfile** — regenerated `web-client/package-lock.json` to include both Linux x64 and macOS arm64 entries for native packages (`@rollup/rollup-*`, `@esbuild/*`, `@tailwindcss/oxide-*`, `lightningcss-*`). The prior swc fix only addressed swc binaries; CodeBuild `npm ci` was still failing on missing Linux variants for tailwind v4, esbuild, rollup, and lightningcss. Verified with `npm ci --os=linux --cpu=x64` and local `npm run build`.
 
 ## [0.1.5] - 2026-05-13
 
