@@ -60,7 +60,9 @@ List all per-stack deploy targets in deployment order (from the composition's St
 
 Deploy targets resolve cross-stack values from two sources depending on the stack's lifecycle:
 
-- **Prepare-stack outputs** (ECR, Cognito, Logs) — resolved from `.env` variables. These values are written to `.env` by `update-env-*` targets in `scripts/env.mk` and are stable after initial deployment. Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`, `$(LOG_BUCKET_NAME)`. No `$(eval)` needed.
+- **Prepare-stack outputs available as CodeBuild env vars** (ECR, Cognito) — resolved from environment variables that are present locally (via `.env`) AND in CI/CD (via `codepipeline.yml` `EnvironmentVariables`: `ECR_REPO_URI`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_END_SESSION_ENDPOINT`). Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`. No `$(eval)` needed.
+
+- **Prepare-stack outputs NOT in CodeBuild env** (Logs) — resolved via `$(eval)` at deploy time. `LOG_BUCKET_NAME` is written to `.env` for local use but is NOT injected into CodeBuild, so direct `$(LOG_BUCKET_NAME)` references expand to empty string in CI/CD. Use the same `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern as deploy-stack outputs.
 
 - **Deploy-stack outputs** (SQS queue, frontend, security) — resolved via `$(eval)` at deploy time. These stacks are created or updated during the same deploy cycle, so their outputs aren't available in `.env`. Use the standard `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern.
 
@@ -390,7 +392,7 @@ update-env-logs:
 
 ### Logs Pre-Check Pattern
 
-When a deploy target references `$(LOG_BUCKET_NAME)` from `.env` (wired from `logs` prepare stack), emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists before proceeding:
+When a deploy target wires the log bucket name from the `logs` prepare stack, emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists, then resolve `LogBucketName` from its outputs via `$(eval)`. Do NOT use `$(LOG_BUCKET_NAME)` directly — that variable is empty in CodeBuild, where `.env` is not present.
 
 ```makefile
 deploy-{suffix}:
@@ -401,13 +403,19 @@ deploy-{suffix}:
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),) \
 		>/dev/null 2>&1 \
 		|| (echo "ERROR: Log bucket stack '$(APP_NAMESPACE)-$(APP_ENV)-logs' not found. Run 'make -f scripts/prepare.mk prepare-logs' first." && exit 1)
+	$(eval LOG_BUCKET_NAME_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-logs \
+		--query 'Stacks[0].Outputs[?OutputKey==`LogBucketName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(LOG_BUCKET_NAME_VAL)" ]; then echo "ERROR: LogBucketName output not found on '$(APP_NAMESPACE)-$(APP_ENV)-logs' stack." && exit 1; fi
 	aws cloudformation deploy \
 		...
-		LogBucketDomainName=$(LOG_BUCKET_NAME).s3.amazonaws.com \
+		LogBucketDomainName=$(LOG_BUCKET_NAME_VAL).s3.amazonaws.com \
 		...
 ```
 
-Emit the pre-check for ANY deploy target that has a `logs`-sourced wiring (not just frontend).
+Emit this pattern for ANY deploy target that has a `logs`-sourced wiring (not just frontend). The `$(eval)` resolution works identically locally and in CodeBuild — both have IAM permission to call `describe-stacks`.
 
 ### Aggregate Teardown Target
 
