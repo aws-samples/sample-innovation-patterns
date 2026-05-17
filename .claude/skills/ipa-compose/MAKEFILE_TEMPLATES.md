@@ -58,15 +58,31 @@ List all per-stack deploy targets in deployment order (from the composition's St
 
 ### Variable Resolution Convention
 
-Deploy targets resolve cross-stack values from two sources depending on the stack's lifecycle:
+**Single rule: all stack outputs flow through `env.mk` and are read from `.env` by consumers.**
 
-- **Prepare-stack outputs available as CodeBuild env vars** (ECR, Cognito) — resolved from environment variables that are present locally (via `.env`) AND in CI/CD (via `codepipeline.yml` `EnvironmentVariables`: `ECR_REPO_URI`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_END_SESSION_ENDPOINT`). Use direct Make variable references: `$(ECR_REPO_URI)`, `$(OIDC_ISSUER)`, `$(OIDC_CLIENT_ID)`. No `$(eval)` needed.
+`scripts/env.mk` is the canonical bridge between live CloudFormation stack outputs and the rest of the Make system. Every consumer (`deploy.mk`, `post-deploy.mk`, local dev server) reads its values from `.env` via `-include .env`. No consumer calls `aws cloudformation describe-stacks` directly.
 
-- **Prepare-stack outputs NOT in CodeBuild env** (Logs) — resolved via `$(eval)` at deploy time. `LOG_BUCKET_NAME` is written to `.env` for local use but is NOT injected into CodeBuild, so direct `$(LOG_BUCKET_NAME)` references expand to empty string in CI/CD. Use the same `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern as deploy-stack outputs.
+The flow:
 
-- **Deploy-stack outputs** (SQS queue, frontend, security) — resolved via `$(eval)` at deploy time. These stacks are created or updated during the same deploy cycle, so their outputs aren't available in `.env`. Use the standard `$(eval VAR := $(shell aws cloudformation describe-stacks ...))` pattern.
+1. **`prepare.mk`** deploys prepare stacks. Its own targets MAY use `$(eval ... describe-stacks ...)` because env.mk has not been generated yet on a fresh project — prepare is the bootstrap.
+2. **`env.mk`** queries live stack outputs and rewrites `.env` with the values. Idempotent — re-runs produce the same `.env`.
+3. **`deploy.mk`** and **`post-deploy.mk`** consume values via `-include .env` + direct `$(VAR)` references. **Zero `$(eval ... describe-stacks ...)`** in these files.
 
-This convention eliminates redundant CloudFormation API calls for immutable prepare-stack outputs while keeping dynamic resolution for deploy-stack outputs that may change between runs.
+**In CI/CD (CodeBuild),** each stage runs `make -f scripts/env.mk update-env` as its prelude, populating `.env` from live stack state before the stage's main target runs. This works because every CodeBuild stage starts from a fresh container — `.env` does not need to be passed as an artifact. The buildspec invokes env.mk once per stage, then the IPA target second:
+
+```
+make -f scripts/env.mk update-env       # writes .env from live stack outputs
+make -f scripts/${IPA_MAKEFILE} ${IPA_TARGET}   # reads .env via -include
+```
+
+Two separate `make` invocations. Make parses `-include .env` once at process startup; if `.env` changes mid-run, the running Make process does not see it. The new process picks up the values.
+
+**Why this matters:**
+
+- **Prevents parameter drift on immutable resources.** Recomputing values like `CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH)` in post-deploy targets risks passing a value that differs from the deployed parameter. CFN treats this as a property change → REPLACE on resources like `AWS::Cognito::UserPoolDomain` → live resource is destroyed. Reading from env.mk-populated `.env` always passes the **current deployed value** as `UsePreviousValue` semantics, not a re-derivation.
+- **Eliminates "is this an env var or a per-target eval?" cognitive overhead.** One rule: it's in `.env`. Period.
+- **Generalizes log-bucket and SQS wiring patterns.** Both used to require special-case `$(eval)` blocks; now they follow the same path as OIDC and ECR.
+- **Local and CI behave identically.** Same Make targets, same variable names, same code path. CodeBuild's prelude is the only CI-specific step.
 
 ### Per-Stack Deploy Target — No Dependencies
 
@@ -85,34 +101,25 @@ Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Co
 
 ### Per-Stack Deploy Target — With Dependencies and Wiring
 
-For stacks that depend on outputs from other stacks (wiring entries from the stack skill's `## Wiring` section):
+For stacks that depend on outputs from other stacks (wiring entries from the stack skill's `## Wiring` section), reference values that env.mk has populated in `.env`. **Do not** call `describe-stacks` from a deploy target — that is env.mk's job.
 
 ```makefile
 deploy-{suffix}: deploy-{dep1} deploy-{dep2}
-	$(eval OUTPUT1 := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
-		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval OUTPUT2 := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source_suffix} \
-		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName2}`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template-file infra/cfn/{service}/{service}.yml \
-		--parameter-overrides {TargetParam1}=$(OUTPUT1) {TargetParam2}=$(OUTPUT2) \
+		--parameter-overrides {TargetParam1}=$({SOURCE_VAR1}) {TargetParam2}=$({SOURCE_VAR2}) \
 		--no-fail-on-empty-changeset
 ```
 
 **Wiring translation rules**:
-1. Each `source.output` → one `$(eval)` line capturing the output via `aws cloudformation describe-stacks --query`
+1. Each `source.output` maps to a `.env` variable produced by env.mk's `update-env-{source_suffix}` target. The variable name is the canonical UPPER_SNAKE_CASE form (e.g., `LOG_BUCKET_NAME`, `SQS_QUEUE_URL`, `OIDC_ISSUER`).
 2. Each `target.parameter` → one entry in `--parameter-overrides` (no quotes, space-separated Key=Value)
 3. Make dependency prerequisites come from the stack skill's "Depends on" declarations
-4. Variable names in `$(eval)` use UPPER_SNAKE_CASE derived from the output key name
-5. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`
-6. `$(eval)` lines MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables, so explicit substitution is needed. The `$(if ...)` conditional ensures CI/CD compatibility when `AWS_PROFILE` is empty (credentials come from IAM role via default chain). Do NOT use unconditional `--profile $(AWS_PROFILE)` — it breaks when the variable is empty.
+4. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`
+5. If a wiring source has no env.mk capture yet, **add it to env.mk first**, then reference it here. Do not introduce `$(eval ... describe-stacks ...)` in deploy targets.
+
+**The aggregate `deploy:` target depends on env.mk implicitly via the buildspec prelude** (see Variable Resolution Convention). Locally, the builder runs `make -f scripts/env.mk update-env` once after each prepare/deploy phase, or `/ipa-deploy` orchestrates it.
 
 ### Aggregate Teardown Target
 
@@ -248,39 +255,15 @@ The `CODECOMMIT_REPO_NAME` variable is set at the top of `prepare.mk` using `?=`
 
 ### Per-Stack Prepare Target — CodePipeline
 
-When the composition includes `codepipeline`, generate a target that wires to security (via `.env`), ecr, cognito, and codecommit. All four dependency prepare targets are prerequisites:
+When the composition includes `codepipeline`, generate a target that wires to security (via `.env`) and codecommit. **`cognito` and `ecr` are NOT prerequisites of `prepare-codepipeline` and are NOT passed as parameters** — the codepipeline stack template does not declare them. Stack outputs flow through env.mk and `.env`, not as CodeBuild EnvironmentVariables.
 
 ```makefile
 PIPELINE_SOURCE_BRANCH ?= main
 
-prepare-codepipeline: prepare-codecommit prepare-ecr prepare-cognito
+prepare-codepipeline: prepare-codecommit
 	$(eval CODECOMMIT_REPO_NAME_VAL := $(shell aws cloudformation describe-stacks \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-codecommit \
 		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryName`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
-		$(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval ECR_REPO_URI_VAL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-ecr \
-		--query 'Stacks[0].Outputs[?OutputKey==`RepositoryUri`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
-		$(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval OIDC_ISSUER_VAL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`IssuerUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
-		$(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval OIDC_CLIENT_ID_VAL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
-		$(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval OIDC_END_SESSION_VAL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
-		--query 'Stacks[0].Outputs[?OutputKey==`EndSessionEndpoint`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
 		$(if $(AWS_REGION),--region $(AWS_REGION),)))
@@ -294,10 +277,6 @@ prepare-codepipeline: prepare-codecommit prepare-ecr prepare-cognito
 			CodeBuildRoleArn=$(APP_CODEBUILD_ROLE_ARN) \
 			SourceRepoName=$(CODECOMMIT_REPO_NAME_VAL) \
 			SourceBranch=$(PIPELINE_SOURCE_BRANCH) \
-			EcrRepoUri=$(ECR_REPO_URI_VAL) \
-			OidcIssuer=$(OIDC_ISSUER_VAL) \
-			OidcClientId=$(OIDC_CLIENT_ID_VAL) \
-			OidcEndSessionEndpoint=$(OIDC_END_SESSION_VAL) \
 		--capabilities CAPABILITY_NAMED_IAM \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) \
 		$(if $(AWS_REGION),--region $(AWS_REGION),) \
@@ -305,10 +284,12 @@ prepare-codepipeline: prepare-codecommit prepare-ecr prepare-cognito
 ```
 
 **Key notes**:
-- `CodeBuildRoleArn` is sourced from `$(APP_CODEBUILD_ROLE_ARN)` (loaded from `.env`), NOT via `$(eval)` from a CloudFormation stack query. The security stack is deployed by `/ipa-security` outside the compose/prepare flow.
+- `CodeBuildRoleArn` is sourced from `$(APP_CODEBUILD_ROLE_ARN)` (loaded from `.env`). The security stack is deployed by `/ipa-security` outside the compose/prepare flow.
 - `PIPELINE_SOURCE_BRANCH` uses `?=` (conditional assignment) with the compose-time default. Override at runtime via `make PIPELINE_SOURCE_BRANCH=develop -f scripts/prepare.mk prepare`.
-- The prepare dependency chain adds: `prepare-codecommit` → `prepare-codepipeline` (after cognito/ecr).
+- The prepare dependency chain is `prepare-codecommit` → `prepare-codepipeline`. Cognito and ECR are no longer prerequisites because their outputs are no longer baked into CodeBuild EnvironmentVariables — env.mk's per-stage prelude reads them from live stack state at build time instead.
 - `prepare-codepipeline` requires `CAPABILITY_NAMED_IAM`.
+
+**`$(eval)` allowed here:** prepare.mk runs before env.mk on a fresh project (env.mk doesn't exist yet on first compose), so describing dependent stacks via `$(eval)` is the only option for prepare-time wiring. This is the bootstrap exception to the "all outputs go through env.mk" rule.
 
 ### Per-Stack env.mk Target — Pipeline
 
@@ -392,7 +373,7 @@ update-env-logs:
 
 ### Logs Pre-Check Pattern
 
-When a deploy target wires the log bucket name from the `logs` prepare stack, emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists, then resolve `LogBucketName` from its outputs via `$(eval)`. Do NOT use `$(LOG_BUCKET_NAME)` directly — that variable is empty in CodeBuild, where `.env` is not present.
+When a deploy target wires the log bucket name from the `logs` prepare stack, emit a pre-check that validates the `{ns}-{env}-logs` CloudFormation stack exists AND that env.mk has populated `LOG_BUCKET_NAME`. The actual value is read from `.env` via `-include .env` — do NOT call `describe-stacks` from inside the deploy target.
 
 ```makefile
 deploy-{suffix}:
@@ -403,19 +384,19 @@ deploy-{suffix}:
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),) \
 		>/dev/null 2>&1 \
 		|| (echo "ERROR: Log bucket stack '$(APP_NAMESPACE)-$(APP_ENV)-logs' not found. Run 'make -f scripts/prepare.mk prepare-logs' first." && exit 1)
-	$(eval LOG_BUCKET_NAME_VAL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-logs \
-		--query 'Stacks[0].Outputs[?OutputKey==`LogBucketName`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	@if [ -z "$(LOG_BUCKET_NAME_VAL)" ]; then echo "ERROR: LogBucketName output not found on '$(APP_NAMESPACE)-$(APP_ENV)-logs' stack." && exit 1; fi
+	@if [ -z "$(LOG_BUCKET_NAME)" ]; then echo "ERROR: LOG_BUCKET_NAME not set. Run 'make -f scripts/env.mk update-env-logs' to populate .env, or ensure the buildspec prelude ran." && exit 1; fi
 	aws cloudformation deploy \
 		...
-		LogBucketDomainName=$(LOG_BUCKET_NAME_VAL).s3.amazonaws.com \
+		LogBucketDomainName=$(LOG_BUCKET_NAME).s3.amazonaws.com \
 		...
 ```
 
-Emit this pattern for ANY deploy target that has a `logs`-sourced wiring (not just frontend). The `$(eval)` resolution works identically locally and in CodeBuild — both have IAM permission to call `describe-stacks`.
+Emit this pattern for ANY deploy target that has a `logs`-sourced wiring (not just frontend). The pre-check guards against two failure modes:
+
+1. **Stack missing** — caught by the `describe-stacks` call. Action: run `prepare-logs`.
+2. **`.env` not populated** — caught by the empty-value check. Action: run `make -f scripts/env.mk update-env-logs`. In CodeBuild this is the buildspec prelude; locally it is part of `/ipa-deploy`.
+
+Reading `LOG_BUCKET_NAME` directly from `.env` works identically locally and in CodeBuild because both run the env.mk prelude before the deploy target.
 
 ### Aggregate Teardown Target
 
@@ -456,12 +437,14 @@ their targets here. If no `## Post-Deploy` section exists, generate a no-op post
 # Post-deploy targets for {tier1} + {tier2} + ... composition
 # Generated by /ipa-compose — do not edit manually
 #
-# Runs automatically after a successful deploy via /ipa-deploy.
-# Can also be run independently: make -f scripts/post-deploy.mk post-deploy
+# Runs after a successful deploy. `make -f scripts/env.mk update-env` MUST
+# be run before this Makefile to populate .env with live stack outputs:
 #
-# Variable resolution:
-#   Local:  -include .env loads values from file
-#   CI/CD:  -include silently skips; Make inherits env vars from CodeBuild
+#   make -f scripts/env.mk update-env
+#   make -f scripts/post-deploy.mk post-deploy
+#
+# /ipa-deploy orchestrates both calls locally; CodeBuild buildspec runs
+# env.mk as the post-deploy stage prelude.
 
 -include .env
 export
@@ -469,13 +452,12 @@ export
 # Resolve version from app-lib/pyproject.toml + git SHA
 IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
 
-# Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
-APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
-
 .PHONY: post-deploy {all step targets}
 ```
 
 **Why `IMAGE_TAG`**: The `update-backend-cors` target re-deploys the consolidated backend stack, which requires `ImageUri` in its `--parameter-overrides`.
+
+**No `APP_ACCOUNT_HASH` line**: post-deploy targets MUST NOT recompute `CognitoDomainPrefix`. The deployed value lives in `.env` as `COGNITO_DOMAIN_PREFIX`, written by `env.mk`'s `update-env-cognito` target from the live `CognitoDomain` stack output. Recomputing risks REPLACE on `AWS::Cognito::UserPoolDomain`, which destroys the live domain.
 
 ### Aggregate Post-Deploy Target
 
@@ -487,20 +469,12 @@ List all post-deploy step targets in declared dependency order.
 
 ### Per-Step Target — configure-frontend
 
-OIDC variables (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_END_SESSION_ENDPOINT`) come from `.env` via `-include .env` — no `$(eval)` needed for Cognito outputs.
+All variables (`API_URL`, `APP_URL`, OIDC values) come from `.env` via `-include .env`. env.mk's `update-env-backend`, `update-env-frontend`, and `update-env-cognito` targets populate them.
 
 ```makefile
 configure-frontend:
-	$(eval API_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-backend \
-		--query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
-	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
-		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(API_URL)" ]; then echo "ERROR: API_URL not set. Run 'make -f scripts/env.mk update-env-backend' first." && exit 1; fi
+	@if [ -z "$(APP_URL)" ]; then echo "ERROR: APP_URL not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
 	python3 scripts/util/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
 		--oidc-authority "$(OIDC_ISSUER)" \
@@ -510,8 +484,7 @@ configure-frontend:
 		--output web-client/dist/config.js
 ```
 
-When stack skills declare `## Shared Post-Deploy` modifications targeting `configure-frontend`,
-append their `--enable-feature {flag}` arguments to the command. For example, when the queue stack is composed:
+When stack skills declare `## Shared Post-Deploy` modifications targeting `configure-frontend`, append their `--enable-feature {flag}` arguments to the command. For example, when the queue stack is composed:
 
 ```makefile
 	python3 scripts/util/configure_frontend.py \
@@ -528,11 +501,7 @@ append their `--enable-feature {flag}` arguments to the command. For example, wh
 
 ```makefile
 upload-frontend: configure-frontend
-	$(eval BUCKET_NAME := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
-		--query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(BUCKET_NAME)" ]; then echo "ERROR: BUCKET_NAME not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
 	aws s3 sync web-client/dist/ s3://$(BUCKET_NAME)/ --delete
 ```
 
@@ -540,11 +509,7 @@ upload-frontend: configure-frontend
 
 ```makefile
 invalidate-cf: upload-frontend
-	$(eval DISTRIBUTION_ID := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
-		--query 'Stacks[0].Outputs[?OutputKey==`DistributionId`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(DISTRIBUTION_ID)" ]; then echo "ERROR: DISTRIBUTION_ID not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
 	$(eval INVALIDATION_ID := $(shell aws cloudfront create-invalidation \
 		--distribution-id $(DISTRIBUTION_ID) \
 		--paths "/*" \
@@ -556,35 +521,32 @@ invalidate-cf: upload-frontend
 		--id $(INVALIDATION_ID)
 ```
 
+`$(eval)` is acceptable here because `INVALIDATION_ID` is a runtime side-effect of `create-invalidation` (not a stack output) — it cannot be derived from any persistent state, so env.mk has no role.
+
 ### Per-Step Target — update-cognito-callback
+
+**Reads `COGNITO_DOMAIN_PREFIX` from `.env` instead of recomputing it.** This is the critical fix for `AWS::Cognito::UserPoolDomain` parameter drift — see the env.mk Cognito target rationale.
 
 ```makefile
 update-cognito-callback: invalidate-cf
-	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
-		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(APP_URL)" ]; then echo "ERROR: APP_URL not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
+	@if [ -z "$(COGNITO_DOMAIN_PREFIX)" ]; then echo "ERROR: COGNITO_DOMAIN_PREFIX not set. Run 'make -f scripts/env.mk update-env-cognito' first." && exit 1; fi
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
 		--template-file infra/cfn/cognito/cognito.yml \
 		--parameter-overrides Namespace=$(APP_NAMESPACE) Environment=$(APP_ENV) \
-			CognitoDomainPrefix=$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH) \
+			CognitoDomainPrefix=$(COGNITO_DOMAIN_PREFIX) \
 			CallbackURL=$(APP_URL)/authentication/callback \
 		--no-fail-on-empty-changeset
 ```
 
 ### Per-Step Target — update-backend-cors
 
-Prepare-stack outputs (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `ECR_REPO_URI`) come from `.env` via `-include .env` — no `$(eval)` needed. Deploy-stack outputs (`APP_URL`, `SQS_QUEUE_URL`, `SQS_QUEUE_ARN`) are queried via `$(eval)` since they come from stacks deployed in the same cycle. Re-deploys the consolidated backend stack with the CloudFront URL as `AllowedOrigin`. Must pass ALL original `deploy-backend` parameters plus the updated `AllowedOrigin`.
+All values come from `.env`. Re-deploys the consolidated backend stack with the CloudFront URL as `AllowedOrigin`. Passes the same parameters as `deploy-backend` plus the updated `AllowedOrigin`.
 
 ```makefile
 update-backend-cors: update-cognito-callback
-	$(eval APP_URL := $(shell aws cloudformation describe-stacks \
-		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
-		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
-		--output text \
-		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@if [ -z "$(APP_URL)" ]; then echo "ERROR: APP_URL not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-backend \
 		--template-file infra/cfn/backend/backend.yml \
@@ -596,7 +558,7 @@ update-backend-cors: update-cognito-callback
 		--no-fail-on-empty-changeset
 ```
 
-Note: When the queue stack is composed, the `update-backend-cors` target must also include the SQS integration parameters (`EnableSqsIntegration=true`, `SqsQueueUrl`, `SqsSendQueueArns`) from the queue stack (queried via `$(eval)`) — same as the `deploy-backend` target.
+When the queue stack is composed, `update-backend-cors` must also include the SQS integration parameters (`EnableSqsIntegration=true`, `SqsQueueUrl=$(SQS_QUEUE_URL)`, `SqsSendQueueArns=$(SQS_QUEUE_ARN)`) read from `.env` — same as `deploy-backend`.
 
 ### No Post-Deploy Steps
 
@@ -609,7 +571,9 @@ post-deploy:
 
 ## env.mk Template
 
-Always generate `scripts/env.mk`. This file consolidates all `.env` writes — syncing deployed stack outputs to `.env` for local dev. CI/CD has no `.env` file, so `post-deploy.mk` gates the invocation with a file-existence check.
+Always generate `scripts/env.mk`. This file is **the canonical bridge between live CloudFormation stack outputs and the rest of the Make system**. Every consumer (`deploy.mk`, `post-deploy.mk`, local FastAPI dev server) reads its values from `.env`; only env.mk calls `aws cloudformation describe-stacks`.
+
+In CI/CD, each CodeBuild stage runs `make -f scripts/env.mk update-env` as its prelude, populating `.env` from live stack state before the stage's main target runs. Re-running env.mk is idempotent — it strips its previous block from `.env` before appending fresh values.
 
 ### Header
 
@@ -617,14 +581,14 @@ Always generate `scripts/env.mk`. This file consolidates all `.env` writes — s
 # Environment variable sync — writes stack outputs to .env
 # Generated by /ipa-compose — do not edit manually
 #
-# Syncs deployed stack outputs to .env so the local dev server
-# can read them via load_dotenv(). Skipped in CI/CD (no .env file).
+# This is the canonical bridge between live CloudFormation stack outputs
+# and the Make system. deploy.mk and post-deploy.mk read values from .env
+# rather than calling describe-stacks directly. CodeBuild stages invoke
+# this as a prelude before their main target.
 #
 # Usage:
-#   make -f scripts/env.mk update-env           # Sync all stack outputs
-#   make -f scripts/env.mk update-env-cognito   # Sync cognito only
-#   make -f scripts/env.mk update-env-ecr       # Sync ecr only
-#   make -f scripts/env.mk update-env-sqs       # Sync sqs only
+#   make -f scripts/env.mk update-env                  # Sync all stack outputs
+#   make -f scripts/env.mk update-env-{stack-suffix}   # Sync one stack only
 
 -include .env
 
@@ -637,11 +601,13 @@ Always generate `scripts/env.mk`. This file consolidates all `.env` writes — s
 update-env: update-env-{suffix1} update-env-{suffix2} ... update-env-{suffixN}
 ```
 
-List all per-stack env targets. Order does not matter — targets are independent.
+List all per-stack env targets — both prepare-stack targets (`logs`, `cognito`, `ecr`, `pipeline`) AND deploy-stack targets (`backend`, `frontend`, `sqs`). Order does not matter; targets are independent.
+
+**Skipping missing stacks:** If a stack target's underlying CloudFormation stack does not yet exist (e.g., `update-env-backend` runs before `deploy-backend` on a fresh project), the `describe-stacks` call returns an empty string — env.mk writes `API_URL=` to `.env`. The downstream consumer's pre-check (e.g., `if [ -z "$(API_URL)" ]`) catches this and surfaces an actionable error.
 
 ### Per-Stack Target — Cognito
 
-When the composition includes `cognito`:
+When the composition includes `cognito`. **Captures `COGNITO_DOMAIN_PREFIX` from the live `CognitoDomain` stack output** so post-deploy targets can re-pass the deployed value (preventing parameter drift on `AWS::Cognito::UserPoolDomain`, which is REPLACE-on-update).
 
 ```makefile
 update-env-cognito:
@@ -670,8 +636,13 @@ update-env-cognito:
 		--query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval COGNITO_DOMAIN_PREFIX_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-cognito \
+		--query 'Stacks[0].Outputs[?OutputKey==`CognitoDomain`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	@echo "Writing OIDC configuration to .env..."
-	@grep -v '^OIDC_\|^# OIDC Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@grep -v '^OIDC_\|^COGNITO_DOMAIN_PREFIX=\|^# OIDC Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# OIDC Configuration (written by /ipa-deploy after cognito deploy)" >> .env
 	@echo "OIDC_ISSUER=$(OIDC_ISSUER_VAL)" >> .env
@@ -679,7 +650,10 @@ update-env-cognito:
 	@echo "OIDC_DISCOVERY_URL=$(OIDC_DISCOVERY_URL_VAL)" >> .env
 	@echo "OIDC_END_SESSION_ENDPOINT=$(OIDC_END_SESSION_VAL)" >> .env
 	@echo "OIDC_USER_POOL_ID=$(OIDC_USER_POOL_ID_VAL)" >> .env
+	@echo "COGNITO_DOMAIN_PREFIX=$(COGNITO_DOMAIN_PREFIX_VAL)" >> .env
 ```
+
+**Why `COGNITO_DOMAIN_PREFIX` is captured here, not recomputed:** post-deploy targets that re-deploy the cognito stack (e.g., to add a `CallbackURL`) MUST pass the same `CognitoDomainPrefix` parameter the stack was originally created with. Recomputing the value (`$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH)`) risks producing a different string if any input drifts (different `AWS_ACCOUNT_ID`, `.env` differences across hosts, etc.). CFN treats the differing value as a property change → REPLACE on `AWS::Cognito::UserPoolDomain` → the live domain is destroyed during the failed update. Reading from env.mk-populated `.env` always passes the **deployed value**.
 
 ### Per-Stack Target — ECR
 
@@ -701,7 +675,7 @@ update-env-ecr:
 
 ### Per-Stack Target — SQS Queue
 
-When the composition includes `queue`:
+When the composition includes `queue`. Captures both `SQS_QUEUE_URL` and `SQS_QUEUE_ARN` so `deploy-backend` and `update-backend-cors` can read them from `.env` instead of repeating describe-stacks calls.
 
 ```makefile
 update-env-sqs:
@@ -710,11 +684,65 @@ update-env-sqs:
 		--query 'Stacks[0].Outputs[?OutputKey==`QueueUrl`].OutputValue' \
 		--output text \
 		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval SQS_QUEUE_ARN_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-queue \
+		--query 'Stacks[0].Outputs[?OutputKey==`QueueArn`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
 	@echo "Writing SQS configuration to .env..."
-	@grep -v '^SQS_QUEUE_URL\|^# SQS Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@grep -v '^SQS_QUEUE_URL=\|^SQS_QUEUE_ARN=\|^# SQS Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# SQS Configuration (written by /ipa-deploy after queue deploy)" >> .env
 	@echo "SQS_QUEUE_URL=$(SQS_QUEUE_URL_VAL)" >> .env
+	@echo "SQS_QUEUE_ARN=$(SQS_QUEUE_ARN_VAL)" >> .env
+```
+
+### Per-Stack Target — Backend (Deploy-Stack)
+
+When the composition includes `backend`. Captures the API URL produced by `deploy-backend` so `configure-frontend` and `update-backend-cors` can read it from `.env`.
+
+```makefile
+update-env-backend:
+	$(eval API_URL_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-backend \
+		--query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing backend configuration to .env..."
+	@grep -v '^API_URL=\|^# Backend Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# Backend Configuration (written by /ipa-deploy after backend deploy)" >> .env
+	@echo "API_URL=$(API_URL_VAL)" >> .env
+```
+
+### Per-Stack Target — Frontend (Deploy-Stack)
+
+When the composition includes `frontend`. Captures the public app URL, S3 bucket name, and CloudFront distribution ID so post-deploy targets (`configure-frontend`, `upload-frontend`, `invalidate-cf`, `update-cognito-callback`, `update-backend-cors`) can read them from `.env`.
+
+```makefile
+update-env-frontend:
+	$(eval APP_URL_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
+		--query 'Stacks[0].Outputs[?OutputKey==`AppUrl`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval BUCKET_NAME_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
+		--query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	$(eval DISTRIBUTION_ID_VAL := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-frontend \
+		--query 'Stacks[0].Outputs[?OutputKey==`DistributionId`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	@echo "Writing frontend configuration to .env..."
+	@grep -v '^APP_URL=\|^BUCKET_NAME=\|^DISTRIBUTION_ID=\|^# Frontend Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
+	@echo "" >> .env
+	@echo "# Frontend Configuration (written by /ipa-deploy after frontend deploy)" >> .env
+	@echo "APP_URL=$(APP_URL_VAL)" >> .env
+	@echo "BUCKET_NAME=$(BUCKET_NAME_VAL)" >> .env
+	@echo "DISTRIBUTION_ID=$(DISTRIBUTION_ID_VAL)" >> .env
 ```
 
 ### Convention Notes
@@ -725,16 +753,25 @@ update-env-sqs:
 
 **`$(eval ... $(shell ...))` lines** MUST use conditional profile/region: `$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)`. Make's `$(shell)` does not inherit `export`-ed variables, so explicit substitution is needed. The `$(if ...)` conditional ensures CI/CD compatibility when `AWS_PROFILE` is empty.
 
-### Invocation from post-deploy.mk
+### Invocation
 
-`post-deploy.mk` invokes `env.mk` conditionally as its first step:
+env.mk is invoked **separately from `deploy.mk` and `post-deploy.mk`**, never as a Make dependency inside them. This is required because Make parses `-include .env` once at process startup; if env.mk modified `.env` mid-run, the same Make process would not see the changes. Two separate `make` invocations are needed:
 
-```makefile
-update-env:
-	@if [ -f ./.env ]; then $(MAKE) -f scripts/env.mk update-env; fi
+```bash
+make -f scripts/env.mk update-env                   # writes .env from live stack outputs
+make -f scripts/post-deploy.mk post-deploy          # reads .env via -include
 ```
 
-This ensures CI/CD (no `.env` file) skips the env sync entirely.
+**Locally**, `/ipa-deploy` orchestrates this — running env.mk after each phase (prepare → env.mk → deploy → env.mk → post-deploy).
+
+**In CodeBuild**, every stage's buildspec runs env.mk as its prelude (see `infra/cfn/codepipeline/codepipeline.yml`). This makes each stage self-contained — no `.env` artifact passing between stages. Each stage starts with a fresh container, queries live stacks, writes `.env`, then runs its main target.
+
+**`.env` file lifecycle:**
+
+- Local: persists across runs in the workspace; `/ipa-init` may seed it.
+- CodeBuild: created by env.mk in each stage's working directory; container is destroyed at stage end.
+
+In both environments, env.mk's `grep -v` idempotency idiom guarantees re-runs converge to the same `.env` content.
 
 ---
 

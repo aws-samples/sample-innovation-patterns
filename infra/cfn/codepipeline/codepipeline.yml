@@ -23,18 +23,11 @@ Parameters:
     Type: String
     Default: 'main'
     Description: 'Branch to track for pipeline triggers'
-  EcrRepoUri:
-    Type: String
-    Description: 'ECR repository URI (from ecr stack output)'
-  OidcIssuer:
-    Type: String
-    Description: 'Cognito OIDC issuer URL (from cognito stack output)'
-  OidcClientId:
-    Type: String
-    Description: 'Cognito app client ID (from cognito stack output)'
-  OidcEndSessionEndpoint:
-    Type: String
-    Description: 'Cognito end session endpoint (from cognito stack output)'
+  # Note: ECR_REPO_URI, OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_END_SESSION_ENDPOINT,
+  # and other stack outputs are NOT pipeline parameters. They are written to
+  # .env by scripts/env.mk in each CodeBuild stage's prelude — see the inline
+  # buildspec below. Baking them into CodeBuild EnvironmentVariables risks
+  # stale values overriding live stack outputs via Make's env-precedence rule.
   BuildImage:
     Type: String
     Default: 'aws/codebuild/standard:7.0'
@@ -120,6 +113,16 @@ Resources:
                 - cd app-lib && uv sync --all-extras && cd ..
             build:
               commands:
+                # Stage prelude: populate .env from live stack outputs so the
+                # main Make target can read $(LOG_BUCKET_NAME), $(API_URL),
+                # $(COGNITO_DOMAIN_PREFIX), etc. via -include .env. Each stage
+                # runs this independently — CodeBuild containers do not share
+                # state between stages. test.mk is skipped because tests do
+                # not consume stack outputs.
+                - |
+                  if [ "${IPA_MAKEFILE}" != "test.mk" ] && [ -f scripts/env.mk ]; then
+                    make -f scripts/env.mk update-env || true
+                  fi
                 - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
           artifacts:
             files:
@@ -131,6 +134,12 @@ Resources:
         ComputeType: !Ref ComputeType
         Image: !Ref BuildImage
         PrivilegedMode: true
+        # Only orchestration/identity values are baked into CodeBuild here.
+        # Stack outputs (ECR_REPO_URI, OIDC_*, LOG_BUCKET_NAME, COGNITO_DOMAIN_PREFIX,
+        # API_URL, APP_URL, BUCKET_NAME, DISTRIBUTION_ID, SQS_QUEUE_URL, SQS_QUEUE_ARN)
+        # are written to .env by scripts/env.mk's stage prelude in each build phase.
+        # This avoids stale CodeBuild env vars overriding live stack values via
+        # Make's environment-precedence rule.
         EnvironmentVariables:
           - Name: APP_NAMESPACE
             Value: !Ref Namespace
@@ -140,18 +149,6 @@ Resources:
             Type: PLAINTEXT
           - Name: AWS_ACCOUNT_ID
             Value: !Ref AccountId
-            Type: PLAINTEXT
-          - Name: ECR_REPO_URI
-            Value: !Ref EcrRepoUri
-            Type: PLAINTEXT
-          - Name: OIDC_ISSUER
-            Value: !Ref OidcIssuer
-            Type: PLAINTEXT
-          - Name: OIDC_CLIENT_ID
-            Value: !Ref OidcClientId
-            Type: PLAINTEXT
-          - Name: OIDC_END_SESSION_ENDPOINT
-            Value: !Ref OidcEndSessionEndpoint
             Type: PLAINTEXT
           - Name: IPA_MAKEFILE
             Value: build.mk

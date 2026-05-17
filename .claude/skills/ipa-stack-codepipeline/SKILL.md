@@ -39,19 +39,15 @@ Parameters that receive values from other stacks during composition:
 | Parameter | Source Stack | Source Output | Notes |
 |-----------|-------------|---------------|-------|
 | CodeBuildRoleArn | security | CodeBuildRoleArn | From `/ipa-security` stack |
-| EcrRepoUri | ecr | RepositoryUri | ECR repository URI |
-| OidcIssuer | cognito | IssuerUrl | OIDC issuer URL |
-| OidcClientId | cognito | UserPoolClientId | Cognito app client ID |
-| OidcEndSessionEndpoint | cognito | EndSessionEndpoint | Cognito end session endpoint |
 | SourceRepoName | codecommit | RepositoryName | CodeCommit repository name |
+
+**ECR and Cognito outputs are NOT pipeline parameters.** Each CodeBuild stage runs `make -f scripts/env.mk update-env` as its prelude, populating `.env` with `ECR_REPO_URI`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_END_SESSION_ENDPOINT`, and other live stack outputs. This avoids stale CodeBuild EnvironmentVariables overriding live values via Make's environment-precedence rule.
 
 ## Deploy Order
 
 | Constraint | Reason |
 |------------|--------|
 | codepipeline deploys after codecommit | SourceRepoName wiring dependency |
-| codepipeline deploys after ecr | EcrRepoUri wiring dependency |
-| codepipeline deploys after cognito | OIDC wiring dependencies |
 
 ## Compose Config
 
@@ -65,21 +61,17 @@ Parameters prompted during `/ipa-compose`:
 
 ## CodeBuild Environment Variables
 
-Set on the CodeBuild project, inherited by Make targets at runtime:
+Set on the CodeBuild project — **only orchestration/identity values**. Stack outputs are not baked into CodeBuild env vars; they are written to `.env` by `scripts/env.mk` in each stage's prelude.
 
 | Variable | Source |
 |----------|--------|
 | `APP_NAMESPACE` | Parameter `Namespace` |
 | `APP_ENV` | Parameter `Environment` |
 | `AWS_ACCOUNT_ID` | Parameter `AccountId` |
-| `ECR_REPO_URI` | Parameter `EcrRepoUri` |
-| `OIDC_ISSUER` | Parameter `OidcIssuer` |
-| `OIDC_CLIENT_ID` | Parameter `OidcClientId` |
-| `OIDC_END_SESSION_ENDPOINT` | Parameter `OidcEndSessionEndpoint` |
 | `IPA_MAKEFILE` | Pipeline action override (default: `build.mk`) |
 | `IPA_TARGET` | Pipeline action override (default: `build`) |
 
-Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Make target to run. The buildspec is inline in the template.
+Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Make target to run. The buildspec is inline in the template; its prelude runs `make -f scripts/env.mk update-env` (when `IPA_MAKEFILE != test.mk`) so consumer Makefiles can read live stack outputs via `-include .env`.
 
 ## Outputs
 
