@@ -7,13 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.6]
 
+### Added
+
+- **Conventional Commits convention** — adopted [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages, with type/scope/breaking-change rules documented in `CLAUDE.md` and a public reference at `developer-docs/contributing/commit-messages.md`.
+- **CHANGELOG automation via git-cliff** — added `cliff.toml` mapping conventional commit types to Keep-a-Changelog sections, plus a `release-changelog` Make target that regenerates `CHANGELOG.md` from commit history. Run `make -f scripts/util/release.mk release-prep VERSION=X.Y.Z` to stamp VERSION and produce a CHANGELOG draft in one step.
+- **Manual `Tag & Release` trigger** — GitLab CI release job is now a manual play button on `main` pipelines instead of auto-firing on every VERSION-bump merge. The builder decides when to release; `release-check.sh` still validates VERSION ↔ tag at runtime.
+
 ### Changed
 
+- **Trunk-based development on `main`** — the project moves from the develop → main merge-based release flow to trunk-based development on `main`. Daily work lands on `main` directly or via short-lived feature branches. Eliminates the SHA-reconciliation merges that were required to keep `develop` and `main` aligned.
 - **web-client build tooling** — replaced `@vitejs/plugin-react-swc` with `@vitejs/plugin-react` (Babel-based) to eliminate platform-specific `@swc/core` binaries from the dependency tree. This fixes CodeBuild `npm ci` failures when `package-lock.json` is generated on macOS but CI runs on Linux. No application code changes; build, tests, and dev server verified.
 
 ### Fixed
 
 - **web-client cross-platform lockfile** — regenerated `web-client/package-lock.json` to include both Linux x64 and macOS arm64 entries for native packages (`@rollup/rollup-*`, `@esbuild/*`, `@tailwindcss/oxide-*`, `lightningcss-*`). The prior swc fix only addressed swc binaries; CodeBuild `npm ci` was still failing on missing Linux variants for tailwind v4, esbuild, rollup, and lightningcss. Verified with `npm ci --os=linux --cpu=x64` and local `npm run build`.
+- **Innovation Builder Security stack** — added `cloudwatch:*` to the Infrastructure allow block of `InnovationBuilderPolicy`. Tier stacks declaring `AWS::CloudWatch::Alarm` or `AWS::CloudWatch::Dashboard` (queue, backend) previously failed during deploy with `cloudwatch:PutDashboard`/`cloudwatch:PutMetricAlarm` AccessDenied. The destructive subset (`DeleteAlarms`, `DeleteDashboards`, `DisableAlarmActions`) remains denied by the existing `SecureLoggingConfigs` deny block in both the boundary and identity policy.
 
 ## [0.1.5] - 2026-05-13
 

@@ -616,6 +616,10 @@ Resources:
               - 'cloudformation:*'
               # CloudWatch Logs (Lambda, ECS, CodeBuild logging)
               - 'logs:*'
+              # CloudWatch metrics, alarms, dashboards. Destructive ops
+              # (DeleteAlarms, DeleteDashboards, DisableAlarmActions) are
+              # denied by SecureLoggingConfigs in the boundary and below.
+              - 'cloudwatch:*'
               # Application Auto Scaling (ECS service scaling)
               - 'application-autoscaling:*'
 
