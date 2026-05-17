@@ -1,5 +1,6 @@
 ---
 title: Overview
+sidebar_label: Runbooks
 sidebar_position: 1
 ---
 

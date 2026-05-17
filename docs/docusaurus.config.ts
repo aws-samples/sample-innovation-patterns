@@ -78,12 +78,19 @@ const config: Config = {
           position: 'right' as const,
           value: `<span class="navbar-version">v${version}</span>`,
         }] : []),
-        {
-          href: 'https://github.com/aws-samples/sample-innovation-patterns',
-          position: 'right' as const,
-          className: 'header-github-link',
-          'aria-label': 'GitHub repository',
-        },
+        docsTarget === 'github'
+          ? {
+              href: 'https://github.com/aws-samples/sample-innovation-patterns',
+              position: 'right' as const,
+              className: 'header-github-link',
+              'aria-label': 'GitHub repository',
+            }
+          : {
+              href: 'https://code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/innovation-patterns',
+              position: 'right' as const,
+              className: 'header-gitlab-link',
+              'aria-label': 'GitLab repository',
+            },
       ],
     },
     footer: {

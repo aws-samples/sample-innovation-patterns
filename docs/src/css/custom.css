@@ -40,6 +40,20 @@
     no-repeat;
 }
 
+.header-gitlab-link::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M23.955 13.587l-1.342-4.135-2.664-8.189a.455.455 0 00-.867 0L16.418 9.45H7.582L4.919 1.263a.455.455 0 00-.867 0L1.386 9.451.044 13.587a.924.924 0 00.331 1.024L12 23.054l11.625-8.443a.92.92 0 00.33-1.024'/%3E%3C/svg%3E")
+    no-repeat;
+}
+
+[data-theme='dark'] .header-gitlab-link::before {
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M23.955 13.587l-1.342-4.135-2.664-8.189a.455.455 0 00-.867 0L16.418 9.45H7.582L4.919 1.263a.455.455 0 00-.867 0L1.386 9.451.044 13.587a.924.924 0 00.331 1.024L12 23.054l11.625-8.443a.92.92 0 00.33-1.024'/%3E%3C/svg%3E")
+    no-repeat;
+}
+
 .navbar-version {
   font-size: 0.75rem;
   padding: 2px 8px;

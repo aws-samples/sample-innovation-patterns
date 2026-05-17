@@ -35,9 +35,10 @@ pages:
     NODE_OPTIONS: "--max-old-space-size=3072"
   before_script:
     - corepack enable
-    # Strip internal-only docs before build so they never publish to Pages.
-    # Mirrors scripts/util/github-push.sh EXCLUDE_PATHS for the docs subset.
-    - rm -rf docs/docs/developer-docs/internal
+    # Internal docs (developer-docs/internal/) DO publish to GitLab Pages —
+    # this site is internal-only. They are filtered from the GitHub mirror
+    # by scripts/util/github-push.sh EXCLUDE_PATHS, so they never reach
+    # GitHub or GitHub Pages.
     - cd docs
     # Uses the pnpm version pinned in docs/package.json "packageManager"
     - pnpm install --frozen-lockfile
