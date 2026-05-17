@@ -50,31 +50,25 @@ pages:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# Auto-tag on merge to main when VERSION was bumped, then push to GitHub in the
-# same job. Combined because GitLab's CI_JOB_TOKEN-authenticated tag push does
-# not trigger a follow-up tag pipeline, so a separate tag-driven release job
-# would never fire. Trade-off: manually pushed tags no longer trigger a release.
+# Manual tag-and-release: click the play button to tag the current commit,
+# push to origin, and mirror to GitHub. The builder bumps VERSION and updates
+# CHANGELOG before pushing; this job reads VERSION and creates the tag.
 #
-# Pinned to `main` explicitly (not $CI_DEFAULT_BRANCH) because the GitLab default
-# branch is `develop`, and this job must never run on develop.
-# The `changes: [VERSION]` guard ensures the job only fires when the VERSION file
-# itself was modified in the commit/MR being pushed to main.
-# The $CI_COMMIT_TAG == null check prevents recursion on the job's own tag push.
-auto-tag-and-release:
+# The `changes: [VERSION]` guard is intentionally removed — the manual trigger
+# replaces auto-detection. release-check.sh validates VERSION↔tag at runtime.
+tag-and-release:
   stage: release
   image: public.ecr.aws/docker/library/python:3.12-bookworm
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TAG == null
-      changes:
-        - VERSION
-      when: on_success
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: false
     - when: never
   needs:
     - job: ash
       optional: true
   before_script:
     # $GITHUB_DEPLOY_KEY is base64-encoded (masked + protected CI variable).
-    # Base64 strips whitespace/newlines so GitLab accepts masking.
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
     - |
@@ -82,25 +76,23 @@ auto-tag-and-release:
       DECODED_LEN=$(printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di 2>/dev/null | wc -c || true)
       echo "GITHUB_DEPLOY_KEY base64-decoded length: ${DECODED_LEN:-0}"
       if [ "${DECODED_LEN:-0}" -lt 200 ]; then
-        echo "ERROR: decoded value is too short (${DECODED_LEN:-0} bytes). Either the variable is raw (not base64) or it decodes to garbage. Re-upload the key with: base64 -w0 key | pbcopy"
+        echo "ERROR: decoded value is too short (${DECODED_LEN:-0} bytes)."
         exit 1
       fi
     - printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
   script:
     - VERSION=$(tr -d '[:space:]' < VERSION)
-    # Check the remote for the tag — CI's shallow clone may not have local tags.
     - |
       if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v$VERSION"; then
-        echo "Tag v$VERSION already exists on origin — skipping (VERSION not bumped)"
-        exit 0
+        echo "Tag v$VERSION already exists on origin — nothing to release"
+        echo "Bump VERSION before clicking Tag & Release"
+        exit 1
       fi
     - git config user.email "ci@code.aws.dev"
     - git config user.name "GitLab CI"
     - git tag -a "v$VERSION" -m "Release v$VERSION"
     - git push origin "v$VERSION"
-    # Tag is now on origin (GitLab); push to GitHub in the same job because
-    # CI_JOB_TOKEN tag pushes don't trigger follow-up pipelines.
     - export CI_COMMIT_TAG="v$VERSION"
     - make -f scripts/util/release.mk release-check
     - bash scripts/util/github-push.sh

@@ -58,6 +58,72 @@ Markdown (Claude Code skill format): Follow standard conventions
 - 012-tier-stack-consolidation: Consolidated 10 per-service CFN stacks into 3 tier-based stacks (frontend, backend, queue). Removed add-stacks/add-pattern compose modes. Updated MAKEFILE_TEMPLATES.md for consolidated stack names.
 
 
+## Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format for all commit messages.
+
+### Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | When to use | CHANGELOG section |
+|------|-------------|-------------------|
+| `feat` | New feature or capability | Added |
+| `fix` | Bug fix | Fixed |
+| `docs` | Documentation only | Documentation |
+| `ci` | CI/CD pipeline changes | CI/Build |
+| `refactor` | Code restructuring (no behavior change) | Changed |
+| `style` | Formatting, whitespace (no code change) | (skipped) |
+| `test` | Adding or updating tests | (skipped) |
+| `chore` | Maintenance, dependency updates | (skipped) |
+| `perf` | Performance improvements | Performance |
+| `build` | Build system or external dependency changes | CI/Build |
+| `revert` | Reverting a previous commit | Reverted |
+
+### Scopes (optional)
+
+Use a scope when the change is clearly limited to one area:
+
+- `ipa` — IPA skills framework (`.claude/skills/`, `scripts/`)
+- `app-lib` — Python backend library (`app-lib/`)
+- `web-client` — React frontend (`web-client/`)
+- `docs` — Documentation site (`docs/`)
+- `infra` — CloudFormation templates (`infra/cfn/`)
+
+### Rules
+
+- Description: imperative mood, lowercase start, no trailing period, max 72 characters
+- Body: wrap at 72 characters, explain WHY not WHAT
+- Breaking changes: append `!` after type/scope — `feat(app-lib)!: change response format`
+- Multi-scope changes: omit scope — `feat: add passenger job queue`
+
+### Examples
+
+```
+feat(ipa): add logs stack for centralized S3 log bucket
+fix(web-client): resolve OIDC token refresh race condition
+docs: update releasing guide for trunk-based workflow
+ci: add manual tag-and-release trigger
+refactor(app-lib): extract AbstractDataService from passenger service
+chore: bump FastAPI to 0.115.12
+build(infra): consolidate backend tier template parameters
+```
+
+### Release Commits
+
+When preparing a release, use:
+```
+chore: release v0.2.0
+```
+
 <!-- MANUAL ADDITIONS START -->
 
 ## Security Scanning
