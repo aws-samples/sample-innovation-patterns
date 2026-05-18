@@ -1,5 +1,5 @@
+# IPA generated Makefiles & security disposition (solution-specific, not committed)
 *.mk
-!test.mk
-
-*.md
-!INSTALL-RUNBOOK.md
+!util/*.mk
+SECURITY-DISPOSITION.md
+README.md
