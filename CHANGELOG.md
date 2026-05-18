@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - N/A
 
 ### Fixed
-- N/A
+- **`/ipa-compose` deploy→deploy wiring** — `MAKEFILE_TEMPLATES.md` now splits deploy.mk wiring rules by source-stack lifecycle. Prepare-source wiring continues to read from `.env` via `$(VAR)`; deploy-source wiring captures values via `$(eval ... describe-stacks ...)` at the top of the target body, stored as `{VAR}_LIVE`. Make parses `-include .env` once at process startup, so values that env.mk writes to `.env` mid-run are invisible to subsequent targets in the same `make deploy` invocation. The previous single-rule template produced an empty `SqsSendQueueArns` for `deploy-backend`, causing `LambdaExecutionRole` `CREATE_FAILED` on IAM ("Resource must be in ARN format or '*'"). The `ipa-stack-backend` skill now flags `SqsQueueUrl`/`SqsSendQueueArns` as same-lifecycle wiring per Case B.
 
 ## [0.1.6] - 2026-05-18
 
