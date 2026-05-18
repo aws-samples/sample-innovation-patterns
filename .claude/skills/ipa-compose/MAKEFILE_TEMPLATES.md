@@ -101,23 +101,51 @@ Add `--capabilities CAPABILITY_NAMED_IAM` if the stack skill's CloudFormation Co
 
 ### Per-Stack Deploy Target — With Dependencies and Wiring
 
-For stacks that depend on outputs from other stacks (wiring entries from the stack skill's `## Wiring` section), reference values that env.mk has populated in `.env`. **Do not** call `describe-stacks` from a deploy target — that is env.mk's job.
+For stacks that depend on outputs from other stacks (wiring entries from the stack skill's `## Wiring` section), the wiring strategy depends on the **lifecycle of the source stack**:
+
+#### Case A — Source lifecycle = `prepare` (read from `.env`)
+
+The source stack deployed during `/ipa-prepare`, env.mk synced its outputs to `.env`, and `-include .env` exposes them at the start of `deploy.mk`. Reference them via `$(VAR)`:
 
 ```makefile
-deploy-{suffix}: deploy-{dep1} deploy-{dep2}
+deploy-{suffix}: deploy-{dep1}
 	aws cloudformation deploy \
 		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
 		--template-file infra/cfn/{service}/{service}.yml \
-		--parameter-overrides {TargetParam1}=$({SOURCE_VAR1}) {TargetParam2}=$({SOURCE_VAR2}) \
+		--parameter-overrides {TargetParam1}=$({SOURCE_VAR1}) \
 		--no-fail-on-empty-changeset
 ```
 
+#### Case B — Source lifecycle = `deploy` (capture at runtime)
+
+The source stack deploys in the **same Make invocation** as the target. Make parses `-include .env` once at process startup; values written to `.env` by env.mk *during* the run are NOT visible to subsequent targets in the same process. Reference them via `$(eval ... describe-stacks ...)` at the top of the target body:
+
+```makefile
+deploy-{suffix}: deploy-{source}
+	$(eval {SOURCE_VAR1}_LIVE := $(shell aws cloudformation describe-stacks \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{source} \
+		--query 'Stacks[0].Outputs[?OutputKey==`{OutputName1}`].OutputValue' \
+		--output text \
+		$(if $(AWS_PROFILE),--profile $(AWS_PROFILE),) $(if $(AWS_REGION),--region $(AWS_REGION),)))
+	aws cloudformation deploy \
+		--stack-name $(APP_NAMESPACE)-$(APP_ENV)-{suffix} \
+		--template-file infra/cfn/{service}/{service}.yml \
+		--parameter-overrides {TargetParam1}=$({SOURCE_VAR1}_LIVE) \
+		--no-fail-on-empty-changeset
+```
+
+**`_LIVE` suffix convention**: Use a distinct name (e.g., `SQS_QUEUE_URL_LIVE`) instead of overwriting the `.env`-sourced variable. This keeps the two values cleanly separated and avoids self-referential evaluation. Same pattern as prepare.mk's `prepare-codepipeline` target uses for codecommit outputs.
+
 **Wiring translation rules**:
-1. Each `source.output` maps to a `.env` variable produced by env.mk's `update-env-{source_suffix}` target. The variable name is the canonical UPPER_SNAKE_CASE form (e.g., `LOG_BUCKET_NAME`, `SQS_QUEUE_URL`, `OIDC_ISSUER`).
-2. Each `target.parameter` → one entry in `--parameter-overrides` (no quotes, space-separated Key=Value)
-3. Make dependency prerequisites come from the stack skill's "Depends on" declarations
-4. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`
-5. If a wiring source has no env.mk capture yet, **add it to env.mk first**, then reference it here. Do not introduce `$(eval ... describe-stacks ...)` in deploy targets.
+1. **Determine source lifecycle** from the source stack skill's Stack Identity table.
+2. **Case A (prepare source)** → reference `$({SOURCE_VAR})` from `.env`. The variable name is the canonical UPPER_SNAKE_CASE form (e.g., `LOG_BUCKET_NAME`, `OIDC_ISSUER`, `ECR_REPO_URI`).
+3. **Case B (deploy source)** → emit `$(eval ... describe-stacks ...)` at the top of the target, store as `{SOURCE_VAR}_LIVE`, reference with `$({SOURCE_VAR}_LIVE)`.
+4. Each `target.parameter` → one entry in `--parameter-overrides` (no quotes, space-separated Key=Value).
+5. Make dependency prerequisites come from the stack skill's "Depends on" declarations.
+6. `target.env` entries (runtime environment variables) are NOT wired via `--parameter-overrides`.
+7. If a Case A wiring source has no env.mk capture yet, **add it to env.mk first**, then reference it here.
+
+**Why the lifecycle split exists**: env.mk's `-include .env` propagation works **across separate Make invocations**, not within a single one. `/ipa-prepare` and `/ipa-deploy` are separate `make` calls — env.mk runs between them, and the deploy process picks up fresh values. But within `make -f scripts/deploy.mk deploy`, every target shares the same Make process and the same `.env` snapshot from process startup. Deploy→deploy wiring must therefore query CloudFormation directly. Post-deploy targets (`update-backend-cors` etc.) re-read `.env` correctly because `/ipa-deploy` invokes `post-deploy.mk` as a separate Make call after running env.mk.
 
 **The aggregate `deploy:` target depends on env.mk implicitly via the buildspec prelude** (see Variable Resolution Convention). Locally, the builder runs `make -f scripts/env.mk update-env` once after each prepare/deploy phase, or `/ipa-deploy` orchestrates it.
 

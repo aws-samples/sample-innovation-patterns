@@ -55,8 +55,8 @@ Parameters that receive values from other stacks during composition:
 | ImageUri | ecr | RepositoryUri | Append `:$(IMAGE_TAG)` |
 | AuthIssuer | cognito | IssuerUrl | OIDC issuer URL |
 | AuthAudience | cognito | UserPoolClientId | App client ID |
-| SqsQueueUrl | queue | QueueUrl | Only when EnableSqsIntegration=true |
-| SqsSendQueueArns | queue | QueueArn | Only when EnableSqsIntegration=true |
+| SqsQueueUrl | queue | QueueUrl | Only when EnableSqsIntegration=true. Same-lifecycle wiring (queue → backend, both deploy) — capture at runtime via `$(eval ... describe-stacks ...)` per Case B in MAKEFILE_TEMPLATES.md. Reading from `.env` does NOT work inside a single `make deploy` invocation. |
+| SqsSendQueueArns | queue | QueueArn | Only when EnableSqsIntegration=true. Same-lifecycle wiring — see SqsQueueUrl note. |
 | AllowedOrigin | frontend | AppUrl | Set during post-deploy (update-backend-cors target) |
 
 ## Outputs
