@@ -55,7 +55,7 @@ Before invoking the authoring skill, plan the stack interface. Define the follow
 - For each parameter, determine its classification:
   - **Configuration** — sourced from `.env` or template defaults (e.g., `MemorySize`, `Timeout`)
   - **Wirable — Required** — must be populated from an upstream stack output (e.g., `ImageUri` from ECR)
-  - **Wirable — Optional** — defaults to empty string, conditionally enables resources (e.g., `AlarmSnsTopicArn`)
+  - **Wirable — Optional** — defaults to empty string, conditionally enables resources (e.g., `SqsQueueUrl`)
 
 **Outputs:**
 - What values do downstream stacks or operational steps need?

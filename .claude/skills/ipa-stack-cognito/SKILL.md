@@ -50,3 +50,35 @@ All parameters are **Configuration** type — sourced from `.env` or defaults. N
 **Required IAM actions**: cognito-idp:CreateUserPool, UpdateUserPool, DeleteUserPool, DescribeUserPool, CreateUserPoolClient, UpdateUserPoolClient, DeleteUserPoolClient, CreateUserPoolDomain, DeleteUserPoolDomain, DescribeUserPoolDomain, SetUICustomization, CreateManagedLoginBranding, DeleteManagedLoginBranding — scoped to `arn:aws:cognito-idp:{Region}:{AccountId}:userpool/*`
 **Security controls**: Advanced Security Mode ENFORCED, AdminCreateUserOnly, PreventUserExistenceErrors ENABLED, OAuth 2.0 Authorization Code Grant only
 **Full advisory**: See [SECURITY.md](SECURITY.md)
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/cognito/` |
+| State key | `{namespace}-{env}/cognito/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| cognito_domain_prefix | string | — | CognitoDomainPrefix |
+| callback_url | string | `http://localhost:8080/authentication/callback` | CallbackURL |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| user_pool_id | UserPoolId |
+| user_pool_arn | UserPoolArn |
+| user_pool_client_id | UserPoolClientId |
+| issuer_url | IssuerUrl |
+| end_session_endpoint | EndSessionEndpoint |
+| cognito_domain | CognitoDomain |
+| discovery_url | DiscoveryUrl |

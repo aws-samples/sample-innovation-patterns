@@ -21,7 +21,7 @@ A full-stack composition deploys a complete serverless web application in a sing
 - **Data** — DynamoDB tables (feature-flagged)
 - **Auth** — Cognito User Pool with OAuth 2.0 Hosted UI
 - **Container Registry** — ECR for Lambda container images
-- **Observability** — CloudWatch dashboards and alarms
+- **Logging** — CloudWatch log groups with 30-day retention
 
 Additional stacks layer on top: the queue stack adds a background worker, and stacks compose without conflict.
 

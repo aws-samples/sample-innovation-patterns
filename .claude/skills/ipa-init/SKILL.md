@@ -24,13 +24,13 @@ The `.env` file contains up to seven IPA-managed variables. `AWS_PROFILE` is opt
 | `APP_NAMESPACE` | Yes | `app` | Project name prefix for stack naming (max 12 chars) |
 | `APP_ENV` | Yes | `dev` | Environment label (e.g., `dev`, `stage`, `prod`) |
 | `APP_CODE_AGENT` | No (auto-set) | `claude-code` | AI agent platform — set automatically, do not prompt |
-| `APP_IAC` | No (auto-set) | `cloudformation` | Infrastructure-as-code tool — set automatically, do not prompt |
+| `APP_IAC` | Yes | `cloudformation` | Infrastructure-as-code tool (cloudformation or terraform) |
 
 ### Variable Categories
 
-- **Prompted (4)**: `AWS_PROFILE` (optional — can be skipped), `AWS_REGION`, `APP_NAMESPACE`, `APP_ENV` — ask the builder for a value, offer default if one exists.
+- **Prompted (5)**: `AWS_PROFILE` (optional — can be skipped), `AWS_REGION`, `APP_NAMESPACE`, `APP_ENV`, `APP_IAC` — ask the builder for a value, offer default if one exists.
 - **Auto-detected (1)**: `AWS_ACCOUNT_ID` — detect via AWS CLI and auto-accept, fall back to manual prompt on failure.
-- **Auto-set (2)**: `APP_CODE_AGENT`, `APP_IAC` — set silently without prompting. These are fixed for this iteration.
+- **Auto-set (1)**: `APP_CODE_AGENT` — set silently without prompting. Fixed for this iteration.
 
 ### .env File Format
 
@@ -83,6 +83,7 @@ You MUST validate every value before writing `.env`. If a value fails validation
 | `AWS_ACCOUNT_ID` | `/^\d{12}$/` | "Invalid account ID — must be exactly 12 digits" |
 | `APP_NAMESPACE` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid namespace — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
 | `APP_ENV` | `/^[a-z][a-z0-9-]{0,11}$/` | "Invalid environment — must be 1-12 chars, lowercase letters/digits/hyphens, must start with a letter" |
+| `APP_IAC` | `cloudformation` or `terraform` | "Invalid IaC tool — must be 'cloudformation' or 'terraform'" |
 
 ### Validation Behavior
 
@@ -90,7 +91,7 @@ You MUST validate every value before writing `.env`. If a value fails validation
 - If any value fails: display error messages for ALL failing values at once, then re-prompt ONLY the failing value(s). Do NOT re-ask values that passed.
 - Use a simple text prompt (not AskUserQuestion) for re-prompts of failing values.
 - Do NOT write `.env` if any value is invalid.
-- `APP_CODE_AGENT` and `APP_IAC` are auto-set to fixed values and do not require validation.
+- `APP_CODE_AGENT` is auto-set to a fixed value and does not require validation.
 
 ---
 
@@ -105,11 +106,11 @@ Check if `.env` exists at the project root:
 
 ### Step 2: Batched Configuration Prompt
 
-Use a SINGLE `AskUserQuestion` call with all 4 questions. Do NOT ask them one at a time.
+Use a SINGLE `AskUserQuestion` call with all 5 questions. Do NOT ask them one at a time.
 
 Before the prompt, display:
 
-> **Let's configure your project.** Answer the four questions below. Sensible defaults are pre-selected — accept them all for the fastest setup.
+> **Let's configure your project.** Answer the five questions below. Sensible defaults are pre-selected — accept them all for the fastest setup.
 
 Questions (all in one `AskUserQuestion` call):
 
@@ -145,9 +146,16 @@ Questions (all in one `AskUserQuestion` call):
      - **"prod"** — "Production environment"
    - Other (built-in): builder types a custom environment
 
+5. **APP_IAC** (header: "IaC Tool", multiSelect: false)
+   - Question: "Which infrastructure-as-code tool?"
+   - Options:
+     - **"cloudformation" (Recommended)** — "AWS-native, zero additional tooling"
+     - **"terraform"** — "HashiCorp Terraform with S3 state backend"
+   - Other (built-in): builder types a custom value (reject unless `cloudformation` or `terraform`)
+
 ### Step 3: Post-Batch Validation and Account Detection
 
-After receiving all 4 answers from the batched prompt:
+After receiving all 5 answers from the batched prompt:
 
 1. **Validate all values** per the Validation Rules section. Check every value, then:
    - If ALL values pass: continue to account detection.
@@ -167,7 +175,6 @@ After receiving all 4 answers from the batched prompt:
 
 3. **Auto-set** (do not prompt):
    - `APP_CODE_AGENT=claude-code`
-   - `APP_IAC=cloudformation`
 
 ### Step 4: Summary and Write
 
@@ -248,7 +255,7 @@ Ask: "Which values would you like to change? (enter variable names separated by 
 - Only prompt for the variables the builder selects.
 - For each selected variable, show the current value and prompt for a new one.
 - Validate each new value per the Validation Rules section.
-- `APP_CODE_AGENT` and `APP_IAC` are auto-set and cannot be changed by the builder.
+- `APP_CODE_AGENT` is auto-set and cannot be changed by the builder.
 
 **Special case — AWS_PROFILE changed**: If the builder changes `AWS_PROFILE`, re-run AWS_ACCOUNT_ID auto-detection using the new profile. Present the new detected value for confirmation. If detection fails, ask if they want to update `AWS_ACCOUNT_ID` manually.
 

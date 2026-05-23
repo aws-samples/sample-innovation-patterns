@@ -5,9 +5,11 @@ sidebar_position: 1
 
 # Stack Skills
 
-Stack skills define individual CloudFormation stacks that `/ipa-compose` assembles into deployment patterns. Each stack skill lives at `.claude/skills/ipa.stack.{name}/SKILL.md` and declares the stack's parameters, outputs, wiring, feature flags, and lifecycle classification.
+Stack skills define individual infrastructure stacks that `/ipa-compose` assembles into deployment patterns. Each stack skill lives at `.claude/skills/ipa-stack-{name}/SKILL.md` and declares the stack's parameters, outputs, wiring, feature flags, and lifecycle classification.
 
 Stack skills are not invoked directly. Instead, `/ipa-compose` reads them to generate Makefiles and deployment configuration.
+
+Each stack skill documents both its CloudFormation template (`infra/cfn/{tier}/`) and its parallel Terraform module (`infra/tf/{tier}/`) in a `## Terraform Module` section. The IaC engine is selected at `/ipa-init` time via `APP_IAC`.
 
 ## Lifecycle Classification
 
@@ -24,9 +26,9 @@ These stacks form the application infrastructure and are deployed and destroyed 
 
 | Stack | Description |
 |-------|-------------|
-| [/ipa-stack-backend](./ipa-stack-backend.md) | Lambda + API Gateway v2 + DynamoDB + CloudWatch |
+| [/ipa-stack-backend](./ipa-stack-backend.md) | Lambda + API Gateway v2 + DynamoDB |
 | [/ipa-stack-frontend](./ipa-stack-frontend.md) | S3 + CloudFront + OAC |
-| [/ipa-stack-queue](./ipa-stack-queue.md) | SQS + DLQ + worker Lambda + DynamoDB + CloudWatch |
+| [/ipa-stack-queue](./ipa-stack-queue.md) | SQS + DLQ + worker Lambda + DynamoDB |
 
 ## Prepare Stacks
 
@@ -37,6 +39,7 @@ These stacks provide shared prerequisites and persist across deploy/destroy cycl
 | [/ipa-stack-logs](./ipa-stack-logs.md) | Centralized S3 log bucket for access and flow logs |
 | [/ipa-stack-ecr](./ipa-stack-ecr.md) | ECR repository for container images |
 | [/ipa-stack-cognito](./ipa-stack-cognito.md) | Cognito User Pool with OAuth 2.0 and OIDC |
+| /ipa-stack-tfstate | Terraform state backend — S3 + DynamoDB (only when `APP_IAC=terraform`) |
 
 ## CI/CD Prepare Stacks
 

@@ -108,3 +108,50 @@ aws cloudformation deploy \
     AuthAudience=$(AUTH_AUDIENCE) \
     EnablePassengersTable=true
 ```
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/backend/` |
+| State key | `{namespace}-{env}/backend/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| image_uri | string | — | ImageUri |
+| auth_issuer | string | — | AuthIssuer |
+| auth_audience | string | — | AuthAudience |
+| function_name | string | `fn` | FunctionName |
+| invoke_mode | string | `RESPONSE_STREAM` | InvokeMode |
+| memory_size | number | `512` | MemorySize |
+| timeout | number | `300` | Timeout |
+| image_command | string | `""` | ImageCommand |
+| allowed_origin | string | `https://none.invalid` | AllowedOrigin |
+| enable_passengers_table | bool | `false` | EnablePassengersTable |
+| enable_sqs_integration | bool | `false` | EnableSqsIntegration |
+| sqs_queue_url | string | `""` | SqsQueueUrl |
+| sqs_queue_arn | string | `""` | SqsSendQueueArns |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| api_url | ApiUrl |
+| function_arn | FunctionArn |
+| function_name | FunctionName |
+| passengers_table_arn | PassengersTableArn |
+
+### Remote State References
+
+| Source Module | Data Source | Outputs Used |
+|--------------|-------------|--------------|
+| cognito | `terraform_remote_state.cognito` | issuer_url, user_pool_client_id |
+| ecr | `terraform_remote_state.ecr` | repository_uri |

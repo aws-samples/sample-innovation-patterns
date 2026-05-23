@@ -65,3 +65,29 @@ PutBucketPublicAccessBlock, PutBucketOwnershipControls — scoped to
 versioning enabled, 90-day lifecycle expiration, TLS-only access (DenyNonSSL),
 bucket policy scoped to specific AWS service principals with SourceAccount condition
 **Full advisory**: See [SECURITY.md](SECURITY.md)
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/logs/` |
+| State key | `{namespace}-{env}/logs/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| account_id | string | — | AccountId |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| log_bucket_name | LogBucketName |
+| log_bucket_arn | LogBucketArn |

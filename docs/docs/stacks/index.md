@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Stacks
 
-IPA stacks are CloudFormation-based infrastructure components that compose into deployable solutions. Each stack wraps one or more AWS services with security defaults, observability, and a consistent parameter interface.
+IPA stacks are CloudFormation-based infrastructure components that compose into deployable solutions. Each stack wraps one or more AWS services with security defaults and a consistent parameter interface.
 
 Stacks fall into two lifecycle categories:
 

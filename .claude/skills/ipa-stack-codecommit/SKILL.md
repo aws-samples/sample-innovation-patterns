@@ -55,3 +55,31 @@ Parameters prompted during `/ipa-compose`:
 **Required IAM actions**: codecommit:CreateRepository, DeleteRepository, GetRepository, UpdateRepositoryDescription, TagResource, UntagResource — scoped to `arn:aws:codecommit:{Region}:{AccountId}:{RepositoryName}`. Optional KMS actions when `KmsKeyArn` is provided.
 **Security controls**: Optional KMS encryption at rest, no public access (CodeCommit is private by default)
 **Full advisory**: See [SECURITY.md](SECURITY.md)
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/codecommit/` |
+| State key | `{namespace}-{env}/codecommit/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| repository_name | string | — | RepositoryName |
+| repository_description | string | `IPA-managed source repository` | RepositoryDescription |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| repository_name | RepositoryName |
+| repository_arn | RepositoryArn |
+| clone_url_http | CloneUrlHttp |

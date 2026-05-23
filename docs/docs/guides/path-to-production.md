@@ -65,8 +65,6 @@ Review the CloudFormation templates and update parameters for production use.
 |-------|-----------|-------------|--------------------------|
 | Cognito | `DeletionProtection` | `INACTIVE` | `ACTIVE` |
 | Cognito | `MinPasswordLength` | `8` | `12` or higher |
-| Backend | `AlarmSnsTopicArn` | (empty) | Production SNS topic ARN |
-| Queue | `AlarmSnsTopicArn` | (empty) | Production SNS topic ARN |
 | Backend | `MemorySize` | `512` | Size based on workload profiling |
 | Queue | `MemorySize` | `512` | Size based on workload profiling |
 

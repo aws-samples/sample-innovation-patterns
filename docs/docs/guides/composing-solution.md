@@ -43,8 +43,8 @@ IPA provides two categories of stacks. Deploy stacks are solution infrastructure
 | Stack | Suffix | Resources |
 |-------|--------|-----------|
 | `ipa-stack-frontend` | `frontend` | S3 bucket, CloudFront distribution with OAC |
-| `ipa-stack-backend` | `backend` | Lambda function (container), API Gateway v2 with JWT authorizer, DynamoDB (feature-flagged), CloudWatch dashboard |
-| `ipa-stack-queue` | `queue` | SQS queue, dead-letter queue, worker Lambda, DynamoDB (feature-flagged), CloudWatch dashboard |
+| `ipa-stack-backend` | `backend` | Lambda function (container), API Gateway v2 with JWT authorizer, DynamoDB (feature-flagged) |
+| `ipa-stack-queue` | `queue` | SQS queue, dead-letter queue, worker Lambda, DynamoDB (feature-flagged) |
 
 Prepare stacks are one-time prerequisite infrastructure that persists across deployments:
 

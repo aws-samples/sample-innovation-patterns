@@ -23,11 +23,11 @@ Interactively configure a project's `.env` file with the IPA-managed variables r
 | `APP_NAMESPACE` | Yes | `app` | 1-12 character project prefix (lowercase alphanumeric) |
 | `APP_ENV` | Yes | `dev` | Environment label (`dev`, `stage`, `prod`) |
 | `APP_CODE_AGENT` | Auto | `claude-code` | Fixed value, not prompted |
-| `APP_IAC` | Auto | `cloudformation` | Fixed value, not prompted |
+| `APP_IAC` | Yes | `cloudformation` | IaC tool: `cloudformation` or `terraform` |
 
 ## What It Does
 
-1. **First-time initialization** — Presents a single batched prompt for all configurable variables with sensible defaults. Validates each input against strict regex patterns. Writes the `.env` file and generates a `.env.example` template (never committed to version control).
+1. **First-time initialization** — Presents a single batched prompt (5 questions) for all configurable variables with sensible defaults. Validates each input against strict regex patterns. Writes the `.env` file and generates a `.env.example` template (never committed to version control). The `APP_IAC` choice determines whether downstream skills generate CloudFormation or Terraform Makefile targets.
 
 2. **Re-initialization** — Detects an existing `.env` file and enters selective-update mode. Displays current values and prompts only for variables the user wants to change. Warns before overwriting existing values.
 

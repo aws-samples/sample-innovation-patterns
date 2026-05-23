@@ -282,13 +282,32 @@ Note at the bottom of the summary: "Re-run `/ipa-compose` at any time to regener
 
 ## Phase 3: Generate
 
+### Step 6.0: Determine IaC Mode
+
+Read `APP_IAC` from `.env`:
+- **If `cloudformation`** (or absent): proceed with existing CFN Makefile generation (Steps 6-9 unchanged)
+- **If `terraform`**: proceed with TF Makefile generation using the **Terraform Mode Templates** section of [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md)
+
+The TF mode replaces:
+- `aws cloudformation deploy` → `cd infra/tf/{tier} && terraform init ... && terraform apply ...`
+- `aws cloudformation delete-stack + wait` → `cd infra/tf/{tier} && terraform init ... && terraform destroy ...`
+- `$(eval ... describe-stacks --query ...)` → `$(shell cd infra/tf/{tier} && terraform output -raw {name})` (for env.mk) or `$$(cd ../queue && terraform output -raw {name})` (for deploy→deploy wiring)
+- `--parameter-overrides Key=Value` → `-var="key=value"`
+- `--capabilities CAPABILITY_NAMED_IAM` → (not needed — Terraform handles IAM implicitly)
+
+Additionally in TF mode:
+- `prepare-tfstate` target always uses `aws cloudformation deploy` (chicken-and-egg: state backend must exist before TF can run)
+- The `env.mk` `update-env-tfstate` target queries the CFN stack via `describe-stacks`
+- All other env.mk targets use `terraform output -raw` from the module directory
+- The `TF_BACKEND_CONFIG` and `TF_COMMON_VARS` Make variables are defined in the header of deploy.mk and prepare.mk
+
 ### Step 6: Generate deploy.mk
 
 **Before generating deploy.mk**, filter the stack list: include only stacks with `lifecycle = "deploy"`. Stacks with `lifecycle = "prepare"` are excluded from deploy.mk entirely — they appear in prepare.mk (generated in Step 6a). This filtering affects the aggregate `deploy:` target, per-stack `deploy-{suffix}` targets, the aggregate `teardown:` target, per-stack `teardown-{suffix}` targets, and the `.PHONY` declaration.
 
 Create `scripts/` directory if it does not exist. Write `scripts/deploy.mk`.
 
-Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns. Generate:
+Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for exact syntax patterns (select the appropriate mode — CFN or Terraform — per Step 6.0). Generate:
 
 1. **Header**: Comment block with composed stack tier names (e.g., `# Deploy targets for backend + frontend + queue`), usage instructions, `-include .env`, `.PHONY` declarations.
 2. **Aggregate deploy target**: `deploy: deploy-{tier1} deploy-{tier2} ... deploy-{tierN}` in deployment order.

@@ -73,3 +73,38 @@ aws cloudformation deploy \
     BucketNameSuffix=web \
     LogBucketDomainName=$(LOG_BUCKET_DOMAIN_NAME)
 ```
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/frontend/` |
+| State key | `{namespace}-{env}/frontend/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| bucket_name_suffix | string | `web` | BucketNameSuffix |
+| log_bucket_name | string | — | LogBucketDomainName (without .s3.amazonaws.com) |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| app_url | AppUrl |
+| distribution_id | DistributionId |
+| distribution_domain_name | DistributionDomainName |
+| bucket_name | BucketName |
+
+### Remote State References
+
+| Source Module | Data Source | Outputs Used |
+|--------------|-------------|--------------|
+| logs | `terraform_remote_state.logs` | log_bucket_name |

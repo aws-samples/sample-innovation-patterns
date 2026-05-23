@@ -119,3 +119,53 @@ aws cloudformation deploy \
     AuthAudience=$(AUTH_AUDIENCE) \
     EnableJobsTable=true
 ```
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/queue/` |
+| State key | `{namespace}-{env}/queue/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| image_uri | string | — | ImageUri |
+| auth_issuer | string | — | AuthIssuer |
+| auth_audience | string | — | AuthAudience |
+| queue_name | string | `jobs` | QueueName |
+| visibility_timeout | number | `300` | VisibilityTimeout |
+| message_retention_period | number | `345600` | MessageRetentionPeriod |
+| max_receive_count | number | `3` | MaxReceiveCount |
+| function_name | string | `fn-worker` | FunctionName |
+| memory_size | number | `512` | MemorySize |
+| timeout | number | `300` | Timeout |
+| image_command | string | `python,-m,sqs_handler` | ImageCommand |
+| enable_jobs_table | bool | `false` | EnableJobsTable |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| queue_url | QueueUrl |
+| queue_arn | QueueArn |
+| queue_name | QueueName |
+| worker_function_arn | WorkerFunctionArn |
+| worker_function_name | WorkerFunctionName |
+| dlq_url | DlqUrl |
+| dlq_arn | DlqArn |
+| jobs_table_arn | JobsTableArn |
+
+### Remote State References
+
+| Source Module | Data Source | Outputs Used |
+|--------------|-------------|--------------|
+| cognito | `terraform_remote_state.cognito` | issuer_url, user_pool_client_id |
+| ecr | `terraform_remote_state.ecr` | repository_uri |

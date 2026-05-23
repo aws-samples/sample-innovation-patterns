@@ -38,3 +38,28 @@ All parameters are **Configuration** type — sourced from `.env` or defaults. N
 **Required IAM actions**: ecr:CreateRepository, DeleteRepository, DescribeRepositories, TagResource — scoped to `arn:aws:ecr:{Region}:{AccountId}:repository/*`. ecr:GetAuthorizationToken on `*` (AWS API limitation — this action does not support resource-level permissions)
 **Security controls**: Encryption at rest (AES256), no public access, no automatic deletion on stack removal
 **Full advisory**: See [SECURITY.md](SECURITY.md)
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/ecr/` |
+| State key | `{namespace}-{env}/ecr/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| repository_uri | RepositoryUri |
+| repository_arn | RepositoryArn |

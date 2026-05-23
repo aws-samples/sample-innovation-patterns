@@ -88,3 +88,42 @@ Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Ma
 **Security controls**: No wildcard IAM ARNs (PipelineRole scoped to specific resources), artifact bucket blocks public access + denies non-SSL, SSE-S3 or KMS encryption, CodeBuild uses external execution role.
 **Capabilities**: `CAPABILITY_NAMED_IAM` required (creates PipelineRole and EventRuleRole).
 **Full advisory**: See [SECURITY.md](SECURITY.md)
+
+## Terraform Module
+
+| Property | Value |
+|----------|-------|
+| Module path | `infra/tf/codepipeline/` |
+| State key | `{namespace}-{env}/codepipeline/terraform.tfstate` |
+| Required version | `>= 1.5.0` |
+| Providers | `hashicorp/aws >= 5.0` |
+
+### Variables
+
+| Variable | Type | Default | Maps to CFN |
+|----------|------|---------|-------------|
+| namespace | string | — | Namespace |
+| environment | string | — | Environment |
+| region | string | — | (implicit) |
+| state_bucket | string | — | (TF infrastructure) |
+| account_id | string | — | AccountId |
+| codebuild_role_arn | string | — | CodeBuildRoleArn |
+| source_repo_name | string | — | SourceRepoName |
+| source_branch | string | `main` | SourceBranch |
+| build_image | string | `aws/codebuild/standard:7.0` | BuildImage |
+| compute_type | string | `BUILD_GENERAL1_LARGE` | ComputeType |
+
+### Outputs
+
+| Output | Maps to CFN |
+|--------|-------------|
+| pipeline_name | PipelineName |
+| pipeline_arn | PipelineArn |
+| codebuild_project_name | CodeBuildProjectName |
+| artifacts_bucket | ArtifactsBucket |
+
+### Remote State References
+
+| Source Module | Data Source | Outputs Used |
+|--------------|-------------|--------------|
+| codecommit | `terraform_remote_state.codecommit` | repository_name |

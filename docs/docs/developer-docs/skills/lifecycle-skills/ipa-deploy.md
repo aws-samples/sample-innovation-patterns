@@ -63,7 +63,6 @@ Deployed CloudFormation stacks as defined by the composed pattern. Typical outpu
 | API URL | Backend |
 | App URL | Frontend |
 | Queue URL | Queue |
-| CloudWatch dashboards | Backend, Queue |
 
 ## Examples
 

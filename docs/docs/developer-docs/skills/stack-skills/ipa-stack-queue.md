@@ -5,7 +5,7 @@ sidebar_position: 8
 
 # /ipa-stack-queue
 
-Queue tier stack: SQS queue with dead-letter queue, worker Lambda, Event Source Mapping, optional DynamoDB table, and CloudWatch dashboard.
+Queue tier stack: SQS queue with dead-letter queue, worker Lambda, Event Source Mapping, and optional DynamoDB table.
 
 ## Stack Identity
 
@@ -58,7 +58,6 @@ Queue tier stack: SQS queue with dead-letter queue, worker Lambda, Event Source 
 | `DlqUrl` | Dead-letter queue URL (when `CreateDLQ` is true) |
 | `DlqArn` | Dead-letter queue ARN (when `CreateDLQ` is true) |
 | `JobsTableArn` | DynamoDB Jobs table ARN (when `EnableJobsTable` is true) |
-| `DashboardUrl` | CloudWatch dashboard URL |
 
 ## Deploy Order
 

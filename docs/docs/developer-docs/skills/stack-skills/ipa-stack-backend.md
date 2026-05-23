@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # /ipa-stack-backend
 
-Backend tier stack: Lambda function with API Gateway v2, optional DynamoDB tables, and a CloudWatch dashboard.
+Backend tier stack: Lambda function with API Gateway v2 and optional DynamoDB tables.
 
 ## Stack Identity
 
@@ -53,7 +53,6 @@ These parameters are automatically wired from other stack outputs by `/ipa-compo
 | `ApiUrl` | HTTP API Gateway invoke URL |
 | `FunctionArn` | Lambda function ARN |
 | `FunctionName` | Lambda function name |
-| `DashboardUrl` | CloudWatch dashboard URL |
 | `PassengersTableArn` | DynamoDB table ARN (only when `EnablePassengersTable` is true) |
 
 ## Deploy Order

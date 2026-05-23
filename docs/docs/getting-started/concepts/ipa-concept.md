@@ -37,7 +37,7 @@ All skills are idempotent. Running a skill multiple times does not destroy exist
 
 A **stack** is the atomic deployment unit — a single CloudFormation stack. Stacks have one of two lifecycle classifications. Prepare stacks are one-time prerequisites — log buckets, Cognito user pools, ECR repositories — that persist across teardown and redeployment cycles. Deploy stacks are application infrastructure that is created and torn down with the composition [2][3].
 
-A **tier** is a consolidated stack that bundles related AWS services into a single CloudFormation template. The backend tier, for example, bundles Lambda, API Gateway v2, DynamoDB, and CloudWatch. Services within a tier are wired internally through CloudFormation references — no cross-stack parameters are needed. Feature flags (`Enable*` parameters, defaulting to `false`) toggle optional resources within a tier without requiring separate stacks [3].
+A **tier** is a consolidated stack that bundles related AWS services into a single CloudFormation template. The backend tier, for example, bundles Lambda, API Gateway v2, and DynamoDB. Services within a tier are wired internally through CloudFormation references — no cross-stack parameters are needed. Feature flags (`Enable*` parameters, defaulting to `false`) toggle optional resources within a tier without requiring separate stacks [3].
 
 The `/ipa-compose` skill assembles selected stacks into a deployable solution. It determines the deployment order, resolves parameter wiring between stacks, and manages inter-stack dependencies automatically [2].
 
