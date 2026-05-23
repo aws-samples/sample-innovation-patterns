@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Queue tier — SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch.
-  Consolidates sqs.yml, sqs-esm.yml, lambda.yml (worker), dynamodb.yml, and
-  queue-specific CloudWatch into a single tier template with internal wiring.
+  Queue tier — SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged).
+  Consolidates sqs.yml, sqs-esm.yml, lambda.yml (worker), and dynamodb.yml
+  into a single tier template with internal wiring.
 
 # ============================================================================
 # SECTION 1: PARAMETERS
@@ -105,11 +105,6 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: 'Feature flag: create DynamoDB jobs table (K3:B — default false)'
 
-  # --- CloudWatch ---
-  AlarmSnsTopicArn:
-    Type: String
-    Default: ''
-    Description: 'SNS topic ARN for alarm actions. Leave empty to keep alarms disabled.'
 
 # ============================================================================
 # SECTION 2: CONDITIONS
@@ -118,7 +113,6 @@ Conditions:
   HasDLQ: !Equals [!Ref CreateDLQ, 'true']
   HasJobsTable: !Equals [!Ref EnableJobsTable, 'true']
   HasImageCommand: !Not [!Equals [!Select [0, !Ref ImageCommand], '']]
-  HasAlarmTopic: !Not [!Equals [!Ref AlarmSnsTopicArn, '']]
 
 # ============================================================================
 # SECTION 3: DYNAMODB TABLES
@@ -292,18 +286,6 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
-        # CloudWatch custom metrics
-        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-cloudwatch-metrics'
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudwatch:PutMetricData
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    'cloudwatch:namespace': !Sub '${Namespace}/${Environment}'
       Tags:
         - Key: Namespace
           Value: !Ref Namespace
@@ -368,188 +350,9 @@ Resources:
       MaximumBatchingWindowInSeconds: 0
       Enabled: true
 
-  # ==========================================================================
-  # SECTION 7: CLOUDWATCH OBSERVABILITY
-  # ==========================================================================
-
-  # Metric filter: Worker errors
-  WorkerErrorsFilter:
-    Type: 'AWS::Logs::MetricFilter'
-    Properties:
-      LogGroupName: !Ref WorkerLogGroup
-      FilterName: !Sub '${Namespace}-${Environment}-worker-errors'
-      FilterPattern: 'ERROR'
-      MetricTransformations:
-        - MetricNamespace: !Sub '${Namespace}/${Environment}'
-          MetricName: WorkerErrorCount
-          MetricValue: '1'
-          DefaultValue: 0
-
-  # Metric filter: Worker unhandled exceptions
-  WorkerExceptionsFilter:
-    Type: 'AWS::Logs::MetricFilter'
-    Properties:
-      LogGroupName: !Ref WorkerLogGroup
-      FilterName: !Sub '${Namespace}-${Environment}-worker-exceptions'
-      FilterPattern: '?"\"exception\":" ?Traceback'
-      MetricTransformations:
-        - MetricNamespace: !Sub '${Namespace}/${Environment}'
-          MetricName: WorkerExceptionCount
-          MetricValue: '1'
-          DefaultValue: 0
-
-  # Alarm: Queue depth — fires when messages are backing up
-  QueueDepthAlarm:
-    Type: 'AWS::CloudWatch::Alarm'
-    Properties:
-      AlarmName: !Sub '${Namespace}-${Environment}-${QueueName}-queue-depth'
-      AlarmDescription: !Sub >-
-        Queue depth alarm for ${Namespace}-${Environment}-${QueueName}.
-        Fires when ApproximateNumberOfMessagesVisible >= 100 for 5 minutes.
-      Namespace: 'AWS/SQS'
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt Queue.QueueName
-      Statistic: Maximum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 100
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      ActionsEnabled: !If [HasAlarmTopic, true, false]
-      AlarmActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-      OKActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-
-  # Alarm: DLQ depth — fires when messages land in DLQ (conditional)
-  DlqDepthAlarm:
-    Type: 'AWS::CloudWatch::Alarm'
-    Condition: HasDLQ
-    Properties:
-      AlarmName: !Sub '${Namespace}-${Environment}-${QueueName}-dlq-depth'
-      AlarmDescription: !Sub >-
-        DLQ depth alarm for ${Namespace}-${Environment}-${QueueName}-dlq.
-        Fires when any message appears in the DLQ.
-      Namespace: 'AWS/SQS'
-      MetricName: ApproximateNumberOfMessagesVisible
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt DeadLetterQueue.QueueName
-      Statistic: Maximum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 1
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      ActionsEnabled: !If [HasAlarmTopic, true, false]
-      AlarmActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-      OKActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-
-  # Dashboard: Queue observability — queue depth, worker health, DLQ
-  QueueDashboard:
-    Type: 'AWS::CloudWatch::Dashboard'
-    Properties:
-      DashboardName: !Sub '${Namespace}-${Environment}-queue-dashboard'
-      DashboardBody: !Sub
-        - |
-          {
-            "widgets": [
-              {
-                "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
-                "properties": { "markdown": "# Queue Health\nSQS queue depth and message age." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 1, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ],
-                    [ "AWS/SQS", "ApproximateNumberOfMessagesNotVisible", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Queue Depth",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              },
-              {
-                "type": "metric", "x": 12, "y": 1, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", "${QName}", { "stat": "Maximum", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Oldest Message Age (seconds)",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              },
-              {
-                "type": "text", "x": 0, "y": 7, "width": 24, "height": 1,
-                "properties": { "markdown": "# Worker Health\nLambda invocations, duration, errors, and throttles." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [[ "AWS/Lambda", "Invocations", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Invocations"
-                }
-              },
-              {
-                "type": "metric", "x": 8, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p50", "period": 300, "label": "p50" } ],
-                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p90", "period": 300, "label": "p90" } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Duration (p50/p90)"
-                }
-              },
-              {
-                "type": "metric", "x": 16, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/Lambda", "Errors", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ],
-                    [ "AWS/Lambda", "Throttles", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Errors + Throttles"
-                }
-              },
-              {
-                "type": "text", "x": 0, "y": 14, "width": 24, "height": 1,
-                "properties": { "markdown": "# Worker Application Errors\nCustom metric filters on worker log group." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 15, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [[ "${MetricNs}", "WorkerErrorCount", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Errors (5-min)",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              },
-              {
-                "type": "metric", "x": 12, "y": 15, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [[ "${MetricNs}", "WorkerExceptionCount", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Worker Exceptions (5-min)",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              }
-            ]
-          }
-        - MetricNs: !Sub '${Namespace}/${Environment}'
-          FnName: !Sub '${Namespace}-${Environment}-${FunctionName}'
-          QName: !Sub '${Namespace}-${Environment}-${QueueName}'
 
 # ============================================================================
-# SECTION 8: OUTPUTS
+# SECTION 7: OUTPUTS
 # ============================================================================
 Outputs:
   QueueUrl:
@@ -603,8 +406,3 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-JobsTableArn'
 
-  DashboardUrl:
-    Description: Direct URL to the queue CloudWatch dashboard
-    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/${Namespace}-${Environment}-queue-dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-DashboardUrl'

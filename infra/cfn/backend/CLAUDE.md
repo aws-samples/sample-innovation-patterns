@@ -1,6 +1,6 @@
 # Backend Tier Template — Agent Context
 
-Consolidated backend tier: Lambda + API Gateway v2 + DynamoDB (feature-flagged) + CloudWatch.
+Consolidated backend tier: Lambda + API Gateway v2 + DynamoDB (feature-flagged).
 
 Template: `infra/cfn/backend/backend.yml`
 
@@ -59,13 +59,12 @@ The `{suffix}` value (e.g., `passengers`, `jobs`, `products`) is the contract be
 
 | Section | Line Range | Contents |
 |---------|-----------|----------|
-| 1: Parameters | Top | Core, wirable, Lambda config, DDB feature flags, SQS, CloudWatch |
+| 1: Parameters | Top | Core, wirable, Lambda config, DDB feature flags, SQS |
 | 2: Conditions | After params | Feature flag conditions |
 | 3: DynamoDB Tables | After conditions | Conditional table resources |
 | 4: Lambda Function | After DDB | Execution role + IAM policies + function + log group |
 | 5: API Gateway v2 | After Lambda | HTTP API + JWT authorizer + routes + stage |
-| 6: CloudWatch | After API GW | Metric filters + alarms + dashboard |
-| 7: Outputs | Bottom | Stack outputs |
+| 6: Outputs | Bottom | Stack outputs |
 
 ## Internal Wiring
 
@@ -73,8 +72,6 @@ These connections are handled internally via `!Ref`/`!GetAtt` — no cross-stack
 
 - `IntegrationUri: !Sub '...${LambdaFunction.Arn}...'` — API GW → Lambda
 - `Resource: !GetAtt PassengersTable.Arn` — Lambda IAM → DynamoDB
-- `LogGroupName: !Ref LambdaLogGroup` — Metric filters → Lambda logs
-- `!GetAtt HttpApi.ApiId` — Dashboard metrics → API Gateway
 
 ## Security Properties
 
@@ -82,5 +79,5 @@ These connections are handled internally via `!Ref`/`!GetAtt` — no cross-stack
 - Lambda: Per-function execution role, least-privilege IAM
 - API Gateway: JWT authorizer (Cognito), CORS configured, access logging
 - IAM: No wildcard resource ARNs for DynamoDB (uses `!GetAtt Table.Arn`)
-- IAM: `Resource: '*'` for ECR pull and CloudWatch PutMetricData (AWS API limitation — documented)
-- CloudWatch: 30-day log retention
+- IAM: `Resource: '*'` for ECR pull (AWS API limitation — documented)
+- Log groups: 30-day retention

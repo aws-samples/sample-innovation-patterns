@@ -15,8 +15,8 @@ Stacks fall into two lifecycle categories:
 ## Deploy Stacks (Tiers)
 
 - **[Frontend](frontend/)** — S3 + CloudFront with Origin Access Control for static web hosting.
-- **[Backend](backend/)** — Lambda + API Gateway v2 + DynamoDB + CloudWatch for serverless APIs.
-- **[Queue](queue/)** — SQS + DLQ + worker Lambda + EventSourceMapping + DynamoDB + CloudWatch for event-driven processing.
+- **[Backend](backend/)** — Lambda + API Gateway v2 + DynamoDB for serverless APIs.
+- **[Queue](queue/)** — SQS + DLQ + worker Lambda + EventSourceMapping + DynamoDB for event-driven processing.
 
 ## Prepare Stacks
 

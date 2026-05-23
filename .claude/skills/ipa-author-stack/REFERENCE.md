@@ -542,8 +542,8 @@ Reference for understanding the current ecosystem and avoiding naming or suffix 
 | ipa-stack-cognito | cognito | none | prepare | Authentication provider |
 | ipa-stack-ecr | ecr | none | prepare | Container registry |
 | ipa-stack-frontend | frontend | none | deploy | Consolidated: S3 + CloudFront + OAC |
-| ipa-stack-backend | backend | CAPABILITY_NAMED_IAM | deploy | Consolidated: Lambda + API GW v2 + DynamoDB + CloudWatch |
-| ipa-stack-queue | queue | CAPABILITY_NAMED_IAM | deploy | Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch |
+| ipa-stack-backend | backend | CAPABILITY_NAMED_IAM | deploy | Consolidated: Lambda + API GW v2 + DynamoDB |
+| ipa-stack-queue | queue | CAPABILITY_NAMED_IAM | deploy | Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB |
 
 ---
 
@@ -552,7 +552,7 @@ Reference for understanding the current ecosystem and avoiding naming or suffix 
 Existing stack skills. Use this to understand the current ecosystem, avoid naming collisions, and plan wiring for new stacks.
 
 **Stack types:**
-- **Tier stacks** — Consolidated stacks that bundle related AWS services into a single deployable unit with feature flags for optional resources. Tier stacks internalize many cross-service wiring connections (e.g., Lambda↔API Gateway, Lambda↔DynamoDB, Lambda↔CloudWatch are all handled within the tier template), resulting in simpler inter-stack wiring.
+- **Tier stacks** — Consolidated stacks that bundle related AWS services into a single deployable unit with feature flags for optional resources. Tier stacks internalize many cross-service wiring connections (e.g., Lambda↔API Gateway, Lambda↔DynamoDB are all handled within the tier template), resulting in simpler inter-stack wiring.
 - **Prepare stacks** — One-time prerequisite resources that survive teardown.
 
 ### Tier Stacks
@@ -561,7 +561,7 @@ Existing stack skills. Use this to understand the current ecosystem, avoid namin
 
 **Suffix**: `backend` | **Capabilities**: CAPABILITY_NAMED_IAM | **Tier**: backend
 
-Consolidated backend tier: Lambda + API Gateway v2 (JWT authorizer, CORS, SSE streaming) + DynamoDB (feature-flagged) + CloudWatch dashboard.
+Consolidated backend tier: Lambda + API Gateway v2 (JWT authorizer, CORS, SSE streaming) + DynamoDB (feature-flagged).
 
 **Parameters** (beyond Namespace/Environment):
 
@@ -579,8 +579,6 @@ Consolidated backend tier: Lambda + API Gateway v2 (JWT authorizer, CORS, SSE st
 | EnableSqsIntegration | Feature Flag | `false` | Enable SQS send permissions + env var |
 | SqsQueueUrl | Wirable — Optional | *(empty)* | SQS queue URL (when EnableSqsIntegration=true) |
 | SqsSendQueueArns | Wirable — Optional | *(empty)* | SQS queue ARNs for send policy (when EnableSqsIntegration=true) |
-| AlarmSnsTopicArn | Wirable — Optional | *(empty)* | SNS topic for alarm actions |
-
 **Feature Flags:**
 
 | Flag | Default | Controls |
@@ -595,10 +593,9 @@ Consolidated backend tier: Lambda + API Gateway v2 (JWT authorizer, CORS, SSE st
 | ApiUrl | Post-deploy (configure-frontend, update-backend-cors) |
 | FunctionArn | Monitoring |
 | FunctionName | Monitoring, invoke commands |
-| DashboardUrl | Observability |
 | PassengersTableArn | Conditional (HasPassengersTable) |
 
-**Internal composition** (no external wiring needed): Lambda↔API Gateway v2, Lambda↔DynamoDB, Lambda↔CloudWatch — all connected via `!GetAtt` and `!Ref` within the template.
+**Internal composition** (no external wiring needed): Lambda↔API Gateway v2, Lambda↔DynamoDB — all connected via `!GetAtt` and `!Ref` within the template.
 
 ---
 
@@ -632,7 +629,7 @@ Consolidated frontend tier: S3 static hosting + CloudFront distribution + OAC.
 
 **Suffix**: `queue` | **Capabilities**: CAPABILITY_NAMED_IAM | **Tier**: queue
 
-Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch dashboard.
+Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged).
 
 **Parameters** (beyond Namespace/Environment):
 
@@ -651,14 +648,12 @@ Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-fla
 | Timeout | Config | `300` | Worker Lambda timeout (seconds) |
 | ImageCommand | Config | `python,-m,sqs_handler` | Worker container CMD |
 | EnableJobsTable | Feature Flag | `false` | Create jobs DynamoDB table |
-| AlarmSnsTopicArn | Wirable — Optional | *(empty)* | SNS topic for alarm actions |
-
 **Feature Flags:**
 
 | Flag | Default | Controls |
 |------|---------|----------|
 | EnableJobsTable | `false` | JobsTable resource, DynamoDB IAM policy, JobsTableArn output |
-| CreateDLQ | `true` | DeadLetterQueue resource, DlqUrl/DlqArn outputs, DLQ depth alarm |
+| CreateDLQ | `true` | DeadLetterQueue resource, DlqUrl/DlqArn outputs |
 
 **Outputs**:
 
@@ -672,9 +667,8 @@ Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-fla
 | DlqUrl | Conditional (HasDLQ) |
 | DlqArn | Conditional (HasDLQ) |
 | JobsTableArn | Conditional (HasJobsTable) |
-| DashboardUrl | Observability |
 
-**Internal composition**: SQS↔worker Lambda ESM, Lambda↔DynamoDB, Lambda↔CloudWatch, SQS↔DLQ — all connected within the template.
+**Internal composition**: SQS↔worker Lambda ESM, Lambda↔DynamoDB, SQS↔DLQ — all connected within the template.
 
 **Deploy ordering**: Queue deploys **before** backend when both are composed together (backend receives queue outputs via wirable parameters).
 

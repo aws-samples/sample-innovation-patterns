@@ -1,6 +1,6 @@
 # Queue Tier Template — Agent Context
 
-Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch.
+Consolidated queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged).
 
 Template: `infra/cfn/queue/queue.yml`
 
@@ -49,14 +49,13 @@ PynamoDB:       PynamodbUtil.env_table_name("{suffix}")
 
 | Section | Contents |
 |---------|----------|
-| 1: Parameters | Core, wirable, SQS config, worker Lambda config, DDB feature flags, CloudWatch |
-| 2: Conditions | Feature flag conditions (HasDLQ, HasJobsTable, HasImageCommand, HasAlarmTopic) |
+| 1: Parameters | Core, wirable, SQS config, worker Lambda config, DDB feature flags |
+| 2: Conditions | Feature flag conditions (HasDLQ, HasJobsTable, HasImageCommand) |
 | 3: DynamoDB Tables | Conditional table resources |
 | 4: SQS Queue | Queue + DLQ + deny non-SSL policy |
 | 5: Lambda Worker | Execution role + IAM policies + function + log group |
 | 6: Event Source Mapping | SQS → Worker Lambda trigger |
-| 7: CloudWatch | Queue depth alarm + DLQ alarm + worker metric filters + dashboard |
-| 8: Outputs | Stack outputs |
+| 7: Outputs | Stack outputs |
 
 ## Internal Wiring
 
@@ -67,7 +66,6 @@ All connections handled internally via `!Ref`/`!GetAtt`:
 - `Resource: !GetAtt Queue.Arn` — Worker IAM → SQS (receive)
 - `Resource: !GetAtt JobsTable.Arn` — Worker IAM → DynamoDB
 - `deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn` — Queue → DLQ
-- `LogGroupName: !Ref WorkerLogGroup` — Metric filters → Worker logs
 
 ## Deploy Ordering
 
@@ -79,4 +77,4 @@ Queue deploys **before** backend (S2:B). Backend receives queue outputs (QueueUr
 - Lambda: Per-function execution role, SQS receive policy always present
 - IAM: Conditional DynamoDB policies scoped to `!GetAtt Table.Arn` — no wildcards
 - IAM: No `CrossTierTableArns` parameter (K2:B — convention-based ARN only)
-- CloudWatch: 30-day log retention
+- Log groups: 30-day retention

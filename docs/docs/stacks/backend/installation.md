@@ -34,7 +34,6 @@ Select the backend stack when prompted for stacks to include. The compose skill 
 | `MemorySize` | Number | `512` | Lambda memory allocation in MB. Range: 128-10240. |
 | `Timeout` | Number | `300` | Lambda timeout in seconds. Range: 1-900. |
 | `ImageCommand` | CommaDelimitedList | *(empty)* | Override container CMD (e.g., `python,-m,handler`). Leave empty to use the Dockerfile CMD. |
-| `AlarmSnsTopicArn` | String | *(empty)* | SNS topic ARN for alarm actions. Leave empty to keep alarms in a disabled state. |
 
 ## Feature Flags
 
@@ -69,5 +68,4 @@ The backend stack receives values from upstream stacks. The compose skill wires 
 | `ApiUrl` | HTTP API invoke URL (application entry point). Format: `https://{api-id}.execute-api.{region}.amazonaws.com/prod` | `{StackName}-ApiUrl` |
 | `FunctionArn` | Lambda function ARN | `{StackName}-FunctionArn` |
 | `FunctionName` | Lambda function name | `{StackName}-FunctionName` |
-| `DashboardUrl` | Direct URL to the CloudWatch backend dashboard | `{StackName}-DashboardUrl` |
 | `PassengersTableArn` | DynamoDB passengers table ARN. **Conditional** -- only present when `EnablePassengersTable=true`. | `{StackName}-PassengersTableArn` |

@@ -1,12 +1,12 @@
 ---
 name: ipa-stack-queue
-description: "Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch."
+description: "Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged)."
 model: opus
 ---
 
 # ipa-stack-queue
 
-Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged) + CloudWatch.
+Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-flagged).
 
 ## Stack Identity
 
@@ -37,7 +37,6 @@ Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-f
 | Timeout | No | `300` | Worker Lambda timeout (seconds) |
 | ImageCommand | No | `python,-m,sqs_handler` | Worker container CMD |
 | EnableJobsTable | No | `false` | Feature flag: create jobs DynamoDB table |
-| AlarmSnsTopicArn | No | *(empty)* | SNS topic for alarm actions |
 
 ## Feature Flags
 
@@ -66,7 +65,6 @@ Deploy a queue tier stack: SQS + DLQ + worker Lambda + ESM + DynamoDB (feature-f
 | DlqUrl | `{StackName}-DlqUrl` | Conditional (HasDLQ) |
 | DlqArn | `{StackName}-DlqArn` | Conditional (HasDLQ) |
 | JobsTableArn | `{StackName}-JobsTableArn` | Conditional (HasJobsTable) |
-| DashboardUrl | `{StackName}-DashboardUrl` | Queue CloudWatch dashboard URL |
 
 ## Build Requirements
 
@@ -77,7 +75,7 @@ The queue worker Lambda reuses the shared `rest-lambda` container image built by
 - SQS: Deny non-SSL policy, SQS-managed SSE
 - Lambda: Per-function execution role, SQS receive policy always present
 - IAM: Conditional DynamoDB policies scoped to `!GetAtt Table.Arn`
-- CloudWatch: Log groups with 30-day retention
+- Log groups: 30-day retention
 - No CrossTierTableArns parameter (K2:B — convention-based ARN only)
 
 ## Deploy Order

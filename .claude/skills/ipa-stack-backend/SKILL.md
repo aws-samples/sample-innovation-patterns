@@ -1,12 +1,12 @@
 ---
 name: ipa-stack-backend
-description: "Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged) + CloudWatch."
+description: "Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged)."
 model: opus
 ---
 
 # ipa-stack-backend
 
-Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged) + CloudWatch.
+Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged).
 
 ## Stack Identity
 
@@ -37,7 +37,6 @@ Deploy a backend tier stack: Lambda + API Gateway v2 + DynamoDB (feature-flagged
 | EnableSqsIntegration | No | `false` | Feature flag: enable SQS send permissions |
 | SqsQueueUrl | No | *(empty)* | SQS queue URL for env var injection |
 | SqsSendQueueArns | No | *(empty)* | SQS queue ARNs for send IAM policy |
-| AlarmSnsTopicArn | No | *(empty)* | SNS topic for alarm actions |
 
 ## Feature Flags
 
@@ -66,7 +65,6 @@ Parameters that receive values from other stacks during composition:
 | ApiUrl | `{StackName}-ApiUrl` | HTTP API invoke URL |
 | FunctionArn | `{StackName}-FunctionArn` | Lambda function ARN |
 | FunctionName | `{StackName}-FunctionName` | Lambda function name |
-| DashboardUrl | `{StackName}-DashboardUrl` | CloudWatch dashboard URL |
 | PassengersTableArn | `{StackName}-PassengersTableArn` | Conditional (HasPassengersTable) |
 
 ## Build Requirements
@@ -81,8 +79,8 @@ Parameters that receive values from other stacks during composition:
 - IAM: Conditional DynamoDB policies scoped to `!GetAtt Table.Arn` — no wildcards
 - API Gateway: JWT authorizer (Cognito), CORS locked to `AllowedOrigin` parameter (defaults to `https://none.invalid` — blocks cross-origin until post-deploy sets CloudFront domain), access logging
 - DynamoDB: SSE enabled, PAY_PER_REQUEST billing
-- CloudWatch: Log groups with 30-day retention
-- ECR pull and CloudWatch PutMetricData use `Resource: '*'` (AWS API limitation — documented)
+- Log groups: 30-day retention
+- ECR pull uses `Resource: '*'` (AWS API limitation — documented)
 
 ## Compose Config
 

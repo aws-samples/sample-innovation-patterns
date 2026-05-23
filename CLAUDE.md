@@ -30,8 +30,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-10
 ```text
 infra/cfn/
   frontend/frontend.yml    # Consolidated: S3 + CloudFront + OAC
-  backend/backend.yml      # Consolidated: Lambda + API GW v2 + DynamoDB + CloudWatch
-  queue/queue.yml          # Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch
+  backend/backend.yml      # Consolidated: Lambda + API GW v2 + DynamoDB
+  queue/queue.yml          # Consolidated: SQS + DLQ + worker Lambda + ESM + DynamoDB
   cognito/cognito.yml      # Prepare stack (unchanged)
   ecr/ecr.yml              # Prepare stack (unchanged)
 .claude/skills/

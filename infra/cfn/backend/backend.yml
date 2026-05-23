@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Backend tier — Lambda + API Gateway v2 + DynamoDB (feature-flagged) + CloudWatch.
-  Consolidates lambda.yml, apigateway-v2.yml, dynamodb.yml, and app-cloudwatch.yml
+  Backend tier — Lambda + API Gateway v2 + DynamoDB (feature-flagged).
+  Consolidates lambda.yml, apigateway-v2.yml, and dynamodb.yml
   into a single tier template with internal wiring via !Ref/!GetAtt.
 
 # ============================================================================
@@ -99,11 +99,6 @@ Parameters:
     Default: ''
     Description: 'Comma-separated SQS queue ARNs for send permissions (from queue stack QueueArn output)'
 
-  # --- CloudWatch ---
-  AlarmSnsTopicArn:
-    Type: String
-    Default: ''
-    Description: 'SNS topic ARN for alarm actions. Leave empty to keep alarms disabled.'
 
 # ============================================================================
 # SECTION 2: CONDITIONS
@@ -113,7 +108,6 @@ Conditions:
   HasSqsIntegration: !Equals [!Ref EnableSqsIntegration, 'true']
   HasSqsQueueUrl: !Not [!Equals [!Ref SqsQueueUrl, '']]
   HasImageCommand: !Not [!Equals [!Select [0, !Ref ImageCommand], '']]
-  HasAlarmTopic: !Not [!Equals [!Ref AlarmSnsTopicArn, '']]
 
 # ============================================================================
 # SECTION 3: DYNAMODB TABLES
@@ -249,18 +243,6 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/*'
-        # CloudWatch custom metrics — always included (observability module)
-        - PolicyName: !Sub '${Namespace}-${Environment}-${FunctionName}-cloudwatch-metrics'
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudwatch:PutMetricData
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    'cloudwatch:namespace': !Sub '${Namespace}/${Environment}'
       Tags:
         - Key: Namespace
           Value: !Ref Namespace
@@ -448,217 +430,9 @@ Resources:
       LogGroupName: !Sub '/aws/apigateway/${Namespace}-${Environment}-apigwv2'
       RetentionInDays: 30
 
-  # ==========================================================================
-  # SECTION 6: CLOUDWATCH OBSERVABILITY
-  # ==========================================================================
-
-  # Metric filter: ApplicationErrors — matches ERROR log lines
-  ApplicationErrorsFilter:
-    Type: 'AWS::Logs::MetricFilter'
-    Properties:
-      # Internal wiring: references LambdaLogGroup directly
-      LogGroupName: !Ref LambdaLogGroup
-      FilterName: !Sub '${Namespace}-${Environment}-application-errors'
-      FilterPattern: 'ERROR'
-      MetricTransformations:
-        - MetricNamespace: !Sub '${Namespace}/${Environment}'
-          MetricName: ApplicationErrorCount
-          MetricValue: '1'
-          DefaultValue: 0
-
-  # Metric filter: UnhandledExceptions — matches structured JSON or Python tracebacks
-  UnhandledExceptionsFilter:
-    Type: 'AWS::Logs::MetricFilter'
-    Properties:
-      LogGroupName: !Ref LambdaLogGroup
-      FilterName: !Sub '${Namespace}-${Environment}-unhandled-exceptions'
-      FilterPattern: '?"\"exception\":" ?Traceback'
-      MetricTransformations:
-        - MetricNamespace: !Sub '${Namespace}/${Environment}'
-          MetricName: UnhandledExceptionCount
-          MetricValue: '1'
-          DefaultValue: 0
-
-  # Alarm: HighErrorRate — fires when ApplicationErrorCount >= 5 in 5 minutes
-  HighErrorRateAlarm:
-    Type: 'AWS::CloudWatch::Alarm'
-    Properties:
-      AlarmName: !Sub '${Namespace}-${Environment}-high-error-rate'
-      AlarmDescription: !Sub >-
-        Application error rate threshold for ${Namespace}-${Environment}.
-        Fires when ApplicationErrorCount >= 5 in a 5-minute period.
-      Namespace: !Sub '${Namespace}/${Environment}'
-      MetricName: ApplicationErrorCount
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 5
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      ActionsEnabled: !If [HasAlarmTopic, true, false]
-      AlarmActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-      OKActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-
-  # Alarm: HighExceptionRate — fires when UnhandledExceptionCount >= 5 in 5 minutes
-  HighExceptionRateAlarm:
-    Type: 'AWS::CloudWatch::Alarm'
-    Properties:
-      AlarmName: !Sub '${Namespace}-${Environment}-high-exception-rate'
-      AlarmDescription: !Sub >-
-        Unhandled exception rate threshold for ${Namespace}-${Environment}.
-        Fires when UnhandledExceptionCount >= 5 in a 5-minute period.
-      Namespace: !Sub '${Namespace}/${Environment}'
-      MetricName: UnhandledExceptionCount
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 5
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      ActionsEnabled: !If [HasAlarmTopic, true, false]
-      AlarmActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-      OKActions: !If
-        - HasAlarmTopic
-        - - !Ref AlarmSnsTopicArn
-        - !Ref 'AWS::NoValue'
-
-  # Dashboard: Application observability — errors, Lambda health, API Gateway, Bedrock
-  AppDashboard:
-    Type: 'AWS::CloudWatch::Dashboard'
-    Properties:
-      DashboardName: !Sub '${Namespace}-${Environment}-backend-dashboard'
-      DashboardBody: !Sub
-        - |
-          {
-            "widgets": [
-              {
-                "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
-                "properties": { "markdown": "# Application Errors\nCustom metric filters on Lambda log groups." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 1, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [[ "${MetricNs}", "ApplicationErrorCount", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Application Errors (5-min)",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              },
-              {
-                "type": "metric", "x": 12, "y": 1, "width": 12, "height": 6,
-                "properties": {
-                  "metrics": [[ "${MetricNs}", "UnhandledExceptionCount", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Unhandled Exceptions (5-min)",
-                  "yAxis": { "left": { "min": 0 } }
-                }
-              },
-              {
-                "type": "text", "x": 0, "y": 7, "width": 24, "height": 1,
-                "properties": { "markdown": "# Lambda Health\nInvocations, duration percentiles, errors, and throttles." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [[ "AWS/Lambda", "Invocations", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocations"
-                }
-              },
-              {
-                "type": "metric", "x": 8, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p50", "period": 300, "label": "p50" } ],
-                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p90", "period": 300, "label": "p90" } ],
-                    [ "AWS/Lambda", "Duration", "FunctionName", "${FnName}", { "stat": "p99", "period": 300, "label": "p99" } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Duration (p50/p90/p99)"
-                }
-              },
-              {
-                "type": "metric", "x": 16, "y": 8, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/Lambda", "Errors", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ],
-                    [ "AWS/Lambda", "Throttles", "FunctionName", "${FnName}", { "stat": "Sum", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Errors + Throttles"
-                }
-              },
-              {
-                "type": "text", "x": 0, "y": 14, "width": 24, "height": 1,
-                "properties": { "markdown": "# API Gateway\nRequest count, latency, and HTTP error rates." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 15, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [[ "AWS/ApiGateway", "Count", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Requests"
-                }
-              },
-              {
-                "type": "metric", "x": 8, "y": 15, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/ApiGateway", "Latency", "ApiId", "${ApiId}", { "stat": "p50", "period": 300 } ],
-                    [ "AWS/ApiGateway", "Latency", "ApiId", "${ApiId}", { "stat": "p90", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Latency (p50/p90)"
-                }
-              },
-              {
-                "type": "metric", "x": 16, "y": 15, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ "AWS/ApiGateway", "4xx", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ],
-                    [ "AWS/ApiGateway", "5xx", "ApiId", "${ApiId}", { "stat": "Sum", "period": 300 } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "4xx + 5xx Errors"
-                }
-              },
-              {
-                "type": "text", "x": 0, "y": 21, "width": 24, "height": 1,
-                "properties": { "markdown": "# Bedrock Usage\nToken counts, latency, and throttling." }
-              },
-              {
-                "type": "metric", "x": 0, "y": 22, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [
-                    [ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InputTokenCount\"', 'Sum', 300)", "id": "e1", "label": "InputTokens" } ],
-                    [ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"OutputTokenCount\"', 'Sum', 300)", "id": "e2", "label": "OutputTokens" } ]
-                  ],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Token Usage"
-                }
-              },
-              {
-                "type": "metric", "x": 8, "y": 22, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [[ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InvocationLatency\"', 'Average', 300)", "id": "e1" } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocation Latency"
-                }
-              },
-              {
-                "type": "metric", "x": 16, "y": 22, "width": 8, "height": 6,
-                "properties": {
-                  "metrics": [[ { "expression": "SEARCH('{AWS/Bedrock,ModelId} MetricName=\"InvocationThrottles\"', 'Sum', 300)", "id": "e1" } ]],
-                  "view": "timeSeries", "region": "${AWS::Region}", "title": "Invocation Throttles"
-                }
-              }
-            ]
-          }
-        - MetricNs: !Sub '${Namespace}/${Environment}'
-          FnName: !Sub '${Namespace}-${Environment}-${FunctionName}'
-          ApiId: !Ref HttpApi
 
 # ============================================================================
-# SECTION 7: OUTPUTS
+# SECTION 6: OUTPUTS
 # ============================================================================
 Outputs:
   ApiUrl:
@@ -678,12 +452,6 @@ Outputs:
     Value: !Ref LambdaFunction
     Export:
       Name: !Sub '${AWS::StackName}-FunctionName'
-
-  DashboardUrl:
-    Description: Direct URL to the CloudWatch dashboard
-    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/${Namespace}-${Environment}-backend-dashboard'
-    Export:
-      Name: !Sub '${AWS::StackName}-DashboardUrl'
 
   PassengersTableArn:
     Description: DynamoDB passengers table ARN (only when EnablePassengersTable=true)

@@ -16,18 +16,18 @@ graph TD
     Lambda -->|Read/Write| DDB[DynamoDB Table<br/>Feature-Flagged]
     Lambda -->|Send| SQS[SQS Queue<br/>Optional]
     Lambda -->|Invoke| Bedrock[Bedrock Runtime<br/>Optional]
-    Lambda -->|Logs| CW[CloudWatch<br/>Dashboard + Alarms]
+    Lambda -->|Logs| CWLogs[CloudWatch Logs]
     ECR[ECR Repository] -.->|Image| Lambda
 ```
 
 ## Resources
 
-The backend stack provisions 21 resources. Conditional resources are created only when their associated feature flag is enabled.
+The backend stack provisions 16 resources. Conditional resources are created only when their associated feature flag is enabled.
 
 | Logical ID | Type | Description |
 |------------|------|-------------|
 | `PassengersTable` | `AWS::DynamoDB::Table` | DynamoDB table for passenger data with PAY_PER_REQUEST billing and SSE enabled. **Conditional:** created only when `EnablePassengersTable=true`. |
-| `LambdaExecutionRole` | `AWS::IAM::Role` | Per-function execution role with least-privilege policies. Includes conditional policies for DynamoDB, SQS, and always-on policies for ECR pull, Bedrock invocation, and CloudWatch metrics. |
+| `LambdaExecutionRole` | `AWS::IAM::Role` | Per-function execution role with least-privilege policies. Includes conditional policies for DynamoDB, SQS, and always-on policies for ECR pull and Bedrock invocation. |
 | `LambdaFunction` | `AWS::Lambda::Function` | Container-packaged Lambda function. Receives environment variables for auth configuration, invoke mode, namespace, environment, and optionally SQS queue URL. Reserved concurrency set to 50. |
 | `LambdaLogGroup` | `AWS::Logs::LogGroup` | CloudWatch log group for Lambda function output. Retention set to 30 days. |
 | `HttpApi` | `AWS::ApiGatewayV2::Api` | HTTP API (API Gateway v2) with CORS configuration allowing GET, POST, PUT, DELETE, and OPTIONS methods. |
@@ -42,8 +42,3 @@ The backend stack provisions 21 resources. Conditional resources are created onl
 | `DefaultStage` | `AWS::ApiGatewayV2::Stage` | `prod` stage with auto-deploy enabled and structured JSON access logging. |
 | `LambdaInvokePermission` | `AWS::Lambda::Permission` | Grants API Gateway permission to invoke the Lambda function. Scoped to the specific HTTP API. |
 | `ApiGatewayLogGroup` | `AWS::Logs::LogGroup` | CloudWatch log group for API Gateway access logs. Retention set to 30 days. |
-| `ApplicationErrorsFilter` | `AWS::Logs::MetricFilter` | Metric filter on the Lambda log group that matches `ERROR` log lines and emits an `ApplicationErrorCount` metric. |
-| `UnhandledExceptionsFilter` | `AWS::Logs::MetricFilter` | Metric filter on the Lambda log group that matches structured JSON exceptions and Python tracebacks, emitting an `UnhandledExceptionCount` metric. |
-| `HighErrorRateAlarm` | `AWS::CloudWatch::Alarm` | Fires when `ApplicationErrorCount` reaches 5 or more within a 5-minute period. Alarm actions require `AlarmSnsTopicArn` to be set. |
-| `HighExceptionRateAlarm` | `AWS::CloudWatch::Alarm` | Fires when `UnhandledExceptionCount` reaches 5 or more within a 5-minute period. Alarm actions require `AlarmSnsTopicArn` to be set. |
-| `AppDashboard` | `AWS::CloudWatch::Dashboard` | CloudWatch dashboard with four widget sections: Application Errors (custom metrics), Lambda Health (invocations, duration percentiles, errors, throttles), API Gateway (requests, latency, 4xx/5xx errors), and Bedrock Usage (token counts, latency, throttles). |

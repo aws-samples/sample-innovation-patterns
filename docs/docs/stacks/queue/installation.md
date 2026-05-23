@@ -39,7 +39,6 @@ Select the queue stack when prompted for stacks to include. The compose step gen
 | `Timeout` | Number | `300` | Worker Lambda timeout in seconds. Range: 1--900. |
 | `ImageCommand` | CommaDelimitedList | `python,-m,sqs_handler` | Worker container CMD override. |
 | `EnableJobsTable` | String | `false` | Feature flag: create a DynamoDB jobs table. Allowed values: `true`, `false`. |
-| `AlarmSnsTopicArn` | String | *(empty)* | SNS topic ARN for alarm actions. Leave empty to keep alarms in a disabled state. |
 
 ## Feature Flags
 
@@ -79,4 +78,3 @@ The compose step handles all wiring automatically. No manual cross-stack referen
 | `DlqUrl` | `CreateDLQ=true` | Dead-letter queue URL. |
 | `DlqArn` | `CreateDLQ=true` | Dead-letter queue ARN. |
 | `JobsTableArn` | `EnableJobsTable=true` | DynamoDB jobs table ARN. |
-| `DashboardUrl` | Always | Direct URL to the queue CloudWatch dashboard in the AWS Console. |
