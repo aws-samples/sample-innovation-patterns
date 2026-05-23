@@ -8,9 +8,9 @@ slug: /
 
 Compose and deploy full-stack AWS applications in minutes, not days.
 
-IPA is a library of AI-driven skills that automate AWS infrastructure deployment. You describe what you want — a serverless web app, a queue worker, a CI/CD pipeline — and IPA composes the CloudFormation stacks, generates the Makefiles, and deploys everything to your account.
+IPA is a library of AI-driven skills that automate AWS infrastructure deployment. You describe what you want — a serverless web app, a queue worker, a CI/CD pipeline — and IPA composes the infrastructure, generates the Makefiles, and deploys everything to your account. Choose **CloudFormation** or **Terraform** as your IaC engine at init time — the workflow and generated artifacts remain the same.
 
-**The output is designed for your path to production.** IPA generates standard CloudFormation templates, plain GNU Makefiles with inline `aws` CLI calls, and commented `.env` files — no proprietary abstractions, no runtime dependencies on IPA or a coding assistant. An AWS engineer can open any generated file, understand it without IPA context, and integrate it into whatever CI/CD pipeline, change management process, or deployment workflow their organization requires. IPA gets you to a working POC fast; the artifacts it produces are the starting point for production, not a dead end.
+**The output is designed for your path to production.** IPA generates standard IaC templates (CloudFormation YAML or Terraform HCL), plain GNU Makefiles with inline CLI calls, and commented `.env` files — no proprietary abstractions, no runtime dependencies on IPA or a coding assistant. An AWS engineer can open any generated file, understand it without IPA context, and integrate it into whatever CI/CD pipeline, change management process, or deployment workflow their organization requires. IPA gets you to a working POC fast; the artifacts it produces are the starting point for production, not a dead end.
 
 ## What It Deploys
 
@@ -35,7 +35,7 @@ Four skills, run in sequence:
 
 | Skill | What It Does |
 |-------|-------------|
-| `/ipa-init` | Configures the project (namespace, environment, region, AWS account) |
+| `/ipa-init` | Configures the project (namespace, environment, region, AWS account, IaC engine) |
 | `/ipa-compose` | Reads a pattern, resolves dependencies, generates Makefiles. Auto-runs `/ipa-init` if `.env` is missing. Prompts for security configuration on first compose when no IAM role is present. |
 | `/ipa-prepare` | Deploys one-time prerequisite stacks (Cognito, ECR) |
 | `/ipa-deploy` | Builds, deploys, and wires everything together. Requires prepare to have been run first. |

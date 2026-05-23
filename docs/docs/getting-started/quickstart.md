@@ -24,7 +24,7 @@ IPA deploys infrastructure through four skills:
 
 | Skill | What It Does |
 |-------|-------------|
-| `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, and AWS account |
+| `/ipa-init` | Configures the project — writes `.env` with namespace, environment, region, AWS account, and IaC engine |
 | `/ipa-compose` | Reads stack skills and generates Makefiles for build, deploy, and teardown. On first run, prompts for security configuration (IAM roles). |
 | `/ipa-prepare` | Deploys one-time prerequisite stacks (log bucket, Cognito, ECR) |
 | `/ipa-deploy` | Builds container images, deploys all stacks, and runs post-deploy wiring |
@@ -41,16 +41,21 @@ Open Claude Code in the repository root and run:
 /ipa-init
 ```
 
-The skill prompts for four configuration values. Accept the defaults for the fastest setup:
+The skill prompts for five configuration values. Accept the defaults for the fastest setup:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | AWS Profile | Skip | Uses the default AWS credential chain |
 | AWS Region | `us-east-1` | Deployment region |
-| Namespace | `app` | Prefix for all CloudFormation stack names |
+| Namespace | `app` | Prefix for all stack names |
 | Environment | `dev` | Environment label (dev, stage, prod) |
+| IaC Tool | `cloudformation` | Infrastructure engine — `cloudformation` or `terraform` |
 
 The skill auto-detects your AWS account ID and writes all values to `.env`.
+
+:::note
+Selecting `terraform` requires Terraform >= 1.5.0 to be installed. See [Installation](installation.md#terraform-optional). The rest of the workflow is identical — only the underlying CLI commands in the generated Makefiles change.
+:::
 
 ### What Happens
 
@@ -93,7 +98,7 @@ The skill reads stack skills from `.claude/skills/ipa-stack-*/`, resolves depend
 | `scripts/build.mk` | Builds the shared container image and frontend assets |
 | `scripts/post-deploy.mk` | Configures frontend, uploads to S3, invalidates CloudFront, wires Cognito callbacks and backend CORS |
 | `scripts/env.mk` | Syncs deployed stack outputs to `.env` for local development |
-| `scripts/test.mk` | Validates CloudFormation templates |
+| `scripts/test.mk` | Validates templates (CFN `validate-template` or TF `terraform validate`) |
 | `scripts/SECURITY-DISPOSITION.md` | Security disposition register |
 
 ## Step 3: Prepare Prerequisites
@@ -192,7 +197,7 @@ make -f scripts/prepare.mk teardown-prepare
 
 ### Re-Deploy
 
-All IPA skills are idempotent. Re-run `/ipa-deploy` at any time to update the deployment. CloudFormation handles the state — unchanged stacks are skipped, updated stacks are deployed in place.
+All IPA skills are idempotent. Re-run `/ipa-deploy` at any time to update the deployment. The IaC engine (CloudFormation or Terraform) handles state — unchanged resources are skipped, updated resources are deployed in place.
 
 ## Next Steps
 

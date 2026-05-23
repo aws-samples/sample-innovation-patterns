@@ -189,16 +189,16 @@ except Exception as exc:
 
 ## Low
 
-### L-1: SNS Alarm Topic Not Created by IaC
+### L-1: No CloudWatch Alarms or Dashboards
 
-- **File:** `infra/cfn/backend/backend.yml`; `infra/cfn/queue/queue.yml` (AlarmSnsTopicArn parameter)
+- **File:** `infra/cfn/backend/backend.yml`; `infra/cfn/queue/queue.yml`
 - **CWE:** [CWE-778](https://cwe.mitre.org/data/definitions/778.html) — Insufficient Logging
 
-**Description:** CloudWatch alarms are configured but disabled by default because `AlarmSnsTopicArn` defaults to an empty string. No operational alerting exists until manually configured.
+**Description:** CloudWatch alarms and dashboards have been removed from tier stacks due to IAM permission conflicts with the centralized security stack. No operational alerting or dashboards exist until a dedicated observability stack is introduced.
 
-**Impact:** Security-relevant events (high error rates, DLQ messages, exceptions) go unnoticed.
+**Impact:** Security-relevant events (high error rates, DLQ messages, exceptions) go unnoticed without manual CloudWatch console inspection.
 
-**Resolution:** Create an SNS topic in the security stack and wire it to the alarm parameters.
+**Resolution:** Introduce a dedicated observability stack with its own scoped IAM permissions for CloudWatch dashboards and alarms.
 
 ### L-2: No Budget Alarms for Bedrock Token Usage
 

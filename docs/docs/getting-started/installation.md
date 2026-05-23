@@ -18,6 +18,7 @@ This page lists the prerequisites for working with Innovation Patterns (IPA). In
 | Docker | Latest | Container image builds for Lambda deployment |
 | GNU Make | Any | Execution of generated Makefiles (`scripts/*.mk`) |
 | Claude Code | Latest | AI agent that runs IPA skills (`/ipa-*`) |
+| Terraform | >= 1.5.0 *(optional)* | Required only when `APP_IAC=terraform` is selected during `/ipa-init` |
 
 ## Python 3.12
 
@@ -121,6 +122,33 @@ Claude Code is the AI agent CLI that executes IPA skills. All IPA workflows (`/i
 
 Install following the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code/overview).
 
+## Terraform (Optional)
+
+Terraform is required only when you choose `terraform` as the IaC engine during `/ipa-init`. If you plan to use the default CloudFormation engine, skip this section.
+
+IPA requires Terraform >= 1.5.0. Verify:
+
+```bash
+terraform --version
+```
+
+Install following the [Terraform installation guide](https://developer.hashicorp.com/terraform/install).
+
+**macOS (Homebrew):**
+
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+```
+
+**Linux (apt):**
+
+```bash
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+```
+
 ## Verify All Prerequisites
 
 Run the following commands to confirm all tools are installed:
@@ -133,6 +161,7 @@ aws --version
 docker --version
 make --version
 claude --version
+terraform --version  # only if using Terraform mode
 ```
 
 All commands should return version information without errors. Proceed to the [Quickstart](quickstart.md) to configure and deploy your first IPA project.
