@@ -6,7 +6,7 @@ model: opus
 
 # /ipa-init — Initialize IPA Project Configuration
 
-This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding.
+This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding. When the builder selects `APP_IAC=terraform`, the skill also bootstraps the Terraform state backend (S3 + DynamoDB via CloudFormation) so the project is deploy-ready in a single step.
 
 **Lifecycle**: **`/ipa-init`** → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`
 
@@ -25,6 +25,8 @@ The `.env` file contains up to seven IPA-managed variables. `AWS_PROFILE` is opt
 | `APP_ENV` | Yes | `dev` | Environment label (e.g., `dev`, `stage`, `prod`) |
 | `APP_CODE_AGENT` | No (auto-set) | `claude-code` | AI agent platform — set automatically, do not prompt |
 | `APP_IAC` | Yes | `cloudformation` | Infrastructure-as-code tool (cloudformation or terraform) |
+| `TF_STATE_BUCKET` | No (derived) | _(none)_ | S3 bucket for Terraform state — written by Step 4.5 after CFN deploy. Only when `APP_IAC=terraform`. |
+| `TF_STATE_LOCK_TABLE` | No (derived) | _(none)_ | DynamoDB table for state locking — written by Step 4.5 after CFN deploy. Only when `APP_IAC=terraform`. |
 
 ### Variable Categories
 
@@ -297,8 +299,10 @@ This flow runs when `.env` already exists and contains at least one KEY=VALUE pa
 
 1. Read the `.env` file line by line.
 2. Separate lines into two groups:
-   - **IPA-managed variables**: `AWS_PROFILE`, `AWS_REGION`, `AWS_ACCOUNT_ID`, `APP_NAMESPACE`, `APP_ENV`, `APP_CODE_AGENT`, `APP_IAC`
+   - **IPA-managed variables**: `AWS_PROFILE`, `AWS_REGION`, `AWS_ACCOUNT_ID`, `APP_NAMESPACE`, `APP_ENV`, `APP_CODE_AGENT`, `APP_IAC`, `TF_STATE_BUCKET`, `TF_STATE_LOCK_TABLE`
    - **Extra lines**: all other lines (other variables, comments, blank lines) — these belong to other tooling and MUST be preserved exactly as-is.
+
+   `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` are written by Step 4.5 when `APP_IAC=terraform`. They are NOT prompted in any flow — preserve them in re-init exactly as found.
 3. If the file is malformed (e.g., lines with no `=` delimiter that aren't comments or blank), warn the builder: "Some lines in .env appear malformed. Would you like to repair them or keep them as-is?" Offer to fix or preserve.
 
 ### Step 2: Display Current Values
@@ -339,6 +343,32 @@ If the builder changed `APP_NAMESPACE` or `APP_ENV`, display this warning BEFORE
 
 > **Warning**: You changed `APP_NAMESPACE` and/or `APP_ENV`. These values are baked into Makefiles by `/ipa-compose`. You MUST re-run `/ipa-compose` after this update to regenerate Makefiles with the new values.
 
+#### IaC Engine Switch Guardrail
+
+If the builder changed `APP_IAC` (e.g., `cloudformation` → `terraform` or vice versa), this is a **major change** that breaks state continuity. Stacks deployed by the previous engine are invisible to the new one.
+
+Before confirmation, display:
+
+> **DANGER: Switching IaC engine from `{old}` to `{new}`.**
+>
+> Resources deployed by `{old}` are NOT visible to `{new}` and will not be managed, updated, or torn down by the new engine. Switching engines on a project with deployed infrastructure typically results in:
+>
+> - Orphaned resources you must clean up manually
+> - Duplicate resource creation if you redeploy with the new engine (name collisions)
+> - Lost ability to use `/ipa-destroy` against the old stacks
+>
+> **Recommended path**: Run `/ipa-destroy` (and any manual prepare-stack teardowns) BEFORE switching `APP_IAC`. Then run `/ipa-init` to switch, followed by `/ipa-compose` and `/ipa-prepare`.
+>
+> If you have NOT yet deployed any stacks, switching is safe.
+
+Use `AskUserQuestion` to require explicit confirmation:
+
+- **"I have not deployed any stacks yet — proceed with switch"**
+- **"Cancel — keep `APP_IAC={old}`"** *(Recommended)*
+- **"I understand the risks — proceed anyway"**
+
+If the builder cancels, leave `APP_IAC` unchanged and continue with any other selected updates. If the builder proceeds and the **new** value is `terraform`, the post-write flow MUST run **Step 4.5: Bootstrap Terraform State Backend** (same as first-time init) so `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` are populated.
+
 ### Step 5: Confirm and Write
 
 Display a summary of changes only (unchanged values marked as "unchanged"):
@@ -353,13 +383,16 @@ Display a summary of changes only (unchanged values marked as "unchanged"):
 │ APP_NAMESPACE   │ myproject        │ myproject        │ unchanged │
 │ APP_ENV         │ dev              │ dev              │ unchanged │
 │ APP_CODE_AGENT  │ claude-code      │ claude-code      │ auto-set  │
-│ APP_IAC         │ cloudformation   │ cloudformation   │ auto-set  │
+│ APP_IAC         │ cloudformation   │ cloudformation   │ unchanged │
 └─────────────────┴──────────────────┴──────────────────┴───────────┘
 ```
 
 Ask: "Does this look correct? (yes to write, no to start over):"
 
-- **If confirmed**: rewrite `.env` preserving all extra (non-IPA) variables in their original positions. IPA variables are written as a group with the standard header comment. Then proceed to `.env.example` generation.
+- **If confirmed**: rewrite `.env` preserving all extra (non-IPA) variables in their original positions. IPA variables are written as a group with the standard header comment. Then:
+  - **If `APP_IAC` was changed to `terraform`**: run Step 4.5 (Bootstrap Terraform State Backend) before `.env.example` generation.
+  - **If `APP_IAC` was changed to `cloudformation`**: leave existing `TF_STATE_BUCKET` / `TF_STATE_LOCK_TABLE` lines in `.env` (they are harmless when unused; the builder may switch back later).
+  - Otherwise proceed directly to `.env.example` generation.
 - **If the builder confirms no changes**: leave `.env` untouched. Still regenerate `.env.example` (schema may have changed).
 - **If rejected**: restart from Step 3.
 
@@ -399,7 +432,7 @@ Use this exact template:
 #                    lowercase alphanumeric + hyphens, starts with letter)
 # APP_ENV          — Environment label (e.g., dev, stage, prod)
 # APP_CODE_AGENT   — AI agent platform (auto-set, do not change)
-# APP_IAC          — Infrastructure-as-code tool (auto-set, do not change)
+# APP_IAC          — Infrastructure-as-code tool (cloudformation or terraform)
 
 # AWS_PROFILE=your-profile-name
 AWS_REGION=us-east-1
@@ -408,14 +441,20 @@ APP_NAMESPACE=myproject
 APP_ENV=dev
 APP_CODE_AGENT=claude-code
 APP_IAC=cloudformation
+
+# Terraform State Backend (written by /ipa-init after tfstate deploy)
+# Only relevant when APP_IAC=terraform
+# TF_STATE_BUCKET=
+# TF_STATE_LOCK_TABLE=
 ```
 
 ### Rules
 
 - `.env.example` MUST NOT contain real account IDs, profile names, or any environment-specific values.
 - Placeholder values: `your-profile-name` (commented out), `000000000000`, `myproject`.
-- Default values (`us-east-1`, `dev`) are acceptable as placeholders since they are not sensitive.
-- Auto-set values (`claude-code`, `cloudformation`) are written as-is since they are fixed.
+- Default values (`us-east-1`, `dev`, `cloudformation`) are acceptable as placeholders since they are not sensitive.
+- The auto-set value (`claude-code`) is written as-is since it is fixed.
+- `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` are shown commented out — they are populated only when `APP_IAC=terraform` and `/ipa-init` Step 4.5 runs successfully.
 - `.env.example` is version-controlled (NOT in `.gitignore`).
 - **Section-based update**: On every `/ipa-init` run, update only the `# IPA Project Configuration Template` section. Preserve all other sections (e.g., `# IPA Security Configuration`) in their original positions.
   1. Read the existing `.env.example` file (if it exists).

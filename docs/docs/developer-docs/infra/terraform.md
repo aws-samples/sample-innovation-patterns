@@ -23,7 +23,13 @@ Terraform requires a state backend before any module can run. IPA solves this ch
 infra/cfn/tfstate/tfstate.yml → S3 bucket + DynamoDB lock table
 ```
 
-The `prepare-tfstate` target in `scripts/prepare.mk` is the only CFN target in a Terraform-mode project. After deployment, `env.mk` writes `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` to `.env` for all subsequent Terraform operations.
+There are two paths to bootstrap the state backend; both converge on the same `.env` content:
+
+**Inline bootstrap (recommended, default)** — `/ipa-init` Step 4.5 deploys `tfstate.yml` immediately after writing `.env` when `APP_IAC=terraform` is selected. It captures `StateBucketName` and `LockTableName` from CFN outputs and appends `TF_STATE_BUCKET` + `TF_STATE_LOCK_TABLE` to `.env`. The project becomes deploy-ready in a single step.
+
+**Fallback bootstrap** — when `/ipa-init` cannot deploy (credentials missing, network failure, CI/CD environment), the same logic runs as `make -f scripts/prepare.mk prepare-tfstate` followed by `make -f scripts/env.mk update-env-tfstate`. The CFN deploy uses `--no-fail-on-empty-changeset`, so re-running either path is safe.
+
+In Terraform mode, `prepare-tfstate` is the only CloudFormation target in `prepare.mk`. All other prepare targets use `terraform apply`.
 
 ### Module Architecture
 

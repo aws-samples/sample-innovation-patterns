@@ -54,7 +54,7 @@ The skill prompts for five configuration values. Accept the defaults for the fas
 The skill auto-detects your AWS account ID and writes all values to `.env`.
 
 :::note
-Selecting `terraform` requires Terraform >= 1.5.0 to be installed. See [Installation](installation.md#terraform-optional). The rest of the workflow is identical — only the underlying CLI commands in the generated Makefiles change.
+Selecting `terraform` requires Terraform >= 1.5.0 to be installed. See [Installation](installation.md#terraform-optional). When you select `terraform`, `/ipa-init` also deploys the Terraform state backend (S3 bucket + DynamoDB lock table) via CloudFormation and writes `TF_STATE_BUCKET` / `TF_STATE_LOCK_TABLE` to `.env` — the project is deploy-ready in a single step. The rest of the workflow is identical to CloudFormation mode.
 :::
 
 ### What Happens
