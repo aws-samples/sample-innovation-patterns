@@ -7,16 +7,18 @@
 # See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 
 # ASH security scanning component
-# Pinned to v3.4.0 (2026-04-29) — last release before PR #284 (merged 2026-05-08,
-# shipped in v3.5.0) added a `gitlab-cyclonedx` reporter that runs by default.
-# In v3.5.3, PR #343 made that reporter emit a minimal "empty" SBOM when no
-# components are found, which GitLab's SBOM parser rejects with
-# "Required GitLab CycloneDX properties are missing". Our existing
-# `cyclonedx: enabled: false` in .ash/ash.yaml does not disable the new
-# `gitlab-cyclonedx` reporter, so we pin below the regression instead.
-# Revisit when we wire up real GitLab dependency scanning.
+# Pinned to v3.0.5 — the internal `code.aws.dev` mirror has its own version
+# line (v3.0.x) that does not track upstream awslabs/automated-security-helper.
+# v3.0.5 (~2026-04-23) is the version against which our existing
+# `cyclonedx: enabled: false` suppression in .ash/ash.yaml was added (2026-04-21)
+# and verified working. v3.0.6 (~2026-05-16) appears to backport the upstream
+# regression where the new `gitlab-cyclonedx` reporter emits a minimal "empty"
+# SBOM that GitLab's parser rejects with "Required GitLab CycloneDX properties
+# are missing" — our existing suppression does not cover that new reporter.
+# Revisit when we wire up real GitLab dependency scanning, or when the mirror
+# exposes a setting to disable the gitlab-cyclonedx reporter.
 include:
-  - component: code.aws.dev/proserve/automated-security-helper/automated-security-helper/ash@v3.4.0
+  - component: code.aws.dev/proserve/automated-security-helper/automated-security-helper/ash@v3.0.5
 
 # Any publicly available python image
 image: public.ecr.aws/docker/library/python:3.12-bookworm

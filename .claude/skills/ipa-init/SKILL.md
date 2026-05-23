@@ -190,7 +190,7 @@ Display a summary table of all values:
 │ APP_NAMESPACE   │ myproject        │ prompted      │
 │ APP_ENV         │ dev              │ default       │
 │ APP_CODE_AGENT  │ claude-code      │ auto-set      │
-│ APP_IAC         │ cloudformation   │ auto-set      │
+│ APP_IAC         │ cloudformation   │ default       │
 └─────────────────┴──────────────────┴───────────────┘
 ```
 
@@ -211,7 +211,81 @@ and do NOT write the `AWS_PROFILE=` line to `.env`.
 
 After writing, display: "Configuration written to `.env`. Re-run `/ipa-init` to change any values."
 
-Proceed to `.env.example` generation.
+If `APP_IAC=terraform`, proceed to **Step 4.5: Bootstrap Terraform State Backend**. Otherwise, proceed to `.env.example` generation.
+
+### Step 4.5: Bootstrap Terraform State Backend
+
+**This step runs only when `APP_IAC=terraform`.** Skip entirely for `cloudformation`.
+
+Terraform requires a state backend (S3 bucket + DynamoDB lock table) to exist before any module can run. Bootstrapping it during `/ipa-init` makes the project deploy-ready in one step — `/ipa-compose` then generates Makefiles that work on first run, with no separate prepare step required for state.
+
+#### 4.5.1 Pre-flight Check
+
+Before deploying anything:
+
+1. **Credentials available?** If `AWS_ACCOUNT_ID` was set via manual fallback (auto-detection failed in Step 3), credentials are not usable for CFN deploy. Display:
+
+   > **Cannot bootstrap Terraform state backend.** AWS credentials are not configured (`aws sts get-caller-identity` failed earlier). After configuring credentials, run `make -f scripts/prepare.mk prepare-tfstate` once `/ipa-compose` has generated `prepare.mk` (the prepare target is the fallback path for state-backend bootstrapping).
+
+   Skip the deploy and proceed to `.env.example` generation. The skill does NOT fail.
+
+2. **CloudFormation template present?** Verify `infra/cfn/tfstate/tfstate.yml` exists. If not, display an error and skip the bootstrap (same fallback messaging as above).
+
+#### 4.5.2 Deploy the State Backend
+
+Display:
+
+> **Bootstrapping Terraform state backend** — deploying `{APP_NAMESPACE}-{APP_ENV}-tfstate` (S3 bucket + DynamoDB lock table). This typically takes 30-60 seconds.
+
+Run:
+
+```bash
+aws cloudformation deploy \
+  --stack-name {APP_NAMESPACE}-{APP_ENV}-tfstate \
+  --template-file infra/cfn/tfstate/tfstate.yml \
+  --parameter-overrides Namespace={APP_NAMESPACE} Environment={APP_ENV} \
+  --no-fail-on-empty-changeset \
+  $(if AWS_PROFILE,--profile AWS_PROFILE,) \
+  --region {AWS_REGION}
+```
+
+The `--no-fail-on-empty-changeset` flag makes re-runs safe — if the stack already exists with the same parameters, the command is a no-op.
+
+#### 4.5.3 Capture Outputs
+
+Query the stack for `StateBucketName` and `LockTableName`:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name {APP_NAMESPACE}-{APP_ENV}-tfstate \
+  --query 'Stacks[0].Outputs[?OutputKey==`StateBucketName`].OutputValue' \
+  --output text \
+  $(if AWS_PROFILE,--profile AWS_PROFILE,) \
+  --region {AWS_REGION}
+```
+
+Repeat for `LockTableName`.
+
+#### 4.5.4 Write Outputs to .env
+
+Append (or replace, if already present) two lines under a `# Terraform State Backend` header:
+
+```
+# Terraform State Backend (written by /ipa-init after tfstate deploy)
+TF_STATE_BUCKET=<StateBucketName>
+TF_STATE_LOCK_TABLE=<LockTableName>
+```
+
+Use the same `grep -v` strip-then-append idiom that `env.mk` uses, so re-runs converge to the same content.
+
+#### 4.5.5 Failure Handling
+
+If the deploy or describe-stacks call fails:
+
+- **Network or credential error**: display the error and the same fallback message from 4.5.1. The skill does NOT fail — the rest of init has already succeeded.
+- **CFN deploy error (e.g., name collision)**: display the CFN error message and instruct the builder to investigate. Do NOT roll back automatically.
+
+After 4.5 completes (success or fallback), proceed to `.env.example` generation.
 
 ---
 
