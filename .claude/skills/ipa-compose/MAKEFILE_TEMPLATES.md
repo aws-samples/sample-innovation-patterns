@@ -930,7 +930,7 @@ APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 TF_BACKEND_CONFIG := \
   -backend-config="bucket=$(TF_STATE_BUCKET)" \
   -backend-config="region=$(AWS_REGION)" \
-  -backend-config="dynamodb_table=$(TF_STATE_LOCK_TABLE)"
+  -backend-config="use_lockfile=true"
 
 TF_COMMON_VARS := \
   -var="namespace=$(APP_NAMESPACE)" \
@@ -1008,7 +1008,7 @@ APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 TF_BACKEND_CONFIG := \
   -backend-config="bucket=$(TF_STATE_BUCKET)" \
   -backend-config="region=$(AWS_REGION)" \
-  -backend-config="dynamodb_table=$(TF_STATE_LOCK_TABLE)"
+  -backend-config="use_lockfile=true"
 
 TF_COMMON_VARS := \
   -var="namespace=$(APP_NAMESPACE)" \
@@ -1064,6 +1064,13 @@ Uses `terraform output -raw` instead of `aws cloudformation describe-stacks`:
 
 -include .env
 
+AWS_CREDS := $(if $(AWS_PROFILE),AWS_PROFILE=$(AWS_PROFILE),) $(if $(AWS_REGION),AWS_REGION=$(AWS_REGION),)
+
+TF_BACKEND_CONFIG := \
+  -backend-config="bucket=$(TF_STATE_BUCKET)" \
+  -backend-config="region=$(AWS_REGION)" \
+  -backend-config="use_lockfile=true"
+
 .PHONY: update-env update-env-tfstate update-env-cognito update-env-ecr update-env-backend update-env-frontend update-env-sqs
 
 update-env: update-env-tfstate update-env-cognito update-env-ecr update-env-backend update-env-frontend update-env-sqs
@@ -1086,11 +1093,19 @@ update-env-tfstate:
 	@echo "TF_STATE_LOCK_TABLE=$(TF_STATE_LOCK_TABLE_VAL)" >> .env
 
 update-env-cognito:
-	$(eval OIDC_ISSUER_VAL := $(shell cd infra/tf/cognito && terraform output -raw issuer_url 2>/dev/null || echo ""))
-	$(eval OIDC_CLIENT_ID_VAL := $(shell cd infra/tf/cognito && terraform output -raw user_pool_client_id 2>/dev/null || echo ""))
-	$(eval OIDC_END_SESSION_VAL := $(shell cd infra/tf/cognito && terraform output -raw end_session_endpoint 2>/dev/null || echo ""))
-	$(eval OIDC_USER_POOL_ID_VAL := $(shell cd infra/tf/cognito && terraform output -raw user_pool_id 2>/dev/null || echo ""))
-	$(eval COGNITO_DOMAIN_PREFIX_VAL := $(shell cd infra/tf/cognito && terraform output -raw cognito_domain 2>/dev/null || echo ""))
+	$(eval OIDC_ISSUER_VAL := $(shell cd infra/tf/cognito && \
+		$(AWS_CREDS) terraform init -input=false -reconfigure \
+			$(TF_BACKEND_CONFIG) \
+			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/cognito/terraform.tfstate" > /dev/null && \
+		$(AWS_CREDS) terraform output -raw issuer_url 2>/dev/null || echo ""))
+	$(eval OIDC_CLIENT_ID_VAL := $(shell cd infra/tf/cognito && \
+		$(AWS_CREDS) terraform output -raw user_pool_client_id 2>/dev/null || echo ""))
+	$(eval OIDC_END_SESSION_VAL := $(shell cd infra/tf/cognito && \
+		$(AWS_CREDS) terraform output -raw end_session_endpoint 2>/dev/null || echo ""))
+	$(eval OIDC_USER_POOL_ID_VAL := $(shell cd infra/tf/cognito && \
+		$(AWS_CREDS) terraform output -raw user_pool_id 2>/dev/null || echo ""))
+	$(eval COGNITO_DOMAIN_PREFIX_VAL := $(shell cd infra/tf/cognito && \
+		$(AWS_CREDS) terraform output -raw cognito_domain 2>/dev/null || echo ""))
 	@grep -v '^OIDC_\|^COGNITO_DOMAIN_PREFIX=\|^# OIDC Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# OIDC Configuration (written by env.mk after cognito deploy)" >> .env
@@ -1101,15 +1116,24 @@ update-env-cognito:
 	@echo "COGNITO_DOMAIN_PREFIX=$(COGNITO_DOMAIN_PREFIX_VAL)" >> .env
 
 update-env-ecr:
-	$(eval ECR_REPO_URI_VAL := $(shell cd infra/tf/ecr && terraform output -raw repository_uri 2>/dev/null || echo ""))
+	$(eval ECR_REPO_URI_VAL := $(shell cd infra/tf/ecr && \
+		$(AWS_CREDS) terraform init -input=false -reconfigure \
+			$(TF_BACKEND_CONFIG) \
+			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/ecr/terraform.tfstate" > /dev/null && \
+		$(AWS_CREDS) terraform output -raw repository_uri 2>/dev/null || echo ""))
 	@grep -v '^ECR_REPO_URI\|^# ECR Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# ECR Configuration (written by env.mk after ecr deploy)" >> .env
 	@echo "ECR_REPO_URI=$(ECR_REPO_URI_VAL)" >> .env
 
 update-env-backend:
-	$(eval API_URL_VAL := $(shell cd infra/tf/backend && terraform output -raw api_url 2>/dev/null || echo ""))
-	$(eval FUNCTION_NAME_VAL := $(shell cd infra/tf/backend && terraform output -raw function_name 2>/dev/null || echo ""))
+	$(eval API_URL_VAL := $(shell cd infra/tf/backend && \
+		$(AWS_CREDS) terraform init -input=false -reconfigure \
+			$(TF_BACKEND_CONFIG) \
+			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/backend/terraform.tfstate" > /dev/null && \
+		$(AWS_CREDS) terraform output -raw api_url 2>/dev/null || echo ""))
+	$(eval FUNCTION_NAME_VAL := $(shell cd infra/tf/backend && \
+		$(AWS_CREDS) terraform output -raw function_name 2>/dev/null || echo ""))
 	@grep -v '^API_URL=\|^FUNCTION_NAME=\|^# Backend Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# Backend Configuration (written by env.mk after backend deploy)" >> .env
@@ -1117,9 +1141,15 @@ update-env-backend:
 	@echo "FUNCTION_NAME=$(FUNCTION_NAME_VAL)" >> .env
 
 update-env-frontend:
-	$(eval APP_URL_VAL := $(shell cd infra/tf/frontend && terraform output -raw app_url 2>/dev/null || echo ""))
-	$(eval BUCKET_NAME_VAL := $(shell cd infra/tf/frontend && terraform output -raw bucket_name 2>/dev/null || echo ""))
-	$(eval DISTRIBUTION_ID_VAL := $(shell cd infra/tf/frontend && terraform output -raw distribution_id 2>/dev/null || echo ""))
+	$(eval APP_URL_VAL := $(shell cd infra/tf/frontend && \
+		$(AWS_CREDS) terraform init -input=false -reconfigure \
+			$(TF_BACKEND_CONFIG) \
+			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/frontend/terraform.tfstate" > /dev/null && \
+		$(AWS_CREDS) terraform output -raw app_url 2>/dev/null || echo ""))
+	$(eval BUCKET_NAME_VAL := $(shell cd infra/tf/frontend && \
+		$(AWS_CREDS) terraform output -raw bucket_name 2>/dev/null || echo ""))
+	$(eval DISTRIBUTION_ID_VAL := $(shell cd infra/tf/frontend && \
+		$(AWS_CREDS) terraform output -raw distribution_id 2>/dev/null || echo ""))
 	@grep -v '^APP_URL=\|^BUCKET_NAME=\|^DISTRIBUTION_ID=\|^# Frontend Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# Frontend Configuration (written by env.mk after frontend deploy)" >> .env
@@ -1128,8 +1158,13 @@ update-env-frontend:
 	@echo "DISTRIBUTION_ID=$(DISTRIBUTION_ID_VAL)" >> .env
 
 update-env-sqs:
-	$(eval SQS_QUEUE_URL_VAL := $(shell cd infra/tf/queue && terraform output -raw queue_url 2>/dev/null || echo ""))
-	$(eval SQS_QUEUE_ARN_VAL := $(shell cd infra/tf/queue && terraform output -raw queue_arn 2>/dev/null || echo ""))
+	$(eval SQS_QUEUE_URL_VAL := $(shell cd infra/tf/queue && \
+		$(AWS_CREDS) terraform init -input=false -reconfigure \
+			$(TF_BACKEND_CONFIG) \
+			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/queue/terraform.tfstate" > /dev/null && \
+		$(AWS_CREDS) terraform output -raw queue_url 2>/dev/null || echo ""))
+	$(eval SQS_QUEUE_ARN_VAL := $(shell cd infra/tf/queue && \
+		$(AWS_CREDS) terraform output -raw queue_arn 2>/dev/null || echo ""))
 	@grep -v '^SQS_QUEUE_URL=\|^SQS_QUEUE_ARN=\|^# SQS Configuration' .env > .env.tmp 2>/dev/null; mv .env.tmp .env || true
 	@echo "" >> .env
 	@echo "# SQS Configuration (written by env.mk after queue deploy)" >> .env

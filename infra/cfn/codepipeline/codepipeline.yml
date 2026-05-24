@@ -121,7 +121,7 @@ Resources:
                 # not consume stack outputs.
                 - |
                   if [ "${IPA_MAKEFILE}" != "test.mk" ] && [ -f scripts/env.mk ]; then
-                    make -f scripts/env.mk update-env || true
+                    make -f scripts/env.mk update-env
                   fi
                 - make -f "scripts/${IPA_MAKEFILE}" ${IPA_TARGET}
           artifacts:
