@@ -75,6 +75,16 @@ resource "aws_codebuild_project" "build" {
     }
 
     environment_variable {
+      name  = "AWS_REGION"
+      value = var.region
+    }
+
+    environment_variable {
+      name  = "TF_STATE_BUCKET"
+      value = var.state_bucket
+    }
+
+    environment_variable {
       name  = "IPA_MAKEFILE"
       value = "build.mk"
     }
@@ -95,6 +105,7 @@ resource "aws_codebuild_project" "build" {
             - echo "Stage $IPA_MAKEFILE / $IPA_TARGET"
             - |
               if [ "$IPA_MAKEFILE" != "test.mk" ]; then
+                make -f scripts/env.mk update-env-tfstate
                 make -f scripts/env.mk update-env
               fi
         build:
