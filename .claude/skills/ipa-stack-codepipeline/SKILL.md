@@ -89,6 +89,16 @@ Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Ma
 **Capabilities**: `CAPABILITY_NAMED_IAM` required (creates PipelineRole and EventRuleRole).
 **Full advisory**: See [SECURITY.md](SECURITY.md)
 
+## Build Environment Requirements
+
+The `aws/codebuild/standard:7.0` image does not include Terraform. The buildspec `install` phase downloads and installs Terraform so that `scripts/env.mk` can read live stack outputs via `terraform output`.
+
+| Requirement | Version | Install Method |
+|-------------|---------|----------------|
+| Terraform | 1.10.5 | Downloaded from `releases.hashicorp.com` in buildspec install phase |
+
+The `pre_build` phase asserts `command -v terraform` before invoking env.mk. If the binary is missing, the build fails with an explicit error rather than silently writing empty values to `.env`.
+
 ## Terraform Module
 
 | Property | Value |

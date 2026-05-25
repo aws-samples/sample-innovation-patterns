@@ -97,13 +97,10 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: |
           version: 0.2
+          env:
+            variables:
+              TERRAFORM_VERSION: "1.10.5"
           phases:
-            pre_build:
-              commands:
-                - |
-                  if [ -n "${CODEBUILD_SRC_DIR_BuildOutput:-}" ]; then
-                    cp -r "$CODEBUILD_SRC_DIR_BuildOutput/web-client/dist" web-client/dist
-                  fi
             install:
               runtime-versions:
                 python: 3.12
@@ -111,14 +108,20 @@ Resources:
               commands:
                 - pip install uv
                 - cd app-lib && uv sync --all-extras && cd ..
+                - |
+                  curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+                  unzip -q /tmp/terraform.zip -d /usr/local/bin/
+                  rm /tmp/terraform.zip
+                  terraform version
+            pre_build:
+              commands:
+                - |
+                  if [ -n "${CODEBUILD_SRC_DIR_BuildOutput:-}" ]; then
+                    cp -r "$CODEBUILD_SRC_DIR_BuildOutput/web-client/dist" web-client/dist
+                  fi
+                - command -v terraform || { echo "ERROR: terraform binary not found"; exit 1; }
             build:
               commands:
-                # Stage prelude: populate .env from live stack outputs so the
-                # main Make target can read $(LOG_BUCKET_NAME), $(API_URL),
-                # $(COGNITO_DOMAIN_PREFIX), etc. via -include .env. Each stage
-                # runs this independently — CodeBuild containers do not share
-                # state between stages. test.mk is skipped because tests do
-                # not consume stack outputs.
                 - |
                   if [ "${IPA_MAKEFILE}" != "test.mk" ] && [ -f scripts/env.mk ]; then
                     make -f scripts/env.mk update-env

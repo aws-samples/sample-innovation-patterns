@@ -99,10 +99,21 @@ resource "aws_codebuild_project" "build" {
     type      = "CODEPIPELINE"
     buildspec = <<-BUILDSPEC
       version: 0.2
+      env:
+        variables:
+          TERRAFORM_VERSION: "1.10.5"
       phases:
+        install:
+          commands:
+            - |
+              curl -fsSL "https://releases.hashicorp.com/terraform/$${TERRAFORM_VERSION}/terraform_$${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip
+              unzip -q /tmp/terraform.zip -d /usr/local/bin/
+              rm /tmp/terraform.zip
+              terraform version
         pre_build:
           commands:
             - echo "Stage $IPA_MAKEFILE / $IPA_TARGET"
+            - command -v terraform || { echo "ERROR: terraform binary not found"; exit 1; }
             - |
               if [ "$IPA_MAKEFILE" != "test.mk" ]; then
                 make -f scripts/env.mk update-env-tfstate
