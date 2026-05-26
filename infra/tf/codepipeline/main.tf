@@ -128,10 +128,16 @@ resource "aws_codebuild_project" "build" {
                 echo "ERROR: uv binary not found"
                 exit 1
               fi
+            - cd app-lib && uv sync --all-extras && cd ..
             - |
               if [ "$IPA_MAKEFILE" != "test.mk" ]; then
                 make -f scripts/env.mk update-env-tfstate
                 make -f scripts/env.mk update-env
+              fi
+            - |
+              if [ "$IPA_MAKEFILE" = "post-deploy.mk" ] && [ ! -f web-client/dist/index.html ]; then
+                echo "PostDeploy: building frontend from source"
+                cd web-client && npm ci && npm run build && cd ..
               fi
         build:
           commands:
