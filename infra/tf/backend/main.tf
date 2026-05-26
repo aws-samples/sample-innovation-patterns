@@ -190,7 +190,7 @@ resource "aws_cloudwatch_log_group" "api_gw" {
 
 resource "aws_dynamodb_table" "passengers" {
   count        = var.enable_passengers_table ? 1 : 0
-  name         = "${var.namespace}-${var.environment}-passengers"
+  name         = "${var.namespace}_${var.environment}_passengers"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PassengerId"
 
