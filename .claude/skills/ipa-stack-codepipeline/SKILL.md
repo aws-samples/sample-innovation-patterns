@@ -99,6 +99,30 @@ The `aws/codebuild/standard:7.0` image does not include Terraform. The buildspec
 
 The `pre_build` phase asserts `command -v terraform` before invoking env.mk. If the binary is missing, the build fails with an explicit error rather than silently writing empty values to `.env`.
 
+### Buildspec YAML Authoring Rules
+
+The buildspec is embedded in the Terraform module as a heredoc string. CodeBuild parses it as YAML at build time. **Avoid bare brace expressions in command lines** — YAML treats `{ ... }` as a flow-mapping literal and will reject the buildspec with `YAML_FILE_ERROR: Expected Commands[N] to be of string type: found subkeys instead`.
+
+Wrong (parses as a mapping, fails at DOWNLOAD_SOURCE):
+
+```yaml
+commands:
+  - command -v terraform || { echo "ERROR: not found"; exit 1; }
+```
+
+Right (block scalar — every shell construct including `{`, `}`, `:`, `&`, `|` is treated as plain text):
+
+```yaml
+commands:
+  - |
+    if ! command -v terraform > /dev/null; then
+      echo "ERROR: terraform binary not found"
+      exit 1
+    fi
+```
+
+Rule of thumb: any command containing `{`, `}`, `: ` (colon followed by space), `[`, `]`, `&`, or unquoted `#` must be written as a `- |` block scalar, not an inline `- ...` scalar.
+
 ## Terraform Module
 
 | Property | Value |
