@@ -563,10 +563,16 @@ Post-deploy steps are selected based on which stacks are in the composition. The
 
 ### When `frontend` is in composition
 
+#### ensure-frontend-dist
+- Action: Guarantee `web-client/dist/index.html` exists before configure-frontend runs
+- Command: `if [ ! -f web-client/dist/index.html ]; then cd web-client && npm ci && npm run build; fi`
+- Depends on: (none within post-deploy)
+- Notes: Required when post-deploy runs in a different CodeBuild execution than build (e.g., separate CodePipeline stages). Cross-stage CodeBuild secondary input artifacts do not always deliver `web-client/dist/` to PostDeploy reliably, so post-deploy rebuilds the frontend from source if the dist is missing. Idempotent: skips when dist already exists (local dev, or when the cross-stage artifact arrived intact).
+
 #### configure-frontend
 - Action: Generate web-client/dist/config.js with runtime configuration
 - Script: scripts/util/configure_frontend.py
-- Depends on: (none within post-deploy)
+- Depends on: ensure-frontend-dist
 - Stack outputs:
   - backend → ApiUrl
   - frontend → AppUrl
