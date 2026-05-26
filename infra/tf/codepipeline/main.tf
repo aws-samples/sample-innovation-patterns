@@ -110,10 +110,24 @@ resource "aws_codebuild_project" "build" {
               unzip -q /tmp/terraform.zip -d /usr/local/bin/
               rm /tmp/terraform.zip
               terraform version
+            - |
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              cp $HOME/.local/bin/uv /usr/local/bin/uv
+              cp $HOME/.local/bin/uvx /usr/local/bin/uvx
+              uv --version
         pre_build:
           commands:
             - echo "Stage $IPA_MAKEFILE / $IPA_TARGET"
-            - command -v terraform || { echo "ERROR: terraform binary not found"; exit 1; }
+            - |
+              if ! command -v terraform > /dev/null; then
+                echo "ERROR: terraform binary not found"
+                exit 1
+              fi
+            - |
+              if ! command -v uv > /dev/null; then
+                echo "ERROR: uv binary not found"
+                exit 1
+              fi
             - |
               if [ "$IPA_MAKEFILE" != "test.mk" ]; then
                 make -f scripts/env.mk update-env-tfstate

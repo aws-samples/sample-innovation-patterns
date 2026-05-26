@@ -91,13 +91,16 @@ Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Ma
 
 ## Build Environment Requirements
 
-The `aws/codebuild/standard:8.0` image does not include Terraform. The buildspec `install` phase downloads and installs Terraform so that `scripts/env.mk` can read live stack outputs via `terraform output`.
+The `aws/codebuild/standard:8.0` image does not include Terraform or `uv`. The buildspec `install` phase installs both: Terraform so that `scripts/env.mk` can read live stack outputs, and `uv` because Python Make targets (`build.mk`, `post-deploy.mk`) invoke `uv run python ...`.
 
 | Requirement | Version | Install Method |
 |-------------|---------|----------------|
 | Terraform | 1.10.5 | Downloaded from `releases.hashicorp.com` in buildspec install phase |
+| uv | latest | `astral.sh/uv/install.sh` in buildspec install phase, copied to `/usr/local/bin/` so it is on PATH for subsequent phases |
 
-The `pre_build` phase asserts `command -v terraform` before invoking env.mk. If the binary is missing, the build fails with an explicit error rather than silently writing empty values to `.env`.
+The `pre_build` phase asserts both `command -v terraform` and `command -v uv` before invoking env.mk or any consumer Makefile. If a binary is missing, the build fails with an explicit error rather than silently exiting later when a target invokes the tool.
+
+**`uv` PATH note**: the `astral.sh/uv/install.sh` installer drops binaries into `$HOME/.local/bin`, which is not on PATH for non-login shells in CodeBuild. Each subsequent buildspec command runs in a fresh shell, so amending `$HOME/.bashrc` or `.profile` does not propagate. The buildspec copies `uv` and `uvx` into `/usr/local/bin` (which is on PATH for every shell) immediately after install — do not replace this with a PATH-export approach.
 
 ### Buildspec YAML Authoring Rules
 
