@@ -556,7 +556,8 @@ Post-deploy steps are selected based on which stacks are in the composition. The
 
 #### load-data
 - Action: Load sample Titanic passenger data from CSV into DynamoDB table
-- Script: `cd app-lib && uv run python -m app_lib.features.passengers.util.load_dynamodb_util`
+- Script: `cd app-lib && uv run --all-extras python -m app_lib.features.passengers.util.load_dynamodb_util`
+- Notes: `--all-extras` is required because `uv run` re-syncs the venv to default deps and would otherwise remove `pynamodb` (which lives in the `rest`/`api_lambda`/`all` extras), breaking the import.
 - Depends on: (none within post-deploy)
 - Notes: Uses PutItem (upsert) — safe to re-run. Reads from app-lib/src/app_lib/assets/datasets/titanic/walkthrough_titanic.csv
 
