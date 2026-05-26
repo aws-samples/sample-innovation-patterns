@@ -116,8 +116,13 @@ Resources:
             pre_build:
               commands:
                 - |
-                  if [ -n "${CODEBUILD_SRC_DIR_BuildOutput:-}" ]; then
+                  if [ -n "${CODEBUILD_SRC_DIR_BuildOutput:-}" ] && [ -d "$CODEBUILD_SRC_DIR_BuildOutput/web-client/dist" ]; then
                     cp -r "$CODEBUILD_SRC_DIR_BuildOutput/web-client/dist" web-client/dist
+                  fi
+                - |
+                  if [ "${IPA_MAKEFILE}" = "post-deploy.mk" ] && [ ! -f web-client/dist/index.html ]; then
+                    echo "PostDeploy: web-client/dist not delivered as artifact; rebuilding from source"
+                    (cd web-client && npm ci && npm run build)
                   fi
                 - command -v terraform || { echo "ERROR: terraform binary not found"; exit 1; }
             build:
