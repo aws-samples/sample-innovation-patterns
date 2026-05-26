@@ -54,7 +54,7 @@ variable "source_branch" {
 variable "build_image" {
   type        = string
   description = "CodeBuild Docker image"
-  default     = "aws/codebuild/standard:7.0"
+  default     = "aws/codebuild/standard:8.0"
 }
 
 variable "compute_type" {

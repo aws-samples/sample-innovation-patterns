@@ -28,7 +28,7 @@ Deploy a CI/CD pipeline that runs the same `scripts/*.mk` Makefiles the builder 
 | AccountId | String | — | 12-digit AWS account ID (from `.env` `AWS_ACCOUNT_ID`) |
 | SourceRepoName | String | — | CodeCommit repository name (builder input) |
 | SourceBranch | String | `main` | Branch to track for pipeline triggers |
-| BuildImage | String | `aws/codebuild/standard:7.0` | CodeBuild Docker image |
+| BuildImage | String | `aws/codebuild/standard:8.0` | CodeBuild Docker image |
 | ComputeType | String | `BUILD_GENERAL1_LARGE` | CodeBuild compute type |
 | KmsKeyArn | String | *(empty)* | Optional KMS key ARN for encryption at rest |
 
@@ -56,7 +56,7 @@ Parameters prompted during `/ipa-compose`:
 | Parameter | Prompt | Default | Validation |
 |-----------|--------|---------|------------|
 | SourceBranch | "Branch to trigger pipeline?" | `main` | — |
-| BuildImage | — | `aws/codebuild/standard:7.0` | — (use default) |
+| BuildImage | — | `aws/codebuild/standard:8.0` | — (use default) |
 | ComputeType | — | `BUILD_GENERAL1_LARGE` | — (use default) |
 
 ## CodeBuild Environment Variables
@@ -91,7 +91,7 @@ Each pipeline stage overrides `IPA_MAKEFILE` and `IPA_TARGET` to select which Ma
 
 ## Build Environment Requirements
 
-The `aws/codebuild/standard:7.0` image does not include Terraform. The buildspec `install` phase downloads and installs Terraform so that `scripts/env.mk` can read live stack outputs via `terraform output`.
+The `aws/codebuild/standard:8.0` image does not include Terraform. The buildspec `install` phase downloads and installs Terraform so that `scripts/env.mk` can read live stack outputs via `terraform output`.
 
 | Requirement | Version | Install Method |
 |-------------|---------|----------------|
@@ -144,7 +144,7 @@ Rule of thumb: any command containing `{`, `}`, `: ` (colon followed by space), 
 | codebuild_role_arn | string | — | CodeBuildRoleArn |
 | source_repo_name | string | — | SourceRepoName |
 | source_branch | string | `main` | SourceBranch |
-| build_image | string | `aws/codebuild/standard:7.0` | BuildImage |
+| build_image | string | `aws/codebuild/standard:8.0` | BuildImage |
 | compute_type | string | `BUILD_GENERAL1_LARGE` | ComputeType |
 
 ### Outputs
