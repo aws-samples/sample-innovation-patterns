@@ -1,4 +1,4 @@
-# scripts/util/docker.mk — Docker/ECR build helpers
+# infra/scripts/docker.mk — Docker/ECR build helpers
 # Included by scripts/build.mk for container build targets
 #
 # Required variables (from .env):

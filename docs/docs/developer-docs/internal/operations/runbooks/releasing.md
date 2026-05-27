@@ -11,7 +11,7 @@ How to cut a release of the IPA framework, from VERSION bump through GitHub mirr
 
 ```bash
 # 1. Bump VERSION and generate CHANGELOG
-make -f scripts/util/release.mk release-prep VERSION=0.2.0
+make -f infra/scripts/release.mk release-prep VERSION=0.2.0
 
 # 2. Review and edit CHANGELOG.md
 #    (git-cliff output is a starting point — clean up grouping, add highlights)
@@ -87,7 +87,7 @@ Quick reference:
 | `revert` | Reverted |
 | `style`, `test`, `chore` | (skipped) |
 
-### scripts/util/release.mk
+### infra/scripts/release.mk
 
 | Target | What it does |
 |--------|--------------|
@@ -95,7 +95,7 @@ Quick reference:
 | `release-changelog` | Runs `git-cliff --tag vX.Y.Z -o CHANGELOG.md` |
 | `release-check` | Verifies VERSION file matches the current git tag |
 
-### scripts/util/github-push.sh
+### infra/scripts/github-push.sh
 
 Filters internal-only paths from the release commit before pushing to GitHub. Paths in `EXCLUDE_PATHS` (including `.gitlab-ci.yml`, `docs/docs/developer-docs/internal/`, and generated Makefiles) are removed from the GitHub mirror. The script amends the commit and retags to maintain commit SHA stability between the filtered tree and the GitHub tag.
 
@@ -128,7 +128,7 @@ Follow [Semantic Versioning](https://semver.org/):
 ### Step 2: Run release-prep
 
 ```bash
-make -f scripts/util/release.mk release-prep VERSION=0.2.0
+make -f infra/scripts/release.mk release-prep VERSION=0.2.0
 ```
 
 This stamps `VERSION` and regenerates `CHANGELOG.md` from the full commit history.

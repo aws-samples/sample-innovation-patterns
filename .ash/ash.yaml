@@ -181,14 +181,14 @@ global_settings:
       reason: 'False positive — build-time config only; execSync is called with hardcoded string literals, no user input'
     # Bandit B607: partial executable path for git — build utility script with hardcoded args, no user input.
     - rule_id: 'B607'
-      path: 'scripts/util/version.py'
+      path: 'infra/scripts/version.py'
       reason: 'Build utility calls git with hardcoded arguments (rev-parse --short=7 HEAD); no user input, FileNotFoundError already handled'
     # Bandit B404: subprocess import in build utility — calls git with hardcoded list args (no shell), no user input.
     - rule_id: 'B404'
-      path: 'scripts/util/version.py'
+      path: 'infra/scripts/version.py'
       reason: 'Build utility uses subprocess with list invocation (no shell) for git with hardcoded arguments; no user input'
     - rule_id: 'B603'
-      path: 'scripts/util/version.py'
+      path: 'infra/scripts/version.py'
       reason: 'Build utility calls git with hardcoded list arguments (no shell, no user input)'
     # (Removed: cloudfront.yml, s3.yml, apigateway-v2.yml suppressions — templates deleted in tier consolidation)
     # ========================================================================

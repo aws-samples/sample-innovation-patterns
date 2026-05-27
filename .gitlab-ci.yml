@@ -47,7 +47,7 @@ pages:
     - corepack enable
     # Internal docs (developer-docs/internal/) DO publish to GitLab Pages —
     # this site is internal-only. They are filtered from the GitHub mirror
-    # by scripts/util/github-push.sh EXCLUDE_PATHS, so they never reach
+    # by infra/scripts/github-push.sh EXCLUDE_PATHS, so they never reach
     # GitHub or GitHub Pages.
     - cd docs
     # Uses the pnpm version pinned in docs/package.json "packageManager"
@@ -111,5 +111,5 @@ tag-and-release:
     - git tag -a "v$VERSION" -m "Release v$VERSION"
     - git push origin "v$VERSION"
     - export CI_COMMIT_TAG="v$VERSION"
-    - make -f scripts/util/release.mk release-check
-    - bash scripts/util/github-push.sh
+    - make -f infra/scripts/release.mk release-check
+    - bash infra/scripts/github-push.sh

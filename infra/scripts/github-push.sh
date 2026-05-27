@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Filter internal-only paths from the release commit and push to GitHub.
 # Invoked by the .gitlab-ci.yml github-release job.
-# Usage: scripts/util/github-push.sh [--dry-run]
+# Usage: infra/scripts/github-push.sh [--dry-run]
 #
 # To add a new internal-only path, append it to the EXCLUDE_PATHS array below.
 
@@ -47,7 +47,7 @@ done
 
 # Defensively strip any generated artifacts that may have slipped into git.
 # These match scripts/.gitignore: top-level scripts/*.mk except test.mk, and
-# top-level scripts/*.md except INSTALL-RUNBOOK.md. scripts/util/ is untouched.
+# top-level scripts/*.md except INSTALL-RUNBOOK.md. infra/scripts/ is untouched.
 while IFS= read -r -d '' path; do
   if git ls-files --error-unmatch "$path" &>/dev/null; then
     git rm -f "$path"

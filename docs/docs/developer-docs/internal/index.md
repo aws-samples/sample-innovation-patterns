@@ -6,7 +6,7 @@ sidebar_position: 99
 
 # Internal
 
-Internal-only documentation for the IPA project. Content here is committed to GitLab but **filtered out before publishing to GitHub** by `scripts/util/github-push.sh`.
+Internal-only documentation for the IPA project. Content here is committed to GitLab but **filtered out before publishing to GitHub** by `infra/scripts/github-push.sh`.
 
 This section is for material that is appropriate to share with internal Amazon contributors but should not appear on the public `aws-samples/sample-innovation-patterns` repo or its docs site — for example, internal release runbooks, environment-specific operational notes, or links to internal-only systems (Brazil, Apollo, Pipelines, Taskei).
 
@@ -14,7 +14,7 @@ This section is for material that is appropriate to share with internal Amazon c
 
 - Each topic gets its own subdirectory or `.md` file. Front matter follows the standard developer-docs conventions (`title`, `sidebar_position`).
 - Do **not** reference `internal/` content from public pages — those links would 404 on the GitHub site.
-- The whole `internal/` directory is in `EXCLUDE_PATHS` in `scripts/util/github-push.sh`, so adding files here automatically inherits the filter.
+- The whole `internal/` directory is in `EXCLUDE_PATHS` in `infra/scripts/github-push.sh`, so adding files here automatically inherits the filter.
 
 ## Visibility
 

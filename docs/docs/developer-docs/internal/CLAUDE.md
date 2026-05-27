@@ -1,6 +1,6 @@
 # developer-docs/internal/
 
-Internal-only docs. Committed to GitLab; filtered from GitHub release by `scripts/util/github-push.sh` (path is in `EXCLUDE_PATHS`).
+Internal-only docs. Committed to GitLab; filtered from GitHub release by `infra/scripts/github-push.sh` (path is in `EXCLUDE_PATHS`).
 
 - Use this section for material that should stay inside Amazon — internal release runbooks, ops notes, links to Brazil/Apollo/Pipelines/Taskei, etc.
 - Sidebar autogenerates from disk. The section is visible whenever this directory exists; filtering it out at release time hides it from the GitHub docs site without code changes.

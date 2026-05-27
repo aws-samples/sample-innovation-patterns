@@ -7,7 +7,7 @@ Writes the window.__CONFIG__ object consumed by the React frontend.
 Called from scripts/post-deploy.mk after all stacks are deployed.
 
 Usage:
-    python3 scripts/util/configure_frontend.py \
+    python3 infra/scripts/configure_frontend.py \
         --api-base-url "https://xxx.execute-api..." \
         --oidc-authority "https://cognito-idp..." \
         --oidc-client-id "abc123" \

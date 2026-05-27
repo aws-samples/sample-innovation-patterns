@@ -451,7 +451,7 @@ Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo
 Write `scripts/build.mk`. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for syntax.
 
 Scan each stack skill's `## Build Requirements` section. Extract every column from the table (Type, Suffix, Dockerfile, Description):
-- **Type: container** → generate `build-{suffix}` target using `$(call ecr-login)` and `$(call docker-build-push,...)` helpers from `scripts/util/docker.mk`. Use the **Dockerfile** column value as the `{dockerfile-path}` argument — do NOT infer or construct the path from the suffix.
+- **Type: container** → generate `build-{suffix}` target using `$(call ecr-login)` and `$(call docker-build-push,...)` helpers from `infra/scripts/docker.mk`. Use the **Dockerfile** column value as the `{dockerfile-path}` argument — do NOT infer or construct the path from the suffix.
 - **Type: frontend** → generate `build-frontend` target with `cd frontend && npm ci && npm run build`
 - **No Build Requirements section** → no target for this stack
 
@@ -571,7 +571,7 @@ Post-deploy steps are selected based on which stacks are in the composition. The
 
 #### configure-frontend
 - Action: Generate web-client/dist/config.js with runtime configuration
-- Script: scripts/util/configure_frontend.py
+- Script: infra/scripts/configure_frontend.py
 - Depends on: ensure-frontend-dist
 - Stack outputs:
   - backend → ApiUrl

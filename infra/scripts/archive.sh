@@ -2,7 +2,7 @@
 # Create a tar.gz archive of the repo, excluding .git, node_modules, .env,
 # .venv, and anything matched by .gitignore.
 #
-# Usage: scripts/util/archive.sh [output-path]
+# Usage: infra/scripts/archive.sh [output-path]
 #   Defaults to <repo-name>-<YYYYMMDD-HHMMSS>.tar.gz in the repo root.
 
 set -euo pipefail

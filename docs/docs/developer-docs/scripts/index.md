@@ -13,7 +13,7 @@ The `scripts/` directory is the execution layer of IPA. When `/ipa-compose` comp
 
 Makefiles contain direct `aws` CLI calls inline. There are no helper functions, no abstraction layer, and no external dependencies beyond the AWS CLI and GNU Make. A customer can open any target and see exactly what AWS command runs.
 
-> **Framework vs. generated:** The IPA framework repository commits only `scripts/util/` (framework-level helpers such as `release.mk`, `docker.mk`, `version.py`). The top-level Makefiles (`prepare.mk`, `build.mk`, `deploy.mk`, etc.) and documents (`INSTALL-RUNBOOK.md`, `SECURITY-DISPOSITION.md`) are generated into a consumer's project by `/ipa-compose` and are excluded from the framework repo via `.gitignore`. This page describes the generated output you will see after running `/ipa-compose` in your own project.
+> **Framework vs. generated:** Framework-level helpers (`release.mk`, `docker.mk`, `version.py`) live in `infra/scripts/` and are committed to the framework repository. The top-level Makefiles (`prepare.mk`, `build.mk`, `deploy.mk`, etc.) and documents (`INSTALL-RUNBOOK.md`, `SECURITY-DISPOSITION.md`) are generated into `scripts/` by `/ipa-compose` and are excluded from the framework repo via `.gitignore`. This page describes the generated output you will see after running `/ipa-compose` in your own project.
 
 ## Contents
 
@@ -27,7 +27,7 @@ Makefiles contain direct `aws` CLI calls inline. There are no helper functions, 
 | `test.mk` | Template validation and security scanning | `/ipa-compose` |
 | `INSTALL-RUNBOOK.md` | Step-by-step deployment guide for the composed project | `/ipa-compose` |
 | `SECURITY-DISPOSITION.md` | Security findings register with dispositions | `/ipa-compose` |
-| `util/` | Framework-level build, version, and release helpers (see below) | IPA framework (committed) |
+| [`infra/scripts/`](../../../infra/scripts/) | Framework-level build, version, and release helpers (see below) | IPA framework (committed) |
 
 ## Execution Phases
 
@@ -84,9 +84,9 @@ myapp-dev-backend       # Deploy stack (tier)
 myapp-dev-frontend      # Deploy stack (tier)
 ```
 
-## util/ Subdirectory
+## infra/scripts/ (Framework Helpers)
 
-The `util/` directory contains the only abstractions permitted in `scripts/`. It is part of the IPA framework and is committed to the framework repository — unlike the top-level generated Makefiles, these helpers are stable across compositions. Helpers used during build (`docker.mk`) are never included by `deploy.mk`, `prepare.mk`, or `test.mk`.
+Framework-level build, version, and release helpers live in `infra/scripts/` — separate from the generated `scripts/` directory. These are part of the IPA framework and are committed to the framework repository. Unlike the top-level generated Makefiles, these helpers are stable across compositions. Helpers used during build (`docker.mk`) are never included by `deploy.mk`, `prepare.mk`, or `test.mk`.
 
 | File | Purpose |
 |------|---------|

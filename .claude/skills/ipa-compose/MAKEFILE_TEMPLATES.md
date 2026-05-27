@@ -30,7 +30,7 @@ Used when composing stacks from scratch (no existing `scripts/deploy.mk`):
 export
 
 # Resolve version from app-lib/pyproject.toml + git SHA
-IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
+IMAGE_TAG := $(shell python3 infra/scripts/version.py docker)
 
 # Derive account hash for globally-unique identifiers (e.g., Cognito domain prefix)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
@@ -483,7 +483,7 @@ their targets here. If no `## Post-Deploy` section exists, generate a no-op post
 export
 
 # Resolve version from app-lib/pyproject.toml + git SHA
-IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
+IMAGE_TAG := $(shell python3 infra/scripts/version.py docker)
 
 .PHONY: post-deploy {all step targets}
 ```
@@ -508,7 +508,7 @@ All variables (`API_URL`, `APP_URL`, OIDC values) come from `.env` via `-include
 configure-frontend:
 	@if [ -z "$(API_URL)" ]; then echo "ERROR: API_URL not set. Run 'make -f scripts/env.mk update-env-backend' first." && exit 1; fi
 	@if [ -z "$(APP_URL)" ]; then echo "ERROR: APP_URL not set. Run 'make -f scripts/env.mk update-env-frontend' first." && exit 1; fi
-	python3 scripts/util/configure_frontend.py \
+	python3 infra/scripts/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
 		--oidc-authority "$(OIDC_ISSUER)" \
 		--oidc-client-id "$(OIDC_CLIENT_ID)" \
@@ -520,7 +520,7 @@ configure-frontend:
 When stack skills declare `## Shared Post-Deploy` modifications targeting `configure-frontend`, append their `--enable-feature {flag}` arguments to the command. For example, when the queue stack is composed:
 
 ```makefile
-	python3 scripts/util/configure_frontend.py \
+	python3 infra/scripts/configure_frontend.py \
 		--api-base-url "$(API_URL)" \
 		--oidc-authority "$(OIDC_ISSUER)" \
 		--oidc-client-id "$(OIDC_CLIENT_ID)" \
@@ -824,12 +824,12 @@ Generate `scripts/build.mk` using this structure. Build targets are determined b
 
 -include .env
 export
-include scripts/util/docker.mk
+include infra/scripts/docker.mk
 
 # Resolve version from app-lib/pyproject.toml + git SHA
-IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
-APP_VERSION := $(shell python3 scripts/util/version.py version)
-BUILD_VERSION := $(shell python3 scripts/util/version.py sha)
+IMAGE_TAG := $(shell python3 infra/scripts/version.py docker)
+APP_VERSION := $(shell python3 infra/scripts/version.py version)
+BUILD_VERSION := $(shell python3 infra/scripts/version.py sha)
 
 .PHONY: build {all build-* targets}
 ```
@@ -850,9 +850,9 @@ build-{function-name}:
 	$(call docker-build-push,$(APP_NAMESPACE)-$(APP_ENV)-{function-name},{dockerfile-path},.,$(ECR_REPO_URI),$(IMAGE_TAG),$(APP_VERSION),$(BUILD_VERSION))
 ```
 
-`$(ECR_REPO_URI)` comes from `.env` (written by `prepare-ecr-env` in `scripts/prepare.mk`). `ecr-login` uses `$(ECR_REGISTRY)` from `scripts/util/docker.mk` for Docker authentication (registry domain only, without repo name).
+`$(ECR_REPO_URI)` comes from `.env` (written by `prepare-ecr-env` in `scripts/prepare.mk`). `ecr-login` uses `$(ECR_REGISTRY)` from `infra/scripts/docker.mk` for Docker authentication (registry domain only, without repo name).
 
-**Note**: build.mk must include `scripts/util/docker.mk` at the top (after `-include .env`) to provide `ecr-login` and `docker-build-push` functions.
+**Note**: build.mk must include `infra/scripts/docker.mk` at the top (after `-include .env`) to provide `ecr-login` and `docker-build-push` functions.
 
 ### Build Target — Frontend (S3)
 
@@ -929,7 +929,7 @@ At the start of Phase 3 (Generate), read `APP_IAC` from `.env`:
 -include .env
 export
 
-IMAGE_TAG := $(shell python3 scripts/util/version.py docker)
+IMAGE_TAG := $(shell python3 infra/scripts/version.py docker)
 APP_ACCOUNT_HASH := $(shell echo -n "$(AWS_ACCOUNT_ID)" | shasum | cut -c1-8)
 
 TF_BACKEND_CONFIG := \

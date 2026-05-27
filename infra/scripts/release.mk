@@ -1,5 +1,5 @@
 # Release automation targets
-# Usage: make -f scripts/util/release.mk <target>
+# Usage: make -f infra/scripts/release.mk <target>
 
 -include .env
 
@@ -7,26 +7,26 @@
 
 # Verify VERSION file matches current git tag
 release-check:
-	@bash scripts/util/release-check.sh
+	@bash infra/scripts/release-check.sh
 
 # Generate CHANGELOG.md from conventional commit history using git-cliff
 # Requires: git-cliff (install: cargo install git-cliff, or brew install git-cliff)
 release-changelog:
 ifndef VERSION
-	$(error VERSION is required. Usage: make -f scripts/util/release.mk release-changelog VERSION=0.2.0)
+	$(error VERSION is required. Usage: make -f infra/scripts/release.mk release-changelog VERSION=0.2.0)
 endif
 	@git-cliff --tag "v$(VERSION)" -o CHANGELOG.md
 	@echo "Generated CHANGELOG.md through v$(VERSION)"
 
 # Prepare a release: stamp VERSION, generate CHANGELOG, print next steps
-# Usage: make -f scripts/util/release.mk release-prep VERSION=0.2.0
+# Usage: make -f infra/scripts/release.mk release-prep VERSION=0.2.0
 release-prep:
 ifndef VERSION
-	$(error VERSION is required. Usage: make -f scripts/util/release.mk release-prep VERSION=0.2.0)
+	$(error VERSION is required. Usage: make -f infra/scripts/release.mk release-prep VERSION=0.2.0)
 endif
 	@echo "$(VERSION)" > VERSION
 	@echo "Stamped VERSION=$(VERSION)"
-	@$(MAKE) -f scripts/util/release.mk release-changelog VERSION=$(VERSION)
+	@$(MAKE) -f infra/scripts/release.mk release-changelog VERSION=$(VERSION)
 	@echo ""
 	@echo "Next steps:"
 	@echo "  1. Review and edit CHANGELOG.md (git-cliff output is a starting point)"

@@ -8,10 +8,10 @@ with the current git SHA to produce version strings for Docker tags,
 semver metadata, and build identification.
 
 Usage:
-    python scripts/util/version.py docker   # 0.1.0-abc1234
-    python scripts/util/version.py semver   # 0.1.0+abc1234
-    python scripts/util/version.py version  # 0.1.0
-    python scripts/util/version.py sha      # abc1234
+    python infra/scripts/version.py docker   # 0.1.0-abc1234
+    python infra/scripts/version.py semver   # 0.1.0+abc1234
+    python infra/scripts/version.py version  # 0.1.0
+    python infra/scripts/version.py sha      # abc1234
 
 SHA resolution (first match wins):
     1. CODEBUILD_RESOLVED_SOURCE_VERSION env var (AWS CodeBuild)
