@@ -33,3 +33,11 @@ infra/cfn/generated/
 .specify/
 
 innovation-patterns*.tar.gz
+
+# Terraform — stray local state from runs invoked outside infra/tf/
+# (the proper per-module .gitignore lives at infra/tf/.gitignore)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
