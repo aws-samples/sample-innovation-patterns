@@ -170,7 +170,7 @@ resource "aws_lambda_event_source_mapping" "sqs" {
 
 resource "aws_dynamodb_table" "jobs" {
   count        = var.enable_jobs_table ? 1 : 0
-  name         = "${var.namespace}-${var.environment}-jobs"
+  name         = "${var.namespace}_${var.environment}_jobs"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "JobId"
 

@@ -1,7 +1,6 @@
 resource "aws_cognito_user_pool" "this" {
   name = "${var.namespace}-${var.environment}-users"
 
-  username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
   user_pool_add_ons {

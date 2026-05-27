@@ -55,6 +55,6 @@ Both the S3 bucket and DynamoDB table have `DeletionPolicy: Retain`. Manual clea
 
 ## Security Summary
 
-**Required IAM actions**: s3:CreateBucket, PutBucketVersioning, PutBucketEncryption, PutBucketPublicAccessBlock, PutBucketPolicy — scoped to `arn:aws:s3:::{ns}-{env}-tfstate-*`. dynamodb:CreateTable, DescribeTable, UpdateTable, UpdateContinuousBackups — scoped to `arn:aws:dynamodb:{Region}:{AccountId}:table/{ns}-{env}-tfstate-lock`.
+**Required IAM actions**: s3:CreateBucket, PutBucketVersioning, PutBucketEncryption, PutBucketPublicAccessBlock, PutBucketPolicy — scoped to `arn:aws:s3:::{ns}-{env}-tfstate-*`. dynamodb:CreateTable, DescribeTable, UpdateTable, UpdateContinuousBackups — scoped to `arn:aws:dynamodb:{Region}:{AccountId}:table/{ns}_{env}_tfstate_lock`.
 **Security controls**: S3 versioning enabled, AES256 encryption, public access blocked, TLS-only policy. DynamoDB SSE enabled, PITR enabled, PAY_PER_REQUEST billing.
 **Full advisory**: See [SECURITY.md](SECURITY.md)

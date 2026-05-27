@@ -47,7 +47,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub '${Namespace}-${Environment}-tfstate-lock'
+      TableName: !Sub '${Namespace}_${Environment}_tfstate_lock'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: LockID
