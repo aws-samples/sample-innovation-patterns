@@ -126,6 +126,14 @@ commands:
 
 Rule of thumb: any command containing `{`, `}`, `: ` (colon followed by space), `[`, `]`, `&`, or unquoted `#` must be written as a `- |` block scalar, not an inline `- ...` scalar.
 
+**Compliance check (MUST run before committing template changes):** After editing the buildspec section of `codepipeline.yml`, grep for bare braces in command scalars:
+
+```bash
+grep -n '^\s*- .*[{]' infra/cfn/codepipeline/codepipeline.yml
+```
+
+If any match is found outside a `- |` block scalar context, rewrite it as a multi-line block scalar before committing.
+
 ## Terraform Module
 
 | Property | Value |

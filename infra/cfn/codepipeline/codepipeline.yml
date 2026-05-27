@@ -124,7 +124,11 @@ Resources:
                     echo "PostDeploy: web-client/dist not delivered as artifact; rebuilding from source"
                     (cd web-client && npm ci && npm run build)
                   fi
-                - command -v terraform || { echo "ERROR: terraform binary not found"; exit 1; }
+                - |
+                  if ! command -v terraform > /dev/null; then
+                    echo "ERROR: terraform binary not found"
+                    exit 1
+                  fi
             build:
               commands:
                 - |
