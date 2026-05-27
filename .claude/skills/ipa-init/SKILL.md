@@ -6,7 +6,7 @@ model: opus
 
 # /ipa-init — Initialize IPA Project Configuration
 
-This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, validates all input, and generates a `.env.example` template for team onboarding. When the builder selects `APP_IAC=terraform`, the skill also bootstraps the Terraform state backend (S3 + DynamoDB via CloudFormation) so the project is deploy-ready in a single step.
+This skill interactively configures a project's `.env` file with the IPA-managed variables required by all other IPA skills (`/ipa-compose`, `/ipa-prepare`, `/ipa-deploy`). It auto-detects the AWS account ID, provides sensible defaults, and validates all input. When the builder selects `APP_IAC=terraform`, the skill also bootstraps the Terraform state backend (S3 + DynamoDB via CloudFormation) so the project is deploy-ready in a single step.
 
 **Lifecycle**: **`/ipa-init`** → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`
 
@@ -213,7 +213,7 @@ and do NOT write the `AWS_PROFILE=` line to `.env`.
 
 After writing, display: "Configuration written to `.env`. Re-run `/ipa-init` to change any values."
 
-If `APP_IAC=terraform`, proceed to **Step 4.5: Bootstrap Terraform State Backend**. Otherwise, proceed to `.env.example` generation.
+If `APP_IAC=terraform`, proceed to **Step 4.5: Bootstrap Terraform State Backend**. Otherwise, proceed to **Step 5: Next Step Guidance**.
 
 ### Step 4.5: Bootstrap Terraform State Backend
 
@@ -229,7 +229,7 @@ Before deploying anything:
 
    > **Cannot bootstrap Terraform state backend.** AWS credentials are not configured (`aws sts get-caller-identity` failed earlier). After configuring credentials, run `make -f scripts/prepare.mk prepare-tfstate` once `/ipa-compose` has generated `prepare.mk` (the prepare target is the fallback path for state-backend bootstrapping).
 
-   Skip the deploy and proceed to `.env.example` generation. The skill does NOT fail.
+   Skip the deploy and proceed to **Step 5: Next Step Guidance**. The skill does NOT fail.
 
 2. **CloudFormation template present?** Verify `infra/cfn/tfstate/tfstate.yml` exists. If not, display an error and skip the bootstrap (same fallback messaging as above).
 
@@ -287,7 +287,7 @@ If the deploy or describe-stacks call fails:
 - **Network or credential error**: display the error and the same fallback message from 4.5.1. The skill does NOT fail — the rest of init has already succeeded.
 - **CFN deploy error (e.g., name collision)**: display the CFN error message and instruct the builder to investigate. Do NOT roll back automatically.
 
-After 4.5 completes (success or fallback), proceed to `.env.example` generation.
+After 4.5 completes (success or fallback), proceed to **Step 5: Next Step Guidance**.
 
 ---
 
@@ -390,10 +390,10 @@ Display a summary of changes only (unchanged values marked as "unchanged"):
 Ask: "Does this look correct? (yes to write, no to start over):"
 
 - **If confirmed**: rewrite `.env` preserving all extra (non-IPA) variables in their original positions. IPA variables are written as a group with the standard header comment. Then:
-  - **If `APP_IAC` was changed to `terraform`**: run Step 4.5 (Bootstrap Terraform State Backend) before `.env.example` generation.
+  - **If `APP_IAC` was changed to `terraform`**: run Step 4.5 (Bootstrap Terraform State Backend).
   - **If `APP_IAC` was changed to `cloudformation`**: leave existing `TF_STATE_BUCKET` / `TF_STATE_LOCK_TABLE` lines in `.env` (they are harmless when unused; the builder may switch back later).
-  - Otherwise proceed directly to `.env.example` generation.
-- **If the builder confirms no changes**: leave `.env` untouched. Still regenerate `.env.example` (schema may have changed).
+  - Otherwise proceed directly to **Step 5: Next Step Guidance**.
+- **If the builder confirms no changes**: leave `.env` untouched. Proceed to **Step 5: Next Step Guidance**.
 - **If rejected**: restart from Step 3.
 
 ### Extra Variable Preservation
@@ -407,67 +407,9 @@ When rewriting `.env`:
 
 ---
 
-## .env.example Generation
-
-After every successful `.env` write (both first-time and re-init), generate or regenerate `.env.example` at the project root.
-
-### Template Content
-
-The `.env.example` file MUST contain:
-
-1. A comment header explaining its purpose and how to use it (`cp .env.example .env`).
-2. A comment block describing each variable's purpose, format, and constraints.
-3. Placeholder values for all IPA-managed variables — **never real values**. `AWS_PROFILE` is shown commented out since it's optional.
-
-Use this exact template:
-
-```
-# IPA Project Configuration Template
-# Copy to .env and fill in your values: cp .env.example .env
-#
-# AWS_PROFILE      — AWS CLI profile name (optional — omit line to use default credential chain)
-# AWS_REGION       — AWS region for deployments (e.g., us-east-1)
-# AWS_ACCOUNT_ID   — 12-digit AWS account ID (auto-detected if AWS CLI available)
-# APP_NAMESPACE    — Project name prefix for stack naming (max 12 chars,
-#                    lowercase alphanumeric + hyphens, starts with letter)
-# APP_ENV          — Environment label (e.g., dev, stage, prod)
-# APP_CODE_AGENT   — AI agent platform (auto-set, do not change)
-# APP_IAC          — Infrastructure-as-code tool (cloudformation or terraform)
-
-# AWS_PROFILE=your-profile-name
-AWS_REGION=us-east-1
-AWS_ACCOUNT_ID=000000000000
-APP_NAMESPACE=myproject
-APP_ENV=dev
-APP_CODE_AGENT=claude-code
-APP_IAC=cloudformation
-
-# Terraform State Backend (written by /ipa-init after tfstate deploy)
-# Only relevant when APP_IAC=terraform
-# TF_STATE_BUCKET=
-# TF_STATE_LOCK_TABLE=
-```
-
-### Rules
-
-- `.env.example` MUST NOT contain real account IDs, profile names, or any environment-specific values.
-- Placeholder values: `your-profile-name` (commented out), `000000000000`, `myproject`.
-- Default values (`us-east-1`, `dev`, `cloudformation`) are acceptable as placeholders since they are not sensitive.
-- The auto-set value (`claude-code`) is written as-is since it is fixed.
-- `TF_STATE_BUCKET` and `TF_STATE_LOCK_TABLE` are shown commented out — they are populated only when `APP_IAC=terraform` and `/ipa-init` Step 4.5 runs successfully.
-- `.env.example` is version-controlled (NOT in `.gitignore`).
-- **Section-based update**: On every `/ipa-init` run, update only the `# IPA Project Configuration Template` section. Preserve all other sections (e.g., `# IPA Security Configuration`) in their original positions.
-  1. Read the existing `.env.example` file (if it exists).
-  2. Look for the `# IPA Project Configuration Template` header.
-  3. **If the header exists**: Replace everything from the header through the next blank line or next section header (`# `) with the init template content.
-  4. **If the header does not exist** (new file): Write the init template as the entire file.
-  5. **Preserve all other sections** (e.g., `# IPA Security Configuration`) in their original positions.
-
----
-
 ## Step 5: Next Step Guidance
 
-After `.env` and `.env.example` are written, display:
+After `.env` is written, display:
 
 ```
 Initialization complete.
