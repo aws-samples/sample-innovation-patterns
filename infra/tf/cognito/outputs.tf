@@ -32,3 +32,8 @@ output "discovery_url" {
   value       = "https://cognito-idp.${var.region}.amazonaws.com/${aws_cognito_user_pool.this.id}/.well-known/openid-configuration"
   description = "OIDC Discovery URL"
 }
+
+output "hosted_ui_url" {
+  value       = "https://${var.cognito_domain_prefix}.auth.${var.region}.amazoncognito.com/login?client_id=${aws_cognito_user_pool_client.this.id}&response_type=code&scope=openid+profile+email&redirect_uri=${var.callback_url}"
+  description = "Cognito Hosted UI Login URL"
+}

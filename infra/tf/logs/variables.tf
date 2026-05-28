@@ -34,3 +34,9 @@ variable "account_id" {
     error_message = "Must be 12-digit AWS account ID"
   }
 }
+
+variable "kms_key_arn" {
+  type        = string
+  description = "KMS key ARN for bucket encryption (empty string = AES256)"
+  default     = ""
+}

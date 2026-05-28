@@ -25,7 +25,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
   bucket = aws_s3_bucket.logs.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = var.kms_key_arn != "" ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
     }
   }
 }
@@ -72,11 +73,35 @@ resource "aws_s3_bucket_policy" "logs" {
         }
       },
       {
+        Sid       = "AllowS3ServerAccessLogs"
+        Effect    = "Allow"
+        Principal = { Service = "logging.s3.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.logs.arn}/s3-access-logs/*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = var.account_id
+          }
+        }
+      },
+      {
         Sid       = "AllowCloudFrontLogs"
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.logs.arn}/cloudfront/*"
+        Resource  = "${aws_s3_bucket.logs.arn}/cloudfront-logs/*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = var.account_id
+          }
+        }
+      },
+      {
+        Sid       = "AllowVPCFlowLogs"
+        Effect    = "Allow"
+        Principal = { Service = "delivery.logs.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.logs.arn}/vpc-flow-logs/*"
         Condition = {
           StringEquals = {
             "aws:SourceAccount" = var.account_id

@@ -16,6 +16,8 @@ data "terraform_remote_state" "ecr" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_sqs_queue" "main" {
   name                       = "${var.namespace}-${var.environment}-${var.queue_name}"
   visibility_timeout_seconds = var.visibility_timeout
@@ -97,9 +99,61 @@ resource "aws_iam_role_policy" "sqs_receive" {
       Action = [
         "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes"
+        "sqs:GetQueueAttributes",
+        "sqs:ChangeMessageVisibility"
       ]
       Resource = [aws_sqs_queue.main.arn]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "ecr_pull" {
+  name = "ecr-pull"
+  role = aws_iam_role.worker_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+      Resource = ["*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "bedrock" {
+  name = "bedrock-invoke"
+  role = aws_iam_role.worker_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+      Resource = ["arn:aws:bedrock:${var.region}::foundation-model/*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "dynamodb_passengers" {
+  name = "dynamodb-passengers"
+  role = aws_iam_role.worker_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ]
+      Resource = [
+        "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.namespace}_${var.environment}_passengers"
+      ]
     }]
   })
 }
@@ -135,18 +189,21 @@ resource "aws_cloudwatch_log_group" "worker" {
 }
 
 resource "aws_lambda_function" "worker" {
-  function_name = "${var.namespace}-${var.environment}-${var.function_name}"
-  package_type  = "Image"
-  image_uri     = var.image_uri
-  memory_size   = var.memory_size
-  timeout       = var.timeout
-  role          = aws_iam_role.worker_execution.arn
+  function_name                  = "${var.namespace}-${var.environment}-${var.function_name}"
+  package_type                   = "Image"
+  image_uri                      = var.image_uri
+  memory_size                    = var.memory_size
+  timeout                        = var.timeout
+  reserved_concurrent_executions = 10
+  role                           = aws_iam_role.worker_execution.arn
 
   environment {
     variables = {
-      APP_NAMESPACE = var.namespace
-      APP_ENV       = var.environment
-      INVOKE_MODE   = "SQS_WORKER"
+      AUTH_ISSUER     = var.auth_issuer
+      AUTH_AUDIENCE   = var.auth_audience
+      APP_INVOKE_MODE = "BUFFERED"
+      APP_NAMESPACE   = var.namespace
+      APP_ENV         = var.environment
     }
   }
 
@@ -162,20 +219,21 @@ resource "aws_lambda_function" "worker" {
 }
 
 resource "aws_lambda_event_source_mapping" "sqs" {
-  event_source_arn = aws_sqs_queue.main.arn
-  function_name    = aws_lambda_function.worker.arn
-  batch_size       = 10
-  enabled          = true
+  event_source_arn                   = aws_sqs_queue.main.arn
+  function_name                      = aws_lambda_function.worker.arn
+  batch_size                         = 1
+  maximum_batching_window_in_seconds = 0
+  enabled                            = true
 }
 
 resource "aws_dynamodb_table" "jobs" {
   count        = var.enable_jobs_table ? 1 : 0
   name         = "${var.namespace}_${var.environment}_jobs"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "JobId"
+  hash_key     = "id"
 
   attribute {
-    name = "JobId"
+    name = "id"
     type = "S"
   }
 

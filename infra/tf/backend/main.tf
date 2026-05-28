@@ -16,6 +16,8 @@ data "terraform_remote_state" "ecr" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "lambda_execution" {
   name = "${var.namespace}-${var.environment}-${var.function_name}-role"
 
@@ -74,8 +76,58 @@ resource "aws_iam_role_policy" "sqs_send" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["sqs:SendMessage"]
+      Action   = ["sqs:SendMessage", "sqs:GetQueueAttributes"]
       Resource = [var.sqs_queue_arn]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "dynamodb_jobs" {
+  count = var.enable_sqs_integration ? 1 : 0
+  name  = "dynamodb-jobs"
+  role  = aws_iam_role.lambda_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ]
+      Resource = ["arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.namespace}_${var.environment}_jobs"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "ecr_pull" {
+  name = "ecr-pull"
+  role = aws_iam_role.lambda_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+      Resource = ["*"]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "bedrock" {
+  name = "bedrock-invoke"
+  role = aws_iam_role.lambda_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+      Resource = ["arn:aws:bedrock:${var.region}::foundation-model/*"]
     }]
   })
 }
@@ -86,19 +138,24 @@ resource "aws_cloudwatch_log_group" "lambda" {
 }
 
 resource "aws_lambda_function" "backend" {
-  function_name = "${var.namespace}-${var.environment}-${var.function_name}"
-  package_type  = "Image"
-  image_uri     = var.image_uri
-  memory_size   = var.memory_size
-  timeout       = var.timeout
-  role          = aws_iam_role.lambda_execution.arn
+  function_name                  = "${var.namespace}-${var.environment}-${var.function_name}"
+  package_type                   = "Image"
+  image_uri                      = var.image_uri
+  memory_size                    = var.memory_size
+  timeout                        = var.timeout
+  reserved_concurrent_executions = 50
+  role                           = aws_iam_role.lambda_execution.arn
 
   environment {
     variables = {
-      APP_NAMESPACE = var.namespace
-      APP_ENV       = var.environment
-      INVOKE_MODE   = var.invoke_mode
-      SQS_QUEUE_URL = var.enable_sqs_integration ? var.sqs_queue_url : ""
+      AUTH_ISSUER              = var.auth_issuer
+      AUTH_AUDIENCE            = var.auth_audience
+      APP_INVOKE_MODE          = var.invoke_mode
+      APP_NAMESPACE            = var.namespace
+      APP_ENV                  = var.environment
+      AWS_LWA_REMOVE_BASE_PATH = ""
+      CORS_ALLOWED_ORIGINS     = var.allowed_origin
+      SQS_QUEUE_URL            = var.enable_sqs_integration ? var.sqs_queue_url : ""
     }
   }
 
