@@ -41,3 +41,5 @@ innovation-patterns*.tar.gz
 .terraform/
 .terraform.lock.hcl
 .terraform.tfstate.lock.info
+
+.acq/
