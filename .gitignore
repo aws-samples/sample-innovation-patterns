@@ -30,6 +30,8 @@ infra/cfn/generated/
 # ASH scan output (regenerated on each scan)
 .ash/ash_output/
 
+# SpecKit
+.claude/commands/speckit.*
 .specify/
 
 innovation-patterns*.tar.gz
@@ -44,4 +46,4 @@ innovation-patterns*.tar.gz
 
 .acq/
 graphify-out/
-.claude/commands/speckit.*
+
