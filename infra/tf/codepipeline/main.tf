@@ -115,6 +115,12 @@ resource "aws_codebuild_project" "build" {
               cp $HOME/.local/bin/uv /usr/local/bin/uv
               cp $HOME/.local/bin/uvx /usr/local/bin/uvx
               uv --version
+            - |
+              if ! command -v jq > /dev/null; then
+                echo "ERROR: jq not found in build image"
+                exit 1
+              fi
+              jq --version
         pre_build:
           commands:
             - echo "Stage $IPA_MAKEFILE / $IPA_TARGET"

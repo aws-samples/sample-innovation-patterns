@@ -1067,7 +1067,9 @@ prepare-ecr: prepare-tfstate
 
 ### env.mk Template (Terraform Mode)
 
-Uses `terraform output -raw` instead of `aws cloudformation describe-stacks`:
+### Why `terraform output -json | jq` and not `output -raw`
+
+`terraform output -raw <name>` writes a multi-line "Warning: No outputs found" message **to stdout** (not stderr) when the underlying state has no value for the named output, exiting 0. Redirecting `2>/dev/null` does not suppress it. The captured warning text lands verbatim in `.env`, producing lines that GNU Make cannot parse (`*** missing separator. Stop.`). The safe-capture pattern below uses `terraform output -json` which returns `{}` (valid JSON) when state has no outputs, then pipes through `jq` to extract the value if present or emit empty string if absent. This is stable across Terraform versions ≥ 1.0.
 
 ```makefile
 # Environment variable sync — writes Terraform outputs to .env
@@ -1081,6 +1083,20 @@ TF_BACKEND_CONFIG := \
   -backend-config="bucket=$(TF_STATE_BUCKET)" \
   -backend-config="region=$(AWS_REGION)" \
   -backend-config="use_lockfile=true"
+
+# Safe terraform output capture — returns raw value if present, empty if absent.
+# Suppresses terraform's "Warning: No outputs found" stdout noise.
+define tf_output
+$(shell cd infra/tf/$(1) && \
+  ( $(AWS_CREDS) terraform init -input=false -reconfigure \
+      $(TF_BACKEND_CONFIG) \
+      -backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/$(1)/terraform.tfstate" \
+      > /dev/null 2>&1 \
+    && $(AWS_CREDS) terraform output -json 2>/dev/null \
+       | jq -r 'if has("$(2)") then .["$(2)"].value else "" end' 2>/dev/null \
+       | tr -d '\n\r' \
+  ) || true)
+endef
 
 .PHONY: update-env update-env-tfstate update-env-cognito update-env-ecr update-env-backend update-env-frontend update-env-sqs
 
@@ -1104,20 +1120,11 @@ update-env-tfstate:
 	@echo "TF_STATE_LOCK_TABLE=$(TF_STATE_LOCK_TABLE_VAL)" >> .env
 
 update-env-cognito:
-	$(eval OIDC_ISSUER_VAL := $(shell cd infra/tf/cognito && \
-		( $(AWS_CREDS) terraform init -input=false -reconfigure \
-			$(TF_BACKEND_CONFIG) \
-			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/cognito/terraform.tfstate" > /dev/null 2>&1 \
-		  && $(AWS_CREDS) terraform output -raw issuer_url 2>/dev/null ) \
-		|| true))
-	$(eval OIDC_CLIENT_ID_VAL := $(shell cd infra/tf/cognito && \
-		$(AWS_CREDS) terraform output -raw user_pool_client_id 2>/dev/null || true))
-	$(eval OIDC_END_SESSION_VAL := $(shell cd infra/tf/cognito && \
-		$(AWS_CREDS) terraform output -raw end_session_endpoint 2>/dev/null || true))
-	$(eval OIDC_USER_POOL_ID_VAL := $(shell cd infra/tf/cognito && \
-		$(AWS_CREDS) terraform output -raw user_pool_id 2>/dev/null || true))
-	$(eval COGNITO_DOMAIN_PREFIX_VAL := $(shell cd infra/tf/cognito && \
-		$(AWS_CREDS) terraform output -raw cognito_domain 2>/dev/null || true))
+	$(eval OIDC_ISSUER_VAL := $(call tf_output,cognito,issuer_url))
+	$(eval OIDC_CLIENT_ID_VAL := $(call tf_output,cognito,user_pool_client_id))
+	$(eval OIDC_END_SESSION_VAL := $(call tf_output,cognito,end_session_endpoint))
+	$(eval OIDC_USER_POOL_ID_VAL := $(call tf_output,cognito,user_pool_id))
+	$(eval COGNITO_DOMAIN_PREFIX_VAL := $(call tf_output,cognito,cognito_domain))
 	@if [ -z "$(OIDC_ISSUER_VAL)" ] && [ -z "$$IPA_ALLOW_EMPTY_OUTPUTS" ]; then \
 		if ! command -v terraform > /dev/null; then \
 			echo "ERROR: terraform binary not found — install via buildspec install phase"; exit 1; \
@@ -1134,12 +1141,7 @@ update-env-cognito:
 	@echo "COGNITO_DOMAIN_PREFIX=$(COGNITO_DOMAIN_PREFIX_VAL)" >> .env
 
 update-env-ecr:
-	$(eval ECR_REPO_URI_VAL := $(shell cd infra/tf/ecr && \
-		( $(AWS_CREDS) terraform init -input=false -reconfigure \
-			$(TF_BACKEND_CONFIG) \
-			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/ecr/terraform.tfstate" > /dev/null 2>&1 \
-		  && $(AWS_CREDS) terraform output -raw repository_uri 2>/dev/null ) \
-		|| true))
+	$(eval ECR_REPO_URI_VAL := $(call tf_output,ecr,repository_uri))
 	@if [ -z "$(ECR_REPO_URI_VAL)" ] && [ -z "$$IPA_ALLOW_EMPTY_OUTPUTS" ]; then \
 		if ! command -v terraform > /dev/null; then \
 			echo "ERROR: terraform binary not found — install via buildspec install phase"; exit 1; \
@@ -1152,14 +1154,8 @@ update-env-ecr:
 	@echo "ECR_REPO_URI=$(ECR_REPO_URI_VAL)" >> .env
 
 update-env-backend:
-	$(eval API_URL_VAL := $(shell cd infra/tf/backend && \
-		( $(AWS_CREDS) terraform init -input=false -reconfigure \
-			$(TF_BACKEND_CONFIG) \
-			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/backend/terraform.tfstate" > /dev/null 2>&1 \
-		  && $(AWS_CREDS) terraform output -raw api_url 2>/dev/null ) \
-		|| true))
-	$(eval FUNCTION_NAME_VAL := $(shell cd infra/tf/backend && \
-		$(AWS_CREDS) terraform output -raw function_name 2>/dev/null || true))
+	$(eval API_URL_VAL := $(call tf_output,backend,api_url))
+	$(eval FUNCTION_NAME_VAL := $(call tf_output,backend,function_name))
 	@if [ -z "$(API_URL_VAL)" ] && [ -z "$$IPA_ALLOW_EMPTY_OUTPUTS" ]; then \
 		if ! command -v terraform > /dev/null; then \
 			echo "ERROR: terraform binary not found — install via buildspec install phase"; exit 1; \
@@ -1173,16 +1169,9 @@ update-env-backend:
 	@echo "FUNCTION_NAME=$(FUNCTION_NAME_VAL)" >> .env
 
 update-env-frontend:
-	$(eval APP_URL_VAL := $(shell cd infra/tf/frontend && \
-		( $(AWS_CREDS) terraform init -input=false -reconfigure \
-			$(TF_BACKEND_CONFIG) \
-			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/frontend/terraform.tfstate" > /dev/null 2>&1 \
-		  && $(AWS_CREDS) terraform output -raw app_url 2>/dev/null ) \
-		|| true))
-	$(eval BUCKET_NAME_VAL := $(shell cd infra/tf/frontend && \
-		$(AWS_CREDS) terraform output -raw bucket_name 2>/dev/null || true))
-	$(eval DISTRIBUTION_ID_VAL := $(shell cd infra/tf/frontend && \
-		$(AWS_CREDS) terraform output -raw distribution_id 2>/dev/null || true))
+	$(eval APP_URL_VAL := $(call tf_output,frontend,app_url))
+	$(eval BUCKET_NAME_VAL := $(call tf_output,frontend,bucket_name))
+	$(eval DISTRIBUTION_ID_VAL := $(call tf_output,frontend,distribution_id))
 	@if [ -z "$(APP_URL_VAL)" ] && [ -z "$$IPA_ALLOW_EMPTY_OUTPUTS" ]; then \
 		if ! command -v terraform > /dev/null; then \
 			echo "ERROR: terraform binary not found — install via buildspec install phase"; exit 1; \
@@ -1197,14 +1186,8 @@ update-env-frontend:
 	@echo "DISTRIBUTION_ID=$(DISTRIBUTION_ID_VAL)" >> .env
 
 update-env-sqs:
-	$(eval SQS_QUEUE_URL_VAL := $(shell cd infra/tf/queue && \
-		( $(AWS_CREDS) terraform init -input=false -reconfigure \
-			$(TF_BACKEND_CONFIG) \
-			-backend-config="key=$(APP_NAMESPACE)-$(APP_ENV)/queue/terraform.tfstate" > /dev/null 2>&1 \
-		  && $(AWS_CREDS) terraform output -raw queue_url 2>/dev/null ) \
-		|| true))
-	$(eval SQS_QUEUE_ARN_VAL := $(shell cd infra/tf/queue && \
-		$(AWS_CREDS) terraform output -raw queue_arn 2>/dev/null || true))
+	$(eval SQS_QUEUE_URL_VAL := $(call tf_output,queue,queue_url))
+	$(eval SQS_QUEUE_ARN_VAL := $(call tf_output,queue,queue_arn))
 	@if [ -z "$(SQS_QUEUE_URL_VAL)" ] && [ -z "$$IPA_ALLOW_EMPTY_OUTPUTS" ]; then \
 		if ! command -v terraform > /dev/null; then \
 			echo "ERROR: terraform binary not found — install via buildspec install phase"; exit 1; \
