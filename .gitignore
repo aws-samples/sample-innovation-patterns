@@ -43,3 +43,4 @@ innovation-patterns*.tar.gz
 .terraform.tfstate.lock.info
 
 .acq/
+.graphify-out/
