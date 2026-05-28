@@ -304,6 +304,14 @@ global_settings:
     - rule_id: 'API Gateway V2 Stage Access Logging Settings Not Defined'
       path: 'infra/cfn/backend/backend.yml'
       reason: 'False positive — AccessLogSettings is configured with DestinationArn: !GetAtt ApiGatewayLogGroup.Arn and JSON format string; KICS cannot resolve intrinsic functions'
+    - rule_id: 'API Gateway V2 Stage Access Logging Settings Not Defined'
+      path: 'infra/tf/backend/main.tf'
+      reason: 'False positive — aws_apigatewayv2_stage.default has an access_log_settings block (main.tf:238-250) with destination_arn = aws_cloudwatch_log_group.api_gw.arn and a structured JSON format via jsonencode(). Mirrors CFN suppression on infra/cfn/backend/backend.yml.'
+    # Same false positive as above; KICS emits a separate rule name (REST-API
+    # variant) that also matches aws_apigatewayv2_stage.
+    - rule_id: 'API Gateway Access Logging Disabled'
+      path: 'infra/tf/backend/main.tf'
+      reason: 'False positive — aws_apigatewayv2_stage.default has an access_log_settings block (main.tf:238-250) with destination_arn = aws_cloudwatch_log_group.api_gw.arn and a structured JSON format via jsonencode(). KICS emits this REST-API rule name against the v2 stage resource; same root cause as the API Gateway V2 variant.'
     # CloudFront Without WAF — same finding as CKV_AWS_68 but from KICS scanner (different rule ID)
     - rule_id: 'CloudFront Without WAF'
       path: 'infra/cfn/frontend/frontend.yml'
@@ -477,6 +485,13 @@ global_settings:
     - rule_id: 'CKV_AWS_309'
       path: 'infra/tf/backend/main.tf'
       reason: 'By design — OPTIONS /{proxy+} route uses authorization_type=NONE so CORS preflight bypasses JWT auth (browsers do not send Authorization header on preflight); all other routes use the JWT authorizer. Required workaround for API GW v2 $default + JWT preflight.'
+    # KICS — Public Lambda via API Gateway. By design: the HTTP API is intentionally
+    # public-facing (web app backend); access is gated by the Cognito JWT authorizer on
+    # all non-OPTIONS routes. Wildcard source_arn (.../*/*) on aws_lambda_permission is
+    # the standard pattern for API GW v2 → Lambda permissions.
+    - rule_id: 'Public Lambda via API Gateway'
+      path: 'infra/tf/backend/main.tf'
+      reason: 'By design — public HTTP API GW v2 endpoint is the web app backend; all routes (except OPTIONS preflight — see CKV_AWS_309) are gated by the Cognito JWT authorizer (aws_apigatewayv2_authorizer.jwt). Wildcard source_arn on lambda_permission is the standard API GW → Lambda invoke grant.'
     # --- queue/main.tf (SQS + DLQ + worker Lambda + DynamoDB) ---
     - rule_id: 'CKV_AWS_338'
       path: 'infra/tf/queue/main.tf'
@@ -529,6 +544,14 @@ global_settings:
     - rule_id: 'CKV_AWS_174'
       path: 'infra/tf/frontend/main.tf'
       reason: 'False positive — viewer_certificate.minimum_protocol_version is set to TLSv1.2_2021 in the Terraform code; checkov fails to detect it. Mirrors existing CFN suppression on infra/cfn/frontend/frontend.yml. Custom ACM cert (which would make TLS 1.2 effective at runtime) is out-of-scope for POC and tracked under CKV2_AWS_42.'
+    # KICS reports the same finding as a separate rule (CloudFront Without Minimum
+    # Protocol TLS 1.2). Same root cause, same rationale as CKV_AWS_174 above.
+    - rule_id: '00e5e552-9e3c-4710-8c5f-d2f7d8df57cb'
+      path: 'infra/tf/frontend/main.tf'
+      reason: 'KICS equivalent of CKV_AWS_174 — viewer_certificate.minimum_protocol_version = "TLSv1.2_2021" is set in code, but AWS ignores the field when cloudfront_default_certificate = true. Resolving requires a custom ACM cert (POC scope, tracked under CKV2_AWS_42).'
+    - rule_id: 'CloudFront Without Minimum Protocol TLS 1.2'
+      path: 'infra/tf/frontend/main.tf'
+      reason: 'KICS equivalent of CKV_AWS_174 — viewer_certificate.minimum_protocol_version = "TLSv1.2_2021" is set in code, but AWS ignores the field when cloudfront_default_certificate = true. Resolving requires a custom ACM cert (POC scope, tracked under CKV2_AWS_42).'
     - rule_id: 'CKV_AWS_68'
       path: 'infra/tf/frontend/main.tf'
       reason: 'Out of scope for POC — WAF requires a separate WebACL; customers can attach web_acl_id when productionizing. Mirrors existing CFN suppression on infra/cfn/frontend/frontend.yml.'
@@ -553,12 +576,24 @@ global_settings:
     - rule_id: 'CKV2_AWS_42'
       path: 'infra/tf/frontend/main.tf'
       reason: 'Out of scope for POC — custom SSL certificate requires an ACM certificate; CloudFront default cert is sufficient for POC.'
+    # KICS equivalent of CKV2_AWS_42 — same root cause: cloudfront_default_certificate = true.
+    - rule_id: 'Vulnerable Default SSL Certificate'
+      path: 'infra/tf/frontend/main.tf'
+      reason: 'Out of scope for POC — same root cause as CKV2_AWS_42; CloudFront default *.cloudfront.net cert is sufficient for POC. Customers can add an ACM certificate via viewer_certificate.acm_certificate_arn when productionizing.'
     - rule_id: 'CKV2_AWS_32'
       path: 'infra/tf/frontend/main.tf'
       reason: 'Out of scope for POC — response headers policy requires a custom policy resource; customers can add security headers when productionizing.'
     - rule_id: 'CKV2_AWS_47'
       path: 'infra/tf/frontend/main.tf'
       reason: 'Out of scope for POC — WAF with Log4j AMR requires WebACL + managed rule group; customers can attach when productionizing. Terraform equivalent of existing CKV_AWS_68/CloudFront Without WAF suppression.'
+    # KICS "S3 Bucket Policy Accepts HTTP Requests" — false positive. The bucket
+    # policy includes a DenyInsecureTransport statement (main.tf:132-146) that
+    # denies s3:* on the bucket and all objects when aws:SecureTransport=false.
+    # KICS does not reliably detect the deny statement inside the jsonencode()
+    # block when Allow + Deny statements are combined.
+    - rule_id: 'S3 Bucket Policy Accepts HTTP Requests'
+      path: 'infra/tf/frontend/main.tf'
+      reason: 'False positive — bucket policy includes a DenyInsecureTransport statement (Effect: Deny, s3:*, aws:SecureTransport=false) covering both the bucket ARN and arn/* (main.tf:132-146). KICS fails to detect the deny statement inside the jsonencode() block when Allow + Deny statements are combined.'
     # --- logs/main.tf (centralized S3 log bucket) ---
     - rule_id: 'CKV2_AWS_62'
       path: 'infra/tf/logs/main.tf'
@@ -575,6 +610,14 @@ global_settings:
     - rule_id: 'CKV2_AWS_65'
       path: 'infra/tf/logs/main.tf'
       reason: 'By design — log bucket uses ACL for CloudFront/S3 access log delivery (AWS service requirement); ACLs cannot be disabled on log destination buckets.'
+    # KICS "S3 Bucket Policy Accepts HTTP Requests" — false positive. The bucket
+    # policy includes a DenyNonSSL statement (main.tf:60-74) that denies s3:*
+    # on the bucket and all objects when aws:SecureTransport=false. KICS does
+    # not reliably detect the deny statement inside the jsonencode() block
+    # when Allow + Deny statements are combined.
+    - rule_id: 'S3 Bucket Policy Accepts HTTP Requests'
+      path: 'infra/tf/logs/main.tf'
+      reason: 'False positive — bucket policy includes a DenyNonSSL statement (Effect: Deny, s3:*, aws:SecureTransport=false) covering both the bucket ARN and arn/* (main.tf:60-74). KICS fails to detect the deny statement inside the jsonencode() block when Allow + Deny statements are combined.'
     # --- codecommit/main.tf ---
     - rule_id: 'CKV2_AWS_37'
       path: 'infra/tf/codecommit/main.tf'
