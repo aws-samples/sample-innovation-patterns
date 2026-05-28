@@ -354,6 +354,27 @@ global_settings:
     - rule_id: 'CFN_NAG_W28'
       path: 'infra/cfn/security/innovation-builder-security.yml'
       reason: 'Explicit names required on all resources: ManagedPolicyName for self-propagating boundary condition (iam:PermissionsBoundary references boundary ARN by name), RoleName for service configuration. Replacement risk accepted for POC.'
+    # CFN_NAG_W28 is a Warning, not a Failure. IPA stacks deliberately use stable
+    # ${Namespace}_${Environment}_${suffix} naming as a cross-stack contract:
+    # PynamoDB models in app-lib/ resolve table names via env_table_name() and must
+    # match TableName exactly (see infra/cfn/backend/CLAUDE.md "4-Touchpoint Workflow").
+    # Replace-on-update is knowingly traded for predictable identifiers consumed by
+    # CodeBuild, Terraform backends, and downstream apps.
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/backend/backend.yml'
+      reason: 'Explicit TableName/RoleName required by the 4-touchpoint contract — PynamoDB env_table_name("passengers") in app-lib must match CFN TableName, and the Lambda execution role is referenced by IAM policies and CodeBuild config. Replace-on-update tradeoff accepted.'
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/queue/queue.yml'
+      reason: 'Explicit TableName/RoleName/QueueName required for cross-stack stability — PynamoDB jobs model resolves env_table_name("jobs") to match CFN TableName, and the worker role/queue ARN is consumed by the backend tier. Replace-on-update tradeoff accepted.'
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/codepipeline/codepipeline.yml'
+      reason: 'Explicit pipeline/role/bucket names required for stable references in IAM policies and CodeBuild project configuration. Pipeline replacement is operationally disruptive; explicit naming prevents accidental rename-induced replacement. Replace-on-update tradeoff accepted.'
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/ecr/ecr.yml'
+      reason: 'Explicit RepositoryName required so container build/push targets and Lambda image URIs reference a stable repository. ECR repository deletion would destroy stored images; explicit naming prevents accidental rename-induced replacement.'
+    - rule_id: 'CFN_NAG_W28'
+      path: 'infra/cfn/tfstate/tfstate.yml'
+      reason: 'Explicit BucketName/TableName required by the Terraform S3 backend — backend.tf references the state bucket and lock table by literal name. Replacement of either resource would orphan all Terraform state. Replace-on-update tradeoff intentionally avoided.'
     - rule_id: 'CKV_AWS_107'
       path: 'infra/cfn/security/innovation-builder-security.yml'
       reason: 'Credentials exposure mitigated by boundary DenyUserOperations — blocks IAM user creation, login profiles, and access key operations. No sts:* in service policy. POC non-production environment.'

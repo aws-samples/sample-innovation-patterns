@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **`/ipa-compose` deploy→deploy wiring** — `MAKEFILE_TEMPLATES.md` now splits deploy.mk wiring rules by source-stack lifecycle. Prepare-source wiring continues to read from `.env` via `$(VAR)`; deploy-source wiring captures values via `$(eval ... describe-stacks ...)` at the top of the target body, stored as `{VAR}_LIVE`. Make parses `-include .env` once at process startup, so values that env.mk writes to `.env` mid-run are invisible to subsequent targets in the same `make deploy` invocation. The previous single-rule template produced an empty `SqsSendQueueArns` for `deploy-backend`, causing `LambdaExecutionRole` `CREATE_FAILED` on IAM ("Resource must be in ARN format or '*'"). The `ipa-stack-backend` skill now flags `SqsQueueUrl`/`SqsSendQueueArns` as same-lifecycle wiring per Case B.
+- **CodePipeline buildspec hardening** — upgraded CodeBuild image to `aws/codebuild/standard:8.0` (Node 20+), now installs `uv` during install phase, and runs `uv sync` plus a frontend rebuild in PreBuild so the OpenAPI codegen pipeline and `web-client/dist` artifact are present in CI environments where they were previously missing. PostDeploy gained an `ensure-frontend-dist` step that rebuilds the SPA if the cross-stage artifact is absent.
+- **CodeBuild buildspec YAML parsing** — replaced bare `{ … }` shell expressions in inline buildspec command scalars with `- |` block scalars; YAML was interpreting the braces as flow mappings and failing to parse the pipeline definition. Documented the pitfall in the `/ipa-codepipeline` skill.
+- **env.mk two-invocation bootstrap inside CodePipeline** — applied the same prelude pattern used by local `make deploy` to the inline buildspec so each stage populates `.env` from live stack outputs before the main target runs. Eliminates stale or empty values when CodeBuild's environment is the only source of truth.
+- **Passengers DynamoDB table alignment** — renamed table to use underscores (`app_dev_passengers`) and re-aligned the CFN hash key with the PynamoDB model. Drift between template and model was causing runtime `ValidationException` on `GetItem`/`PutItem`. `uv run` for the load-data target now passes `--all-extras` so optional dependencies resolve in CI.
+- **Terraform/CloudFormation parity** — brought `infra/tf/*` modules to feature parity with their CFN counterparts after the consolidation, fixed a naming-contract drift between engines, and adjusted the Cognito module to use `username` consistently. `terraform output -raw` was leaking `Warning: No outputs found` to stdout and corrupting `.env`; env.mk now uses `terraform output -json | jq` for safe capture.
+- **API Gateway v2 CORS preflight under JWT** — added an explicit `OPTIONS /{proxy+}` route with `AuthorizationType=NONE` so browser preflights reach the Lambda instead of being rejected by the JWT authorizer at the `$default` route. Documented the pattern in the `ipa-stack-backend` skill (Terraform + CFN).
+
+### Documentation
+
+- New `developer-docs/infra/terraform.md` covering the dual-engine model, state-backend bootstrap, and engine-switch guardrail.
 
 ## [0.1.6] - 2026-05-18
 
