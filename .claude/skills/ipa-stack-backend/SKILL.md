@@ -82,6 +82,14 @@ Parameters that receive values from other stacks during composition:
 - Log groups: 30-day retention
 - ECR pull uses `Resource: '*'` (AWS API limitation — documented)
 
+## CORS Preflight Handling (Terraform-specific)
+
+The Terraform module uses a `$default` catch-all route with `authorization_type = "JWT"`. This route intercepts OPTIONS preflight requests and routes them through the JWT authorizer, which rejects them (preflight has no Bearer token) — causing browser CORS failures.
+
+To prevent this, the TF module includes an explicit `OPTIONS /{proxy+}` route with `authorization_type = "NONE"` that sends preflight requests to the Lambda, where FastAPI's `CORSMiddleware` handles them using `CORS_ALLOWED_ORIGINS`.
+
+The CFN template avoids this by using method-specific routes (`GET /{proxy+}`, `POST /{proxy+}`, etc.) — OPTIONS never matches any route, so API GW's CORS auto-handler responds. When updating either implementation, preserve the corresponding pattern.
+
 ## Compose Config
 
 Parameter overrides applied by `/ipa-compose`:

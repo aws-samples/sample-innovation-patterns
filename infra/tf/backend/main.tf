@@ -220,6 +220,9 @@ resource "aws_apigatewayv2_route" "default" {
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# OPTIONS preflight bypass — the $default route's JWT authorizer rejects
+# preflight requests (no Bearer token), causing browser CORS failures.
+# Send OPTIONS to the Lambda where FastAPI CORSMiddleware handles them.
 resource "aws_apigatewayv2_route" "options" {
   api_id             = aws_apigatewayv2_api.http.id
   route_key          = "OPTIONS /{proxy+}"
