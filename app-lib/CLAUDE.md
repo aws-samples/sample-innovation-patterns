@@ -89,3 +89,7 @@ See [ruff.toml](./ruff.toml): line-length 88, Python 3.9+ target, Pyflakes (F), 
 - Tests in [tests/](./tests/) mirror `src/app_lib/` structure
 - Run: `make test` or `pytest`
 - See [tests/CLAUDE.md](./tests/CLAUDE.md) for test conventions
+
+## Knowledge Graph (optional)
+
+If `../graphify-out/` exists, use `/graphify` to query the codebase as a knowledge graph — useful for tracing relationships, finding callers, or navigating unfamiliar modules.
