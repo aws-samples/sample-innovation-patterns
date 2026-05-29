@@ -1,0 +1,4 @@
+# Ignore everything, then allow only app-lib/
+*
+!app-lib/
+!app-lib/**
