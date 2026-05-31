@@ -26,6 +26,7 @@ install_cicd:
 lint:
 	ruff check --fix
 	ruff format
+	$(MAKE) lint-imports
 
 # CI/CD version of lint that only checks but doesn't modify files
 # Used in CI pipelines to verify code quality without making changes
@@ -33,6 +34,11 @@ lint-cicd:
 	ruff check --output-format=junit -o lint-ruff.xml || true
 	ruff format --check
 	@ruff check --quiet
+	$(MAKE) lint-imports
+
+# Custom lint: Check feature import boundaries (Orchestration-Only Composition)
+lint-imports:
+	python3 ../scripts/lint/check_import_boundaries.py src/app_lib
 
 # Custom lint: Check PynamoDB attributes have null=True
 lint-pynamodb:

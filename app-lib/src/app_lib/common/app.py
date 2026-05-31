@@ -23,17 +23,21 @@ load_dotenv()
 from app_lib.common.auth import JWTAuthMiddleware
 from app_lib.common.util.observability import log_exception
 
+# Feature routers — delete import + include_router to disconnect a feature
+from app_lib.features.fibonacci.routes.fibonacci_routes import (
+    router as fibonacci_router,
+)
+
 # Inference streaming
 from app_lib.features.inference.routes.inference_sse_routes import inference_sse_router
 
 # SQS pattern
 from app_lib.features.jobs.routes.job_routes import job_router
 from app_lib.features.jobs.routes.job_sse_routes import job_sse_router
-
-# Feature routers — delete import + include_router to disconnect a feature
 from app_lib.features.passengers.routes.passenger_routes import (
     router as passengers_router,
 )
+from app_lib.features.state.routes.state_routes import state_router
 
 app = FastAPI(
     title="Titanic Passenger API",
@@ -74,7 +78,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
 app.add_middleware(ObservabilityMiddleware)
 
 # Feature registration — 1 line per feature
+app.include_router(fibonacci_router)
 app.include_router(passengers_router)
+app.include_router(state_router)
 
 # SQS pattern
 app.include_router(job_router)

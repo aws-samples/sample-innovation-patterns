@@ -2,7 +2,7 @@
 
 Shared infrastructure used by all features. FastAPI app, JWT auth, abstract data layer, utilities, and Lambda handlers.
 
-- `common/` MUST NOT import from `features/` — **except** `app.py` (router registration) and `lambda/s3_handler.py` (feature service usage).
+- `common/` is the orchestration layer. Composition roots (`app.py` and `lambda/*.py`) MAY import from features — they wire features together. Nothing else in `common/` should import from `features/`.
 - `app.py` is the single integration point: features register here via `import router` + `app.include_router()`.
 - `AbstractDataService[T]` in `data/` is the CRUD contract — all feature services extend it.
 - `PathUtil.lib_root()` resolves via 3 `.parent` hops from `common/util/path_util.py` — if you move this file, fix the depth.

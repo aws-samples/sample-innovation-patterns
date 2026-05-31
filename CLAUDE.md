@@ -51,6 +51,8 @@ scripts/                   # Generated Makefiles (deploy.mk, prepare.mk, etc.)
 
 Markdown (Claude Code skill format): Follow standard conventions
 
+- Feature isolation in app-lib uses Orchestration-Only Composition — see `app-lib/src/app_lib/features/CLAUDE.md`
+
 ## Recent Changes
 - 015-compose-codepipeline: Integrated codecommit + codepipeline as composable prepare stacks in /ipa-compose. Deprecated standalone /ipa-codepipeline process skill. Added Compose Config prompting, env.mk pipeline target, MAKEFILE_TEMPLATES.md codepipeline notes.
 - 014-ipa-codepipeline: Added YAML (CloudFormation templates), Markdown (Claude Code skill files) — no executable code + Claude Code skill framework, AWS CLI, GNU Make
