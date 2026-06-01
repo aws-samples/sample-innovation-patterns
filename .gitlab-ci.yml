@@ -18,6 +18,7 @@
 # Revisit when we wire up real GitLab dependency scanning, or when the mirror
 # exposes a setting to disable the gitlab-cyclonedx reporter.
 include:
+  - component: code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/code-quality/acq@~latest
   - component: code.aws.dev/proserve/automated-security-helper/automated-security-helper/ash@v3.0.5
 
 # Any publicly available python image
