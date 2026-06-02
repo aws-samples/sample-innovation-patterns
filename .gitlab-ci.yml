@@ -20,6 +20,13 @@
 include:
   - component: code.aws.dev/proserve/automated-security-helper/automated-security-helper/ash@v3.0.5
   - component: code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/code-quality/acq@develop
+  # CodeQuality report smoke test — emits a hardcoded, schema-valid
+  # gl-code-quality-report.json in seconds (no Bedrock, no `acq assess`) to prove
+  # WHERE the CodeQuality report renders in the UI and therefore which GitLab tier
+  # this instance runs. Check the pipeline "Code Quality" tab (Premium+, no baseline
+  # needed) first; the MR widget (Free) only shows a diff vs. a target-branch baseline.
+  # Remove this include once the surface/tier is confirmed.
+  - component: code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/code-quality/codequality-smoketest@develop
 
 # Any publicly available python image
 image: public.ecr.aws/docker/library/python:3.12-bookworm
@@ -29,6 +36,19 @@ stages:
 #   - securityScan  # Inherited
   - deploy
   - release
+
+# AWS credential vendor: the internal code.aws.dev GitLab runner detects the
+# AWS_CREDS_TARGET_ROLE variable and vendors short-lived STS credentials for that
+# role into the job environment automatically — no id_tokens / assume-role block
+# needed. This job verifies the role assumption works before relying on it.
+# test:
+#   stage: test
+#   variables:
+#     AWS_CREDS_TARGET_ROLE: arn:aws:iam::369530416671:role/ip-dev-sdlc-GitLab
+#     AWS_DEFAULT_REGION: us-east-1
+#   script:
+#     - aws sts get-caller-identity
+#     - aws s3 ls
 
 # GitLab Pages deployment job - must be named "pages" to trigger Pages deployment
 # Builds Docusaurus documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
