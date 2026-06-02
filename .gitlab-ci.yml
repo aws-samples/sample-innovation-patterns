@@ -26,7 +26,7 @@ include:
   # this instance runs. Check the pipeline "Code Quality" tab (Premium+, no baseline
   # needed) first; the MR widget (Free) only shows a diff vs. a target-branch baseline.
   # Remove this include once the surface/tier is confirmed.
-  - component: code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/code-quality/codequality-smoketest@develop
+  # - component: code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/code-quality/codequality-smoketest@develop
 
 # Any publicly available python image
 image: public.ecr.aws/docker/library/python:3.12-bookworm
