@@ -8,6 +8,13 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: ['dev', 'staging', 'prod']
+  KmsKeyArn:
+    Type: String
+    Default: ''
+    Description: 'Optional KMS key ARN for state bucket encryption'
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, '']]
 
 Resources:
   StateBucket:
@@ -20,7 +27,8 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
+              SSEAlgorithm: !If [HasKmsKey, 'aws:kms', 'AES256']
+              KMSMasterKeyID: !If [HasKmsKey, !Ref KmsKeyArn, !Ref 'AWS::NoValue']
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -42,6 +50,16 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
+          - !If
+            - HasKmsKey
+            - Effect: Deny
+              Principal: '*'
+              Action: 's3:PutObject'
+              Resource: !Sub '${StateBucket.Arn}/*'
+              Condition:
+                StringNotEquals:
+                  s3:x-amz-server-side-encryption: 'aws:kms'
+            - !Ref 'AWS::NoValue'
 
   LockTable:
     Type: AWS::DynamoDB::Table

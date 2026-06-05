@@ -27,7 +27,7 @@ resource "aws_cognito_user_pool" "this" {
     }
   }
 
-  deletion_protection = "INACTIVE"
+  deletion_protection = var.deletion_protection
 
   tags = {
     Tier = "cognito"

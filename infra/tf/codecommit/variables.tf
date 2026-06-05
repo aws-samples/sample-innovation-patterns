@@ -40,3 +40,9 @@ variable "repository_description" {
   description = "Repository description"
   default     = "IPA-managed source repository"
 }
+
+variable "kms_key_arn" {
+  type        = string
+  description = "Optional KMS key ARN for repository encryption at rest"
+  default     = ""
+}

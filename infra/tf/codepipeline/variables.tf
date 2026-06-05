@@ -62,3 +62,9 @@ variable "compute_type" {
   description = "CodeBuild compute type"
   default     = "BUILD_GENERAL1_LARGE"
 }
+
+variable "kms_key_arn" {
+  type        = string
+  description = "Optional KMS key ARN for encryption at rest (artifact bucket + CodeBuild)"
+  default     = ""
+}

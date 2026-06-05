@@ -36,3 +36,9 @@ variable "log_bucket_name" {
   type        = string
   description = "Log bucket name for CloudFront access logs"
 }
+
+variable "force_destroy" {
+  type        = bool
+  description = "Allow terraform destroy to delete bucket contents. Use true only for ephemeral preview environments."
+  default     = false
+}

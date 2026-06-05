@@ -40,3 +40,13 @@ variable "callback_url" {
   description = "OAuth callback URL"
   default     = "http://localhost:8080/authentication/callback"
 }
+
+variable "deletion_protection" {
+  type        = string
+  description = "Cognito user pool deletion protection (ACTIVE or INACTIVE)"
+  default     = "INACTIVE"
+  validation {
+    condition     = contains(["ACTIVE", "INACTIVE"], var.deletion_protection)
+    error_message = "Must be ACTIVE or INACTIVE"
+  }
+}

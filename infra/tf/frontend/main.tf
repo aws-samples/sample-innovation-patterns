@@ -11,7 +11,7 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "web" {
   bucket        = "${var.namespace}-${var.environment}-${var.bucket_name_suffix}-${data.aws_caller_identity.current.account_id}"
-  force_destroy = true
+  force_destroy = var.force_destroy
 
   tags = {
     Tier = "frontend"

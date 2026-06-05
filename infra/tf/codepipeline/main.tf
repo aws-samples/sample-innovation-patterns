@@ -27,7 +27,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = var.kms_key_arn != "" ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
     }
   }
 }
@@ -45,9 +46,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
 }
 
 resource "aws_codebuild_project" "build" {
-  name          = "${var.namespace}-${var.environment}-build"
-  service_role  = var.codebuild_role_arn
-  build_timeout = 30
+  name           = "${var.namespace}-${var.environment}-build"
+  service_role   = var.codebuild_role_arn
+  build_timeout  = 30
+  encryption_key = var.kms_key_arn != "" ? var.kms_key_arn : null
 
   artifacts {
     type = "CODEPIPELINE"
@@ -224,6 +226,14 @@ resource "aws_codepipeline" "pipeline" {
   artifact_store {
     location = aws_s3_bucket.artifacts.id
     type     = "S3"
+
+    dynamic "encryption_key" {
+      for_each = var.kms_key_arn != "" ? [var.kms_key_arn] : []
+      content {
+        id   = encryption_key.value
+        type = "KMS"
+      }
+    }
   }
 
   stage {
