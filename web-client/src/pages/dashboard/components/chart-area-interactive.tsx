@@ -139,11 +139,16 @@ export function ChartAreaInteractive() {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState('90d')
 
-  React.useEffect(() => {
+  // Narrow the range to 7d when switching to mobile. Adjusting state during
+  // render (tracking the previous isMobile) avoids the setState-in-effect
+  // anti-pattern; the user can still widen the range afterward.
+  const [prevIsMobile, setPrevIsMobile] = React.useState(isMobile)
+  if (isMobile !== prevIsMobile) {
+    setPrevIsMobile(isMobile)
     if (isMobile) {
       setTimeRange('7d')
     }
-  }, [isMobile])
+  }
 
   const filteredData = chartData.filter((item) => {
     const date = new Date(item.date)
