@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.7]
+## [0.1.7] - 2026-06-09
 
 ### Added
 - **Terraform as a first-class IaC engine** — `APP_IAC=terraform` in `.env` switches `/ipa-compose` to generate `terraform init/apply/destroy` Makefile targets instead of `aws cloudformation deploy`. Eight idiomatic HCL root modules under `infra/tf/` (backend, frontend, queue, cognito, ecr, logs, codecommit, codepipeline) mirror the existing CFN tier/prepare stacks. Terraform state backend (S3 + DynamoDB) is bootstrapped via a new CFN-deployed prepare stack (`infra/cfn/tfstate/tfstate.yml` + `/ipa-stack-tfstate` skill) — the chicken-and-egg exception that stays CFN even in full-TF mode. `/ipa-init` promotes `APP_IAC` from auto-set to a 5th prompted question. `/ipa-compose` SKILL.md adds Step 6.0 to detect IaC mode; `MAKEFILE_TEMPLATES.md` gains a complete Terraform Mode Templates section covering deploy.mk, prepare.mk, env.mk (uses `terraform output -raw`), and a `terraform validate` test target. Each `ipa-stack-*` SKILL.md now documents its parallel TF module (variables, outputs, remote-state references). Deploy→deploy wiring (e.g., queue→backend) uses subshell `terraform output` calls; prepare→deploy wiring uses `terraform_remote_state` data sources embedded in the consuming module's HCL.
@@ -141,7 +141,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security** — ASH integration in GitLab CI, least-privilege IAM, encryption by default
 - **Generated Makefiles** — plain GNU Make with inline `aws` CLI calls; no runtime dependency on IPA
 
-[Unreleased]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.1...v0.1.2

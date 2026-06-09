@@ -60,7 +60,7 @@ export function PassengersPage() {
       {error && <p className="text-destructive">Failed to load passengers.</p>}
       {passengers && (
         <DataTable
-          data={passengers as TitanicPassengerResponse[]}
+          data={passengers}
           columns={columns}
           sqsAvailable={!sqsUnavailable}
           onAnalyzeSelected={(rows) => void handleAnalyzeSelected(rows)}

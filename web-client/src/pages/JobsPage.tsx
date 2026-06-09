@@ -135,8 +135,14 @@ export function JobsPage() {
     return statusFilter ? s.filter((j) => j.status === statusFilter) : s
   }, [jobs, statusFilter])
 
-  // Reset to first page when filter changes
-  React.useEffect(() => setPage(0), [statusFilter])
+  // Reset to first page when filter changes. Adjusting state during render
+  // (tracking the previous filter) is the React-recommended alternative to a
+  // setState-in-effect — it avoids the extra render pass an effect would cause.
+  const [prevStatusFilter, setPrevStatusFilter] = React.useState(statusFilter)
+  if (statusFilter !== prevStatusFilter) {
+    setPrevStatusFilter(statusFilter)
+    setPage(0)
+  }
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
   const paged = sorted.slice(page * pageSize, (page + 1) * pageSize)

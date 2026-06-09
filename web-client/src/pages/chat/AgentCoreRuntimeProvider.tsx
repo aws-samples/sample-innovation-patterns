@@ -40,23 +40,34 @@ export function AgentCoreRuntimeProvider({ children }: { children: ReactNode }) 
   }, [currentSessionId])
 
   useEffect(() => {
-    if (currentSessionId) {
-      if (skipFetchRef.current) {
-        skipFetchRef.current = false
+    if (skipFetchRef.current) {
+      skipFetchRef.current = false
+      return
+    }
+    // `cancelled` guards against a stale session's response (or the empty-state
+    // reset) landing after the user has already switched threads. Keeping all
+    // setMessages calls inside the async closure avoids synchronous
+    // setState-in-effect.
+    let cancelled = false
+    const load = async () => {
+      if (!currentSessionId) {
+        if (!cancelled) setMessages([])
         return
       }
-      void fetchSessionEvents(currentSessionId).then((events) =>
-        setMessages(
-          events.map((e) => ({
-            id: e.event_id,
-            role: e.role as 'user' | 'assistant',
-            content: [{ type: 'text' as const, text: e.content }],
-            createdAt: new Date(e.timestamp),
-          })),
-        ),
+      const events = await fetchSessionEvents(currentSessionId)
+      if (cancelled) return
+      setMessages(
+        events.map((e) => ({
+          id: e.event_id,
+          role: e.role as 'user' | 'assistant',
+          content: [{ type: 'text' as const, text: e.content }],
+          createdAt: new Date(e.timestamp),
+        })),
       )
-    } else {
-      setMessages([])
+    }
+    void load()
+    return () => {
+      cancelled = true
     }
   }, [currentSessionId])
 
