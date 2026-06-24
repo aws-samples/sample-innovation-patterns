@@ -2,7 +2,10 @@ __pycache__
 .pytest_cache
 .DS_Store
 
-.vscode/
+.vscode/*
+!.vscode/README.md
+!.vscode/settings.example.json
+!.vscode/extensions.json
 .context/
 
 # Documentation site
