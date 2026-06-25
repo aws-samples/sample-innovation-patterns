@@ -1,6 +1,6 @@
 ---
 title: UX-First Acceleration
-sidebar_position: 8
+sidebar_position: 10
 ---
 
 # UX-First Acceleration

@@ -9,10 +9,11 @@ Cross-cutting how-to documentation for tasks that span multiple IPA stacks or sk
 
 All guides follow the IPA builder workflow sequence: compose, prepare, deploy, iterate, hand off.
 
+- **[Solution Design](solution-design.md)** — Stand up and maintain a solution's living design and requirements documents from the copyable template.
 - **[Composing a Solution](composing-solution.md)** — Select and assemble stacks into a deployable composition with generated Makefiles and wiring.
 - **[Local Development](local-development.md)** — Run the FastAPI backend and React frontend locally against deployed AWS infrastructure.
 - **[Notebook Development](notebook-development.md)** — Prototype and test with Jupyter notebooks connected to deployed resources.
 - **[CI/CD with CodePipeline](codepipeline.md)** — Automate build, deploy, and test with CodePipeline executing the same Makefile targets.
 - **[Extending with Skills](extending-with-skills.md)** — Author a custom stack skill and integrate it with `/ipa-compose`.
-- **[UX-First Acceleration](ux-first-acceleration.md)** — Build a feature against mocks, then scaffold the real backend from the mock collateral and switch to live data.
 - **[Path to Production](path-to-production.md)** — Harden, document, and hand off a composition to the customer team.
+- **[UX-First Acceleration](ux-first-acceleration.md)** — Build a feature against mocks, then scaffold the real backend from the mock collateral and switch to live data.

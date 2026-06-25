@@ -85,6 +85,14 @@ docs/docs/
 │   ├── docs/
 │   │   ├── index.md
 │   │   └── guide-format-standard.md
+│   ├── solution-design/             # Per-solution living design/requirements docs
+│   │   ├── index.md
+│   │   └── template/                # Copyable worked example (renders as a sample)
+│   │       ├── index.md
+│   │       ├── vision.md
+│   │       ├── requirements.md
+│   │       ├── exploration.md
+│   │       └── architecture.md
 │   ├── infra/
 │   │   └── index.md
 │   ├── app-lib/                     # (planned)
@@ -547,6 +555,35 @@ of the codebase.
 Concrete examples of how to work with the code: commands, configuration,
 common operations.
 ```
+
+### Solution Design
+
+**Purpose:** A permanent home, under Developer Docs, for a *solution's* living design and requirements documents — vision, requirements, exploration, and architecture. The section name is stable; the documents inside are living and evolve as the POC develops. A builder copies the shipped `template/` directory into `solution-design/<solution-name>/` to start a new solution's design set with no per-engagement structural decisions [6]. This section holds documents about a deployed solution, distinct from the engineering feature specs in `working/specs/` (finer-grained, implementation-level) and from IPA's own product documentation.
+
+**Intended Structure:**
+
+```
+developer-docs/solution-design/
+├── index.md                  # Section overview: promotion flow, the menu, conventions
+└── template/                 # Copyable worked example — renders in the sidebar as a sample
+    ├── index.md              # Per-solution landing with a living-doc status table
+    ├── vision.md             # Vision / PRFAQ — why; the dream
+    ├── requirements.md       # Requirements — pick the flavor (BRD / PRD / SRS)
+    ├── exploration.md        # Spikes, domain primers, investigations, findings
+    └── architecture.md       # Design / SDD — how it is built; ADRs
+```
+
+A populated section nests one directory per solution alongside `template/`, for example `solution-design/policy-intelligence/` with the same document set.
+
+**Content Conventions:**
+
+- The child document set is a **suggested menu, not a mandated set**. A builder uses the documents that fit the engagement. Mandating a full BRD + PRD + SRS + SDD set is heavyweight waterfall and contradicts the "evolvable POC, do not over-engineer" constraint.
+- Each document carries **living-doc conventions** near the top: a status line (`Status: 🔬 Exploring · 📝 Drafting · ✅ Stable`), a `> Last updated: YYYY-MM-DD` line, and a one-line note that the document is living. Each solution's landing page carries a **status table** (Document · Status · Last-updated · Description), reusing the manifest pattern from `working/specs/README.md`.
+- **Promotion is copy, not move.** Drafts originate in git-ignored `working/`, are copied here when shareable, and settled topics are copied onward to canonical reference in `developer-docs/`, `guides/`, or `user-docs/`. The Solution Design document remains as the living record.
+- **Choose visibility deliberately.** The shipped `template/` is empty scaffold and is public. A solution whose design documents contain customer-specific or pre-decision material belongs under `developer-docs/internal/` (filtered out of the public GitHub release by `infra/scripts/github-push.sh`), not here.
+- **Vision split.** A solution's `vision.md`/PRFAQ describes the deployed solution; IPA's own PRFAQ stays in `getting-started/concepts/prfaq.md`.
+
+**Template:** Copy the shipped `solution-design/template/` directory. It carries the four menu stubs, the status table, and the living-doc conventions. See the [Solution Design how-to guide](../../guides/solution-design.md) for which document to write when.
 
 ### User Docs
 

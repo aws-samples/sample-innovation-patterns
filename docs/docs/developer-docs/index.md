@@ -15,4 +15,5 @@ For concepts that span multiple directories — such as composing stacks or depl
 - **[infra/](infra/)** — CloudFormation infrastructure-as-code templates
 - **[scripts/](scripts/)** — Generated Makefiles for deployment and operations
 - **[docs/](docs/)** — Documentation site structure, authoring guides
+- **[Solution Design](solution-design/)** — Permanent home for a solution's living design and requirements documents (vision, requirements, exploration, architecture), with a copyable per-solution template
 - **[Contributing](contributing/)** — How to author new stacks and pattern skills
