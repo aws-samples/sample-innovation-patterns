@@ -50,6 +50,30 @@ window.__CONFIG__ = {
 
 This file is loaded only when `location.hostname === 'localhost'` and is gitignored.
 
+### Feature Flags & MOCK_API
+
+Two runtime switches live on `window.__CONFIG__`. They are independent: `MOCK_API`
+chooses the *data source*; `features.*` controls *UI visibility*.
+
+| Key | Type | Default | Controls |
+|-----|------|---------|----------|
+| `MOCK_API` | top-level boolean | `false` | When `true` (non-prod only), the MSW browser worker serves `/api/v1/*` from mocks — no backend needed |
+| `features.chat` | flag | `false` | Chat page (LLM streaming) |
+| `features.jobs` | flag | `false` | Jobs page (background job queue) |
+| `features.playground` | flag | `true` | Playground page (Bedrock inference) |
+| `features.kb_playground` | flag | `false` | Knowledge Base Playground page |
+| `features.kitchen_sink` | flag | `true` | Kitchen Sink demo page |
+
+Flags are read two ways:
+
+1. **Direct access** — `config.features[name]` in `app-sidebar.tsx` (nav filtering) and `SettingsPage.tsx` (read-only display). This is the only path used in app code.
+2. **`flagged` provider** — `FlagsProvider` wraps the app in `main.tsx`; components may call `useFeature('x')`, render `<Feature name="x">`, or wrap with `withFeature('x')`. Available but currently unused.
+
+The Settings page (`/settings`) shows the live value of every config key and flag.
+
+- Flag mechanics and the full add-a-flag recipe: [Feature Flags](/developer-docs/web-client/feature-flags) and `CLAUDE.md`.
+- `MOCK_API` mechanism and production-safety guards: [UX-First Mocking](/developer-docs/web-client/ux-first-mocking).
+
 ## Codegen Pipeline
 
 Running `npm run codegen` performs two steps:

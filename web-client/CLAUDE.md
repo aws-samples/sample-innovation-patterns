@@ -100,7 +100,7 @@ src/test/
    import { screen, waitFor } from '@testing-library/react'
    import { renderWithProviders } from '@/test/test-utils'
    ```
-3. For components that fetch data via RTK Query, MSW handlers in `src/test/msw/handlers.ts` provide default responses. Override per-test with `server.use()`:
+3. For components that fetch data via RTK Query, MSW handlers in `src/mocks/handlers.ts` provide default responses. Override per-test with `server.use()`:
    ```tsx
    import { http, HttpResponse } from 'msw'
    import { server } from '@/test/msw/server'
@@ -142,6 +142,27 @@ Coverage reports (text, HTML, lcov) are generated with `npm run test:coverage`. 
 - `layouts/` components are structural only — no data fetching
 - `services/api/generated.ts` is auto-generated — never edit (see `services/api/README.md`)
 - `config.ts` lives in `lib/` — it reads `window.__CONFIG__` set by `public/config.js`
+
+## Feature Flags
+
+Runtime flags gate **sidebar visibility only** — routes in `routes.ts` are always
+registered, so a flagged-off page is still reachable by direct URL. Flags are not
+access control. Source of truth is `config.features` (`window.__CONFIG__.features`),
+consumed two ways: direct access `config.features[name]` (sidebar, Settings) and the
+`flagged` provider in `main.tsx` (`useFeature` / `<Feature>` — available, mostly unused).
+
+- **Adding a flag touches 5 places** or it silently misbehaves: the `FeatureFlags`
+  interface AND the fallback object in `src/lib/config.ts`, all three
+  `public/config.*.js` copies, `src/test/setup.ts`, and the sidebar item's
+  `flag:` prop in `src/components/app-sidebar.tsx`.
+- **Do not remove the `[flag: string]: boolean` index signature** on `FeatureFlags`
+  (`config.ts`) — `flagged`'s `FlagsProvider features={...}` expects a `FeatureGroup`,
+  and without it `tsc`/`npm run build` fails.
+- **Flag defaults intentionally diverge:** `config.js` has `jobs:false`/`kitchen_sink:true`,
+  but `src/test/setup.ts` has `jobs:true`/`kitchen_sink:false`. Tests assert against the
+  test defaults, not the dev defaults — do not "fix" them to match.
+- Enabling a flag without the backing infra (e.g. `jobs` without the queue tier) yields
+  a UI that returns API errors. Flags track deployed capability.
 
 ## Mock-UX Mode
 
