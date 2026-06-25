@@ -24,6 +24,9 @@ specs/
 .data/
 .output/
 .draft/
+.archive/
+
+*.zip
 
 # IPA generated templates (security-sensitive, not committed)
 infra/cfn/generated/
