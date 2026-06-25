@@ -37,6 +37,11 @@ infra/cfn/generated/
 .claude/commands/speckit.*
 .specify/
 
+# OpenSpec
+openspec/
+.claude/commands/opsx/
+.claude/skills/openspec-*/
+
 innovation-patterns*.tar.gz
 
 # Terraform — stray local state from runs invoked outside infra/tf/
