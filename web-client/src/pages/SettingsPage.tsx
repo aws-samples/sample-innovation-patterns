@@ -49,7 +49,13 @@ export function SettingsPage() {
                       <code className="text-xs">{key}</code>
                     </TableCell>
                     <TableCell>
-                      {value ? (
+                      {typeof value === 'boolean' ? (
+                        // Render booleans (e.g. MOCK_API: false) as their literal value —
+                        // the falsy branch below is reserved for genuinely empty strings.
+                        <code className="text-muted-foreground text-xs break-all">
+                          {String(value)}
+                        </code>
+                      ) : value ? (
                         <code className="text-muted-foreground text-xs break-all">
                           {String(value)}
                         </code>

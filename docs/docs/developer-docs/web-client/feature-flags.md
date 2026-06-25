@@ -180,6 +180,10 @@ The codebase has two mechanisms for reading flags, each suited to a different us
 
 Feature flags in the web-client correspond to backend capabilities that may or may not be deployed. For example, the `jobs` flag should be `true` only when the queue tier stack is deployed (which provides SQS + DynamoDB jobs table + worker Lambda). The `chat` flag requires a Bedrock model endpoint. Enabling a flag without the backing infrastructure results in a functional UI that returns API errors.
 
+### Relationship to Mock-UX Mode
+
+Feature flags are independent of the `MOCK_API` data-source switch. A builder developing a new feature typically enables both — the `features.*` flag to reveal the UI and `MOCK_API` to serve it from mocks — then flips each separately as the feature matures. See [UX-First Mocking](ux-first-mocking) for the full workflow.
+
 ## References
 
 - `web-client/src/lib/config.ts` — flag interface and runtime config

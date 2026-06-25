@@ -77,12 +77,16 @@ make -f scripts/test.mk test-web
 ### Test Infrastructure
 
 ```
+src/mocks/
+├── handlers.ts        # Shared MSW request handlers (relative URLs) — used by tests AND dev
+├── browser.ts         # setupWorker(...handlers) — browser worker for mock-UX mode
+├── AGENTS.md          # Terse do/don't for handler authoring
+└── README.md          # The three-stage UX-first loop + mock→real recipe
 src/test/
 ├── setup.ts           # Global setup: jest-dom, window.__CONFIG__, matchMedia mock, MSW lifecycle
 ├── test-utils.tsx     # renderWithProviders(), createTestStore(), createWrapper()
 └── msw/
-    ├── handlers.ts    # Default MSW request handlers (passengers, projects, jobs)
-    └── server.ts      # MSW setupServer instance
+    └── server.ts      # MSW setupServer instance (imports handlers from src/mocks/)
 ```
 
 - **`setup.ts`** sets `window.__CONFIG__` with `API_BASE_URL: 'http://localhost'` and auth disabled (empty OIDC values). MSW server starts before all tests, resets handlers after each, and closes after all.
@@ -118,8 +122,8 @@ src/test/
 
 ### When Adding a New API Endpoint
 
-1. Add an MSW handler in `src/test/msw/handlers.ts` using absolute URLs (`http://localhost/api/v1/...`)
-2. Write tests for any page/hook that consumes the new endpoint
+1. Add an MSW handler in `src/mocks/handlers.ts` using **relative** URLs (`/api/v1/...`). This one set is shared by the Node test server (`src/test/msw/server.ts`) and the browser worker (`src/mocks/browser.ts`), so the same mock serves both tests and mock-UX mode.
+2. Write tests for any page/hook that consumes the new endpoint. Per-test overrides via `server.use(...)` may use absolute `http://localhost/api/v1/...` URLs — the test origin is pinned to that host.
 
 ### What NOT to Test
 
@@ -138,3 +142,35 @@ Coverage reports (text, HTML, lcov) are generated with `npm run test:coverage`. 
 - `layouts/` components are structural only — no data fetching
 - `services/api/generated.ts` is auto-generated — never edit (see `services/api/README.md`)
 - `config.ts` lives in `lib/` — it reads `window.__CONFIG__` set by `public/config.js`
+
+## Mock-UX Mode
+
+UX-first development: build and iterate on screens against mocked API responses
+before any backend exists, then scaffold the real backend *from* the mocks.
+
+**Detect the mode with `config.MOCK_API === true`** (the single source of truth). When
+true and the build is non-production, `main.tsx` starts the MSW browser worker
+(`src/mocks/browser.ts`) so every `/api/v1/*` call is served from
+`src/mocks/handlers.ts` with no backend on `:8000`.
+
+Two **independent** switches:
+
+| Switch | Controls | Type |
+|---|---|---|
+| `MOCK_API` | Data source: MSW vs real backend | top-level config key |
+| `features.<name>` | UI visibility of a feature | `features.*` flag |
+
+`MOCK_API` is a data-source switch, not a product feature — keep it top-level, never
+under `features`. It defaults `false` everywhere; `infra/scripts/configure_frontend.py`
+always writes `false`, and an `import.meta.env.PROD` guard refuses to start the worker
+in a prod build, so mocking can never ship enabled.
+
+**Stage-2 rule (the one to follow while building):** when you add or change a page
+that fetches data, author/maintain its handler in `src/mocks/handlers.ts` in the same
+change, returning JSON in the shape the real DTO will return. Gate in-progress features
+behind a `features.*` flag so they ship dark. The handler is the API contract.
+
+**Stage-3 (migrate to real):** turn a handler into an `app-lib` feature whose
+`routes/{name}_dto.py` Pydantic shape mirrors the handler JSON, run the backend, then
+`npm run codegen` re-types `services/api/generated.ts`, and flip `MOCK_API` off. See
+`src/mocks/README.md` and `docs/.../developer-docs/web-client/ux-first-mocking.md`.

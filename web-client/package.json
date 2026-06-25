@@ -11,7 +11,7 @@
     "lint:cicd:junit": "eslint . -f node_modules/@crowdstrike/eslint-junit/index.js -o lint-eslint.xml; prettier --check \"src/**/*.{ts,tsx,css}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "postinstall": "cp node_modules/@axa-fr/oidc-client-service-worker/dist/OidcServiceWorker.js public/OidcServiceWorker.js",
+    "postinstall": "cp node_modules/@axa-fr/oidc-client-service-worker/dist/OidcServiceWorker.js public/OidcServiceWorker.js && msw init public/ --no-save",
     "preview": "vite preview",
     "update:openapi": "curl -o openapi-schema.json http://localhost:8000/openapi.json",
     "generate:api": "npx @rtk-query/codegen-openapi openapi-config.cjs",

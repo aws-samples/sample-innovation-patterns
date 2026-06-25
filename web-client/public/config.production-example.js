@@ -15,6 +15,9 @@ window.__CONFIG__ = {
   OIDC_REDIRECT_URI: "",
   OIDC_SCOPE: "openid profile email",
   LOG_LEVEL: "debug",
+  // Mock API: when true, MSW intercepts /api/v1/* in the browser and no backend is
+  // needed (UX-first "mock-UX mode"). MUST be false in production.
+  MOCK_API: false,
   // Feature flags: toggle UI features on/off. Set to true to show, false to hide.
   // These control sidebar navigation visibility only — routes remain accessible via URL.
   features: {

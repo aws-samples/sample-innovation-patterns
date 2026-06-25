@@ -208,3 +208,7 @@ function PassengersPage() {
 | `src/services/api/baseApi.ts` | `createApi()` instance — auth, error handling, tag types |
 | `src/services/api/generated.ts` | Auto-generated endpoints — never edit |
 | `src/store/store.ts` | Redux store — registers the API reducer and middleware |
+
+### Closing the Mock-to-Real Loop
+
+Codegen is the final step of the UX-first workflow. When a feature is built against MSW mocks, the mock handler's response shape *is* the API contract. Scaffolding the matching `app-lib` feature and running `npm run codegen` regenerates `generated.ts` with typed hooks against the real endpoint — no hand-written client code. See [UX-First Mocking](ux-first-mocking) for the full migration recipe.

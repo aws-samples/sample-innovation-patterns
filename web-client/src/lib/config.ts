@@ -18,6 +18,7 @@
  *   2. Add the key to the AppConfig interface below
  *   3. Add the key to the fallback object below
  *   4. Import { config } from '@/lib/config' and use config.YOUR_KEY
+ *   (Tests also set window.__CONFIG__ in src/test/setup.ts — add the key there too.)
  */
 
 interface FeatureFlags {
@@ -26,6 +27,9 @@ interface FeatureFlags {
   playground: boolean
   kb_playground: boolean
   kitchen_sink: boolean
+  // Index signature so this is assignable to flagged's FeatureGroup
+  // ({ [name: string]: boolean }) where <FlagsProvider features={...}> expects it.
+  [flag: string]: boolean
 }
 
 interface AppConfig {
@@ -36,6 +40,7 @@ interface AppConfig {
   OIDC_SCOPE: string
   OIDC_END_SESSION_ENDPOINT: string
   LOG_LEVEL: string
+  MOCK_API: boolean // when true (non-prod only), MSW intercepts /api/v1/* — see src/mocks/
   features: FeatureFlags
 }
 
@@ -53,6 +58,7 @@ export const config: AppConfig = window.__CONFIG__ ?? {
   OIDC_SCOPE: 'openid profile email',
   OIDC_END_SESSION_ENDPOINT: '',
   LOG_LEVEL: 'debug',
+  MOCK_API: false,
   features: {
     chat: false,
     jobs: false,

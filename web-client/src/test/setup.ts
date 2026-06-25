@@ -14,6 +14,7 @@ window.__CONFIG__ = {
   OIDC_SCOPE: 'openid profile email',
   OIDC_END_SESSION_ENDPOINT: '',
   LOG_LEVEL: 'silent',
+  MOCK_API: false,
   features: {
     chat: false,
     jobs: true,

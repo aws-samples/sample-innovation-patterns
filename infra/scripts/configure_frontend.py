@@ -55,6 +55,9 @@ def main():
         "OIDC_SCOPE": "openid profile email",
         "OIDC_END_SESSION_ENDPOINT": args.oidc_end_session_endpoint,
         "LOG_LEVEL": "debug",
+        # Mocking (MSW) must never ship enabled to production. Always written false
+        # here; a build-time PROD guard in main.tsx also refuses to start the worker.
+        "MOCK_API": False,
         "features": {
             "chat": False,
             "jobs": False,

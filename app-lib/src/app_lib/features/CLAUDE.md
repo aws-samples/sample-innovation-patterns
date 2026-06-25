@@ -113,6 +113,26 @@ Create `tests/features/{name}/` mirroring the feature structure with `__init__.p
 
 Enable a DynamoDB table via feature flag in the appropriate tier stack (e.g., `EnablePassengersTable=true` on backend, `EnableJobsTable=true` on queue).
 
+## Scaffolding a Feature From an MSW Handler (UX-First Reverse Path)
+
+When the web-client was built UX-first against mocks, the MSW handler is the contract —
+scaffold the backend *from* it:
+
+1. Find the handler in `web-client/src/mocks/handlers.ts` for the endpoint (e.g.
+   `GET /api/v1/trips`). Its JSON response shape **is** the target DTO shape.
+2. Copy-and-adapt `passengers/` into `features/{name}/` (Steps 1–6 above). In
+   `routes/{name}_dto.py`, define a Pydantic response model whose fields and types
+   **exactly mirror the handler JSON** (same field names, same nullability). The route
+   prefix is already `/api/v1` by convention, matching the handler URL.
+3. Register the router (2 lines in `common/app.py`) and run the backend on `:8000`.
+4. From `web-client/`, run `npm run codegen` — it curls `openapi.json` and regenerates
+   `src/services/api/generated.ts` with typed hooks matching the previously-mocked shape,
+   no hand edits. The frontend then flips `MOCK_API` off and hits the real endpoint.
+
+The shape-mirrors-DTO rule is what makes the loop lossless: if the handler JSON and the
+Pydantic DTO agree, codegen produces a drop-in client. See
+`web-client/src/mocks/README.md` for the front-end half of this workflow.
+
 ## Feature Isolation (Orchestration-Only Composition)
 
 A feature MUST NOT import from another feature. Cross-feature workflows are

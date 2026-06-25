@@ -1,10 +1,25 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
+//
+// Shared MSW request handlers — used by BOTH the browser worker (src/mocks/browser.ts,
+// active in `npm run dev` when MOCK_API is true) AND the Node test server
+// (src/test/msw/server.ts, active under Vitest).
+//
+// URLs are RELATIVE (`/api/v1/...`) on purpose. A relative path resolves against:
+//   - location.origin in the browser (dev: same origin the Vite proxy serves from), and
+//   - jsdom's origin (http://localhost) under Vitest — where API_BASE_URL is set to
+//     'http://localhost' (src/test/setup.ts), so RTK Query issues absolute
+//     http://localhost/api/v1/... requests that MSW still matches by path.
+// This single detail is what lets one handler set serve both environments.
+//
+// CONTRACT RULE: each response shape must mirror the matching app-lib DTO
+// (routes/{name}_dto.py Pydantic serialization) so `npm run codegen` produces a
+// typed client that drops in when MOCK_API is flipped off. See src/mocks/AGENTS.md.
 import { http, HttpResponse } from 'msw'
 
 export const handlers = [
   // Passengers
-  http.get('http://localhost/api/v1/passengers', () => {
+  http.get('/api/v1/passengers', () => {
     return HttpResponse.json([
       {
         ticket: 'A/5 21171',
@@ -21,7 +36,7 @@ export const handlers = [
     ])
   }),
 
-  http.get('http://localhost/api/v1/passengers/:ticket', ({ params }) => {
+  http.get('/api/v1/passengers/:ticket', ({ params }) => {
     return HttpResponse.json({
       ticket: params.ticket,
       name: 'Test Passenger',
@@ -37,31 +52,31 @@ export const handlers = [
   }),
 
   // Projects
-  http.get('http://localhost/api/v1/projects', () => {
+  http.get('/api/v1/projects', () => {
     return HttpResponse.json({
       data: [{ id: '1', name: 'Test Project', description: null, created_at: null }],
     })
   }),
 
-  http.get('http://localhost/api/v1/projects/:id', ({ params }) => {
+  http.get('/api/v1/projects/:id', ({ params }) => {
     return HttpResponse.json({
       data: { id: params.id, name: 'Test Project', description: null, created_at: null },
     })
   }),
 
-  http.post('http://localhost/api/v1/projects', async ({ request }) => {
+  http.post('/api/v1/projects', async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
     return HttpResponse.json({
       data: { id: '2', name: body.name, description: body.description ?? null, created_at: null },
     })
   }),
 
-  http.delete('http://localhost/api/v1/projects/:id', () => {
+  http.delete('/api/v1/projects/:id', () => {
     return new HttpResponse(null, { status: 204 })
   }),
 
   // Jobs
-  http.get('http://localhost/api/v1/jobs', () => {
+  http.get('/api/v1/jobs', () => {
     return HttpResponse.json([
       {
         job_id: 'j1',
@@ -76,7 +91,7 @@ export const handlers = [
     ])
   }),
 
-  http.post('http://localhost/api/v1/jobs', () => {
+  http.post('/api/v1/jobs', () => {
     return HttpResponse.json({
       job_id: 'j-new',
       status: 'PENDING',

@@ -9,6 +9,17 @@ export default mergeConfig(
     test: {
       globals: true,
       environment: 'jsdom',
+      // Pin jsdom's origin to http://localhost (default is http://localhost:3000).
+      // The shared MSW handlers (src/mocks/handlers.ts) use relative /api/v1/... paths,
+      // which resolve against this origin. API_BASE_URL is 'http://localhost' in tests
+      // (src/test/setup.ts), so RTK Query issues http://localhost/api/v1/... requests —
+      // matching both the relative handlers and the absolute-URL server.use() overrides
+      // in the page tests. Without this pin, the origin port mismatches (80 vs 3000).
+      environmentOptions: {
+        jsdom: {
+          url: 'http://localhost',
+        },
+      },
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       coverage: {

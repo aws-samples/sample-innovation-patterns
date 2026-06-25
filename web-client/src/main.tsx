@@ -16,21 +16,34 @@ import './index.css'
 
 setupLogging()
 
+// Mock-UX mode: when MOCK_API is true (non-production only), start the MSW browser
+// worker so /api/v1/* is served from src/mocks/handlers.ts with no backend running.
+// The worker is lazy-imported so MSW is code-split out of the production bundle, and
+// the import.meta.env.PROD guard ensures mocking can never start in a prod build even
+// if MOCK_API were somehow true. See src/mocks/AGENTS.md and web-client/CLAUDE.md.
+async function enableMocking() {
+  if (import.meta.env.PROD || !config.MOCK_API) return
+  const { worker } = await import('@/mocks/browser')
+  await worker.start({ onUnhandledRequest: 'warn' })
+}
+
 const router = createBrowserRouter(routes)
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ThemeProvider>
-      <ActiveThemeProvider>
-        <FlagsProvider features={config.features}>
-          <AuthProvider>
-            <ApiProvider>
-              <RouterProvider router={router} />
-              <Toaster />
-            </ApiProvider>
-          </AuthProvider>
-        </FlagsProvider>
-      </ActiveThemeProvider>
-    </ThemeProvider>
-  </StrictMode>,
-)
+void enableMocking().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ThemeProvider>
+        <ActiveThemeProvider>
+          <FlagsProvider features={config.features}>
+            <AuthProvider>
+              <ApiProvider>
+                <RouterProvider router={router} />
+                <Toaster />
+              </ApiProvider>
+            </AuthProvider>
+          </FlagsProvider>
+        </ActiveThemeProvider>
+      </ThemeProvider>
+    </StrictMode>,
+  )
+})
