@@ -6,10 +6,10 @@ import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router'
-import { FlagsProvider } from 'react-feature-flags'
+import { FlagsProvider } from 'flagged'
 import { baseApi } from '@/services/api/baseApi'
 import { apiErrorMiddleware } from '@/store/apiErrorMiddleware'
-import { getFlags } from '@/lib/featureFlags'
+import { config } from '@/lib/config'
 
 export function createTestStore() {
   return configureStore({
@@ -22,17 +22,17 @@ export function createTestStore() {
 interface WrapperOptions {
   store?: ReturnType<typeof createTestStore>
   route?: string
-  flags?: Array<{ name: string; isActive: boolean }>
+  flags?: Record<string, boolean>
 }
 
 export function createWrapper({ store, route = '/', flags }: WrapperOptions = {}) {
   const testStore = store ?? createTestStore()
-  const testFlags = flags ?? getFlags()
+  const testFlags = flags ?? config.features
 
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <Provider store={testStore}>
-        <FlagsProvider value={testFlags}>
+        <FlagsProvider features={testFlags}>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </FlagsProvider>
       </Provider>

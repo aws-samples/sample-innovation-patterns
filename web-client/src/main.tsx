@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import { setupLogging } from '@/lib/setupLogging'
-import { getFlags } from '@/lib/featureFlags'
+import { config } from '@/lib/config'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router'
-import { FlagsProvider } from 'react-feature-flags'
+import { FlagsProvider } from 'flagged'
 import { ActiveThemeProvider } from '@/components/active-theme'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { ApiProvider } from '@/providers/ApiProvider'
@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <ActiveThemeProvider>
-        <FlagsProvider value={getFlags()}>
+        <FlagsProvider features={config.features}>
           <AuthProvider>
             <ApiProvider>
               <RouterProvider router={router} />

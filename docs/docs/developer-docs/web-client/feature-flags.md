@@ -12,16 +12,15 @@ The web-client uses runtime feature flags to control which pages appear in the s
 ```mermaid
 graph LR
     ConfigJS["public/config.js<br/>(window.__CONFIG__)"] --> Config["lib/config.ts<br/>(AppConfig)"]
-    Config --> FeatureFlags["lib/featureFlags.ts<br/>(getFlags)"]
     Config --> Sidebar["app-sidebar.tsx<br/>(config.features filtering)"]
-    FeatureFlags --> FlagsProvider["FlagsProvider<br/>(react-feature-flags)"]
+    Config --> FlagsProvider["FlagsProvider<br/>(flagged)"]
     Config --> Settings["SettingsPage.tsx<br/>(display only)"]
 ```
 
 Feature flags flow through two parallel paths:
 
 1. **Sidebar filtering** — `app-sidebar.tsx` reads `config.features` directly and filters navigation items. Items with a `flag` property are hidden when that flag is `false`.
-2. **React context** — `FlagsProvider` from `react-feature-flags` wraps the app in `main.tsx`, making flags available to any component via the `<Flags>` component. This path is currently unused in the codebase but available for component-level gating.
+2. **React context** — `FlagsProvider` from [`flagged`](https://github.com/sergiodxa/flagged) wraps the app in `main.tsx`, consuming `config.features` as an object map. Flags become available to any component via the `useFeature` hook, the `<Feature>` component, or the `withFeature` HOC. This path is currently unused in the codebase but available for component-level gating.
 
 ## Key Concepts
 
@@ -141,13 +140,13 @@ The Settings page (`/settings`) displays all current feature flag values in a ta
 | File | Purpose |
 |------|---------|
 | `src/lib/config.ts` | `FeatureFlags` interface and fallback defaults |
-| `src/lib/featureFlags.ts` | `getFlags()` — converts `config.features` to `react-feature-flags` array format |
-| `src/main.tsx` | Wraps the app in `FlagsProvider` |
+| `src/main.tsx` | Wraps the app in `FlagsProvider`, passing `config.features` directly |
 | `src/components/app-sidebar.tsx` | Filters sidebar items based on `config.features` |
 | `src/pages/SettingsPage.tsx` | Displays flag state in the UI |
 | `public/config.js` | Local development defaults |
 | `public/config.production-example.js` | Documents all configurable values |
-| `src/types/react-feature-flags.d.ts` | TypeScript type declarations for `react-feature-flags` |
+
+`flagged` ships its own TypeScript types, so no hand-written type declarations are required. `config.features` is passed to `FlagsProvider` as an object map without an adapter.
 
 ### Two Consumption Paths
 
@@ -155,17 +154,27 @@ The codebase has two mechanisms for reading flags, each suited to a different us
 
 1. **Direct config access** (`config.features.flagName`) — Used by `app-sidebar.tsx` and `SettingsPage.tsx`. Simpler and appropriate when the consuming component already imports `config`.
 
-2. **`<Flags>` component** from `react-feature-flags` — Available via `FlagsProvider` in `main.tsx` but not currently used. Provides declarative `authorizedFlags` / `renderOn` / `renderOff` props for conditional rendering within components:
+2. **`flagged` API** via `FlagsProvider` in `main.tsx` — Available but not currently used. `flagged` exposes three ways to read a flag inside a component:
 
    ```tsx
-   import { Flags } from 'react-feature-flags'
+   import { useFeature, Feature, withFeature } from 'flagged'
 
-   <Flags authorizedFlags={['chat']} renderOff={() => null}>
+   // Hook — read a flag inside a component body
+   function ChatButton() {
+     const hasChat = useFeature('chat')
+     return hasChat ? <ChatWidget /> : null
+   }
+
+   // Render component — declarative gating
+   <Feature name="chat">
      <ChatWidget />
-   </Flags>
+   </Feature>
+
+   // Higher-order component — wrap a component so it renders only when enabled
+   const Chat = withFeature('chat')(ChatWidget)
    ```
 
-   Use the `<Flags>` component when gating content inside a page that is not itself flag-gated in the sidebar.
+   Use the `flagged` API when gating content inside a page that is not itself flag-gated in the sidebar.
 
 ### Coupling with CloudFormation
 
@@ -175,6 +184,6 @@ Feature flags in the web-client correspond to backend capabilities that may or m
 
 - `web-client/src/lib/config.ts` — flag interface and runtime config
 - `web-client/src/components/app-sidebar.tsx` — sidebar flag filtering
-- `web-client/src/lib/featureFlags.ts` — `getFlags()` adapter
+- `web-client/src/main.tsx` — `FlagsProvider` wiring (`config.features` passed directly)
 - `web-client/public/config.js` — local development defaults
-- [react-feature-flags](https://www.npmjs.com/package/react-feature-flags) — React context-based flag library
+- [flagged](https://github.com/sergiodxa/flagged) — zero-dependency, TypeScript-native React feature-flag library
