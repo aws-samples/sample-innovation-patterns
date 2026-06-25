@@ -93,7 +93,7 @@ export function RootErrorBoundary() {
 
         <p className="text-muted-foreground/40 font-mono text-[10px]">
           {status && <span className="mr-2">HTTP {status}</span>}
-          app v{__APP_VERSION__} · {__BUILD_VERSION__}
+          web v{__APP_VERSION__} · {__BUILD_VERSION__}
         </p>
       </div>
     </div>

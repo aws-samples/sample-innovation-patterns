@@ -15,7 +15,7 @@ export function VersionBadge() {
   return (
     <div className="font-mono text-[10px] text-muted-foreground/50 space-y-0.5 px-2 pt-4 pb-2">
       <div>
-        app: v{__APP_VERSION__} · {__BUILD_VERSION__}
+        web: v{__APP_VERSION__} · {__BUILD_VERSION__}
       </div>
       {version && (
         <div className="opacity-70">
