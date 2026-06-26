@@ -85,7 +85,7 @@ local-up:
 	case "$$ctx" in \
 	  *$(K3D_CLUSTER_NAME)*) : ;; \
 	  *) echo "ERROR: kubectl context is '$$ctx', not the local k3d cluster."; \
-	     echo "Run 'make local-setup' first, or: kubectl config use-context k3d-$(K3D_CLUSTER_NAME)"; \
+	     echo "Run 'make local-setup' first, or: kubectl config use-context $(K3D_CLUSTER_NAME)"; \
 	     exit 1 ;; \
 	esac
 	tilt up

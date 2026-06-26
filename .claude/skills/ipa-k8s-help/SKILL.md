@@ -93,7 +93,7 @@ their profile lacks DynamoDB read on that table.
 ### Step 5 — Cluster state
 
 Run `kubectl config current-context`. If it is not the local k3d context
-(`k3d-k3d-ipa-local`), the cluster is not set up: instruct `make local-setup`.
+(`k3d-ipa-local`), the cluster is not set up: instruct `make local-setup`.
 If `ctlptl get cluster` shows no cluster, same remedy.
 
 ### Step 6 — Guided run
@@ -115,7 +115,7 @@ Walk the builder through, one command at a time (they run each):
 | port 8000 already bound | another process on :8000 | `lsof -i :8000` then free it, or change the port-forward |
 | pod `ResourceNotFoundException` | table not deployed / name mismatch | Step 4; confirm `.env` matches the deployed tier |
 | pod `AccessDeniedException` | profile lacks DynamoDB read | grant read on `{ns}_{env}_passengers`, or switch profile |
-| `kubectl` context wrong | pointed at another cluster | `kubectl config use-context k3d-k3d-ipa-local` |
+| `kubectl` context wrong | pointed at another cluster | `kubectl config use-context k3d-ipa-local` |
 | live-update not syncing | edited outside `app-lib/src/app_lib` | edit under the synced path, or expect a rebuild |
 | cluster won't create | docker not running | start Docker Desktop, re-run `make local-setup` |
 

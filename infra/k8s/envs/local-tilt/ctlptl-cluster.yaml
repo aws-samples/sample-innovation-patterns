@@ -14,11 +14,14 @@ name: ipa-local-registry
 port: 5005
 
 ---
-# k3d cluster. The cluster name is a LOCAL LITERAL ("ipa-local"), not derived
-# from APP_NAMESPACE — running more than one local cluster is not a use case,
-# so namespacing the cluster name buys nothing. This is intentional (KISS).
+# k3d cluster. `product: k3d` is REQUIRED — it tells ctlptl which cluster type
+# to create. The `name` is the kube CONTEXT name; for k3d that is `k3d-<n>`, so
+# `k3d-ipa-local` yields a k3d cluster named `ipa-local` with context
+# `k3d-ipa-local`. This is a LOCAL LITERAL (not derived from APP_NAMESPACE) —
+# running more than one local cluster is not a use case (KISS).
 apiVersion: ctlptl.dev/v1alpha1
 kind: Cluster
+product: k3d
 name: k3d-ipa-local
 registry: ipa-local-registry
 # Passthrough to k3d's own v1alpha5 SimpleConfig. The `volumes` stanza maps the
