@@ -1,0 +1,33 @@
+# ctlptl cluster + registry spec for the local k3d inner-dev loop.
+#
+# Applied by `make local-setup` (ctlptl apply -f ...). ctlptl is idempotent:
+# re-applying reconciles the existing cluster/registry rather than recreating.
+#
+# Two documents below: a local OCI Registry and a k3d Cluster wired to it.
+
+---
+# Local image registry. ctlptl's Registry uses a TOP-LEVEL `name:` (NOT
+# metadata.name) — this is a ctlptl quirk; do not "fix" it to metadata.name.
+apiVersion: ctlptl.dev/v1alpha1
+kind: Registry
+name: ipa-local-registry
+port: 5005
+
+---
+# k3d cluster. The cluster name is a LOCAL LITERAL ("ipa-local"), not derived
+# from APP_NAMESPACE — running more than one local cluster is not a use case,
+# so namespacing the cluster name buys nothing. This is intentional (KISS).
+apiVersion: ctlptl.dev/v1alpha1
+kind: Cluster
+name: k3d-ipa-local
+registry: ipa-local-registry
+# Passthrough to k3d's own v1alpha5 SimpleConfig. The `volumes` stanza maps the
+# developer's host ~/.aws into every k3d node at /host-aws (read-only). The Helm
+# chart's aws.credentials.hostPath points at this in-node path, completing the
+# split-plane credential path: host ~/.aws -> node /host-aws -> pod.
+k3d:
+  v1alpha5Simple:
+    volumes:
+      - volume: ${HOME}/.aws:/host-aws:ro
+        nodeFilters:
+          - all

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: app-lib
+description: |
+  Helm chart for the app-lib FastAPI service. Deploys a single Deployment +
+  Service + ServiceAccount. Cloud-ready (values-overridable image/env/
+  serviceAccount, IRSA-annotatable) and used both for the local k3d/Tilt inner
+  loop and as the customer handoff artifact for a real cluster.
+type: application
+
+# Chart version — bump on chart structure changes.
+version: 0.1.0
+
+# appVersion tracks the app-lib release the chart targets. Overridable per
+# environment via image.tag; this is the default shown in `helm ls`.
+appVersion: "0.1.0"

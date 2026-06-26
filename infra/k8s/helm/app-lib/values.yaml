@@ -1,0 +1,93 @@
+# Default values for the app-lib chart.
+#
+# These defaults are PRODUCTION-SHAPED on purpose: a customer who runs
+# `helm install` with no overrides gets a sane, secure-leaning baseline
+# (auth on, a single replica, resource limits, no host credential mount).
+# The local Tilt loop overrides these via infra/k8s/envs/local-tilt/values.yaml;
+# a cloud deploy overrides via infra/k8s/envs/eks/values.yaml (template only).
+
+# -- Number of pod replicas.
+replicaCount: 1
+
+image:
+  # -- Image repository. Locally, Tilt builds and injects "app-lib"; for a
+  # cloud deploy, override with your registry/ECR path (see envs/eks).
+  repository: app-lib
+  # -- Image pull policy. IfNotPresent suits local images built by Tilt.
+  pullPolicy: IfNotPresent
+  # -- Image tag. Empty string falls back to Chart.appVersion (see _helpers).
+  tag: ""
+
+# -- Optional image pull secrets for private registries (cloud only).
+imagePullSecrets: []
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the full release-qualified name used in resource names.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount for the pod.
+  create: true
+  # -- Annotations for the ServiceAccount. For EKS IRSA, set
+  # eks.amazonaws.com/role-arn here (see envs/eks/values.yaml). Empty for local.
+  annotations: {}
+  # -- ServiceAccount name. Empty string derives it from the fullname helper.
+  name: ""
+
+service:
+  # -- Service type. ClusterIP is correct for both local (port-forward) and a
+  # cloud deploy fronted by an Ingress.
+  type: ClusterIP
+  # -- Service port. Targets the container's named "http" port (8000).
+  port: 8000
+
+# -- Application environment variables, rendered into the container as a flat
+# name/value map. Production-shaped defaults below; the Tiltfile injects the
+# table-name convergence trio (APP_NAMESPACE / APP_ENV / AWS_REGION /
+# APP_REGION) at deploy time from the repo-root .env, so they are NOT set here.
+env:
+  # Auth on by default (production posture). The local overlay flips this off.
+  AUTH_ENABLED: "true"
+  APP_ENV: "dev"
+
+aws:
+  credentials:
+    # -- How the developer's AWS credentials reach the pod for the local
+    # split-plane model (pod reads a real deployed DynamoDB table).
+    #   none     — mount nothing (cloud deploys using IRSA; see envs/eks)
+    #   direct   — mount hostPath read-only straight at mountPath
+    #   initCopy — an initContainer copies the host creds into an emptyDir and
+    #              chmods them, so a non-root app container can read them
+    # Default initCopy: works for non-root pods and never bind-mounts the host
+    # path into the long-lived app container. Cloud deploys set this to "none".
+    mode: initCopy
+    # -- Host path to the developer's AWS config/credentials. In the local
+    # cluster this directory is mounted into the k3d node at /host-aws (see
+    # ctlptl-cluster.yaml); the chart references that node path here.
+    hostPath: /host-aws
+    # -- Where credentials are mounted inside the container. The AWS SDK reads
+    # ~/.aws by default; for the default root-less image, /root/.aws matches the
+    # SDK's HOME-based lookup when running as root, and AWS_CONFIG_FILE /
+    # AWS_SHARED_CREDENTIALS_FILE are exported to make it explicit.
+    mountPath: /root/.aws
+
+# -- Pod resource requests/limits. Modest defaults suitable for a POC; raise
+# for production load.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Liveness/readiness probe configuration (both hit GET /health).
+probes:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# -- Extra pod node placement controls (cloud only; empty locally).
+nodeSelector: {}
+tolerations: []
+affinity: {}

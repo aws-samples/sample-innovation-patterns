@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-lib.fullname" . }}
+  labels:
+    {{- include "app-lib.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "app-lib.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-lib.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "app-lib.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.aws.credentials.mode "initCopy" }}
+      # initCopy: copy the read-only host-mounted creds into a writable emptyDir
+      # and lock them down, so the (possibly non-root) app container can read
+      # them without bind-mounting the host path into the long-lived container.
+      initContainers:
+        - name: copy-aws-credentials
+          image: {{ include "app-lib.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cp -rL /host-aws/. /aws-creds/ 2>/dev/null || true
+              chmod -R 0400 /aws-creds/* 2>/dev/null || true
+          volumeMounts:
+            - name: host-aws
+              mountPath: /host-aws
+              readOnly: true
+            - name: aws-creds
+              mountPath: /aws-creds
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "app-lib.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if ne .Values.aws.credentials.mode "none" }}
+            # Point the AWS SDK explicitly at the mounted credential files so
+            # lookups do not depend on the container's HOME.
+            - name: AWS_CONFIG_FILE
+              value: {{ printf "%s/config" .Values.aws.credentials.mountPath | quote }}
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: {{ printf "%s/credentials" .Values.aws.credentials.mountPath | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if ne .Values.aws.credentials.mode "none" }}
+          volumeMounts:
+            {{- if eq .Values.aws.credentials.mode "initCopy" }}
+            - name: aws-creds
+              mountPath: {{ .Values.aws.credentials.mountPath }}
+              readOnly: true
+            {{- else }}
+            - name: host-aws
+              mountPath: {{ .Values.aws.credentials.mountPath }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+      {{- if ne .Values.aws.credentials.mode "none" }}
+      volumes:
+        {{- if eq .Values.aws.credentials.mode "initCopy" }}
+        - name: host-aws
+          hostPath:
+            path: {{ .Values.aws.credentials.hostPath }}
+            type: Directory
+        - name: aws-creds
+          emptyDir: {}
+        {{- else }}
+        - name: host-aws
+          hostPath:
+            path: {{ .Values.aws.credentials.hostPath }}
+            type: Directory
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

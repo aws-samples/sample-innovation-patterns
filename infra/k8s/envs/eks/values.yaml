@@ -1,0 +1,69 @@
+# ===========================================================================
+# EKS values overlay — WORKED EXAMPLE / TEMPLATE ONLY. NOT DEPLOYED.
+#
+# IPA does not stand up an EKS cluster, wire ECR, create an IRSA role, or apply
+# anything from this file this round. It exists so a customer (or a future IPA
+# round) can SEE exactly what a cloud overlay looks like and copy it into their
+# own envs/<cluster>/values.yaml. Every override point is annotated below.
+#
+# Render to inspect (does not deploy):
+#   helm template app-lib infra/k8s/helm/app-lib -f infra/k8s/envs/eks/values.yaml
+# Deploy (a customer does this themselves, with their own values):
+#   helm upgrade --install app-lib infra/k8s/helm/app-lib -f <your-values.yaml>
+# ===========================================================================
+
+image:
+  # Cloud image lives in a registry, not built locally. Replace with YOUR ECR
+  # repository URI. 123456789012 is a PLACEHOLDER account ID — never a real one.
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/app-lib
+  # Pin a real, immutable tag in cloud (not "latest") so rollouts are reproducible.
+  tag: "0.1.0"
+  # Always pull in cloud so the node never serves a stale cached layer.
+  pullPolicy: Always
+
+serviceAccount:
+  create: true
+  annotations:
+    # IRSA — the CLOUD, least-privilege alternative to the local host-mount.
+    # Bind a scoped IAM role to this ServiceAccount; the pod then receives
+    # short-lived, per-pod credentials with ONLY the DynamoDB permissions it
+    # needs. Replace the ARN below; 123456789012 is a PLACEHOLDER account ID.
+    # Creating this role + OIDC trust is the customer's (or future IPA) work —
+    # this annotation alone does nothing without it.
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/app-lib-irsa-role
+
+aws:
+  credentials:
+    # IRSA replaces the host credential mount entirely — mount NOTHING. Setting
+    # mode anything other than "none" in cloud would (incorrectly) try to mount
+    # a host path that does not exist on a managed node.
+    mode: none
+
+# Cloud env: auth ON (production posture). The convergence trio
+# (APP_NAMESPACE / APP_ENV / AWS_REGION / APP_REGION) must still match whatever
+# named the DynamoDB table the customer is targeting — set them here explicitly
+# (in cloud there is no Tiltfile injecting them from .env).
+env:
+  AUTH_ENABLED: "true"
+  APP_ENV: "prod"
+  APP_NAMESPACE: "your-namespace"
+  AWS_REGION: "us-east-1"
+  APP_REGION: "us-east-1"
+
+# Scale for real load — more than one replica for availability.
+replicaCount: 2
+
+# Size to the workload; these are illustrative cloud values, not a measurement.
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# NOTE — Ingress is intentionally NOT templated by this chart. Expose the
+# ClusterIP Service with whatever your cluster uses (AWS Load Balancer
+# Controller Ingress, a Gateway API route, or a Service of type LoadBalancer in
+# your own overlay). Adding ingress templates is future work; see
+# infra/k8s/README.md.

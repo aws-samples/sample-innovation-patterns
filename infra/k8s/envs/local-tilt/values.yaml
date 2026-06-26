@@ -1,0 +1,48 @@
+# Helm values overlay for the LOCAL Tilt / k3d inner-dev loop.
+#
+# Layered config model:
+#   T1 (convergence) — APP_NAMESPACE / APP_ENV / AWS_REGION / APP_REGION — is
+#      NOT set here. The Tiltfile injects it from the repo-root .env via
+#      dotenv() + helm(set=[...]) so the local pod resolves the SAME DynamoDB
+#      table name the backend tier CFN created. Editing this file to add T1
+#      would defeat that single-source-of-truth design — leave it to Tilt.
+#   T2/T3 (preference) — everything below. These are the knobs a builder may
+#      tune for local work; they are documented inline per the Transparency
+#      constraint.
+
+# T2: auth OFF for local development — no Cognito/JWT round-trip while iterating.
+# (The chart default is "true"; this overlay deliberately relaxes it.)
+env:
+  AUTH_ENABLED: "false"
+  # APP_ENV placeholder only. The real value is injected by the Tiltfile from
+  # .env (T1); this line documents that the key exists and keeps `helm template`
+  # of this overlay alone meaningful. Tilt's --set overrides it at deploy time.
+  APP_ENV: "local"
+
+# T3: AWS credential delivery for the split-plane model. initCopy copies the
+# host-mounted ~/.aws (surfaced in the k3d node at /host-aws by ctlptl) into an
+# emptyDir the app container can read. See the chart CLAUDE.md for the modes.
+aws:
+  credentials:
+    mode: initCopy
+    hostPath: /host-aws
+    mountPath: /root/.aws
+
+# T3: local image built by Tilt; no registry tag needed (IfNotPresent + the
+# Tilt-built "app-lib" image). Pull policy stays IfNotPresent so k3d uses the
+# locally-loaded image rather than reaching out to a registry.
+image:
+  repository: app-lib
+  pullPolicy: IfNotPresent
+
+# T3: a single replica is all a local loop needs.
+replicaCount: 1
+
+# T3: modest local resource envelope.
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
