@@ -41,7 +41,7 @@ Install these command-line tools (this guide does not install them for you):
 that are missing. The interactive `/ipa-k8s-help` skill does the same and triages
 failures.
 
-:::note Split-plane precondition
+:::note[Split-plane precondition]
 The local pod reads a **real deployed** DynamoDB table — it does not run its own
 database. Before starting, deploy the data plane with the existing flow:
 `/ipa-compose → /ipa-prepare → /ipa-deploy` for the **backend tier** with
@@ -50,7 +50,7 @@ database. Before starting, deploy the data plane with the existing flow:
 both sides.
 :::
 
-:::warning Host credentials reach the pod
+:::warning[Host credentials reach the pod]
 The local loop mounts your `~/.aws` directory into the pod so it can call AWS
 with **your full IAM identity**. This is a deliberate POC trade-off — the
 credentials are your own, mounted at runtime, never embedded in the chart, image,
@@ -103,6 +103,15 @@ deployed table.
    make local-destroy
    ```
 
+   To start completely fresh — for example after a corrupted cluster or a
+   change to the cluster or registry configuration — use `make local-reset`. It
+   runs `local-destroy`, then `local-setup`, then `local-up` in sequence,
+   recreating the k3d cluster and restarting the loop in one command:
+
+   ```bash
+   make local-reset
+   ```
+
 ## Verification
 
 With the loop running:
@@ -115,6 +124,18 @@ curl -s localhost:8000/api/v1/passengers   # -> rows from the real deployed tabl
 The first confirms the pod is up; the second confirms the split-plane read
 against the deployed DynamoDB table succeeded.
 
+To verify functionality in a browser, open the interactive API documentation:
+
+```
+http://localhost:8000/docs
+```
+
+This renders the OpenAPI (Swagger UI) reference for the service. A working loop
+shows the **Titanic Passenger API** with its route groups — `passengers`,
+`jobs`, `sse`, `inference`, and `default` (`/health`, `/version`) — and the
+schema definitions below them. Expand any operation to send a test request
+directly from the browser.
+
 ## Troubleshooting
 
 For interactive, step-by-step diagnosis, run `/ipa-k8s-help`. Common failures:
@@ -122,7 +143,7 @@ For interactive, step-by-step diagnosis, run `/ipa-k8s-help`. Common failures:
 | Symptom | Cause | Fix |
 |---|---|---|
 | `make doctor` names a missing tool | not installed | run the printed install command |
-| `aws-check-creds` red in Tilt | expired SSO session | `aws sso login`, then re-trigger the resource |
+| `aws-check-creds` red in Tilt | expired/absent credentials for `AWS_PROFILE` (or default chain) | refresh creds for your profile (e.g. `aws sso login --profile <name>`, renew IAM session), then re-trigger the resource |
 | port 8000 already in use | another process bound :8000 | `lsof -i :8000`, free it, re-run |
 | pod `ResourceNotFoundException` | table not deployed or name mismatch | deploy the backend tier; confirm `.env` matches it |
 | pod `AccessDeniedException` | profile lacks DynamoDB read | grant read on `{ns}_{env}_passengers` or switch profile |

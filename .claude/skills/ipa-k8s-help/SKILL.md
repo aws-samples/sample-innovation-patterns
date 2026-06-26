@@ -70,9 +70,12 @@ Do not proceed to Step 2 until every tool is present. (This mirrors
 - If the repo-root `.env` is **absent**, STOP: report a first-class "missing
   `.env`" failure and instruct the builder to run `/ipa-init` (or copy
   `.env.example`). Do not assume defaults.
-- Otherwise run `set -a; . ./.env; set +a; aws sts get-caller-identity`. On
-  failure (expired SSO, wrong profile), print the error and the fix:
-  `aws sso login` (or `aws configure`), then re-run.
+- Otherwise run `set -a; . ./.env; set +a; aws sts get-caller-identity`. This
+  honors `AWS_PROFILE` from `.env` when set, or the default credential chain
+  when not. On failure (expired/absent credentials, wrong profile), print the
+  error and the fix: refresh credentials for your profile however that profile
+  authenticates (e.g. `aws sso login --profile <name>`, renew an IAM session,
+  or `aws configure`), then re-run.
 
 ### Step 3 — Convergence check
 
@@ -111,7 +114,7 @@ Walk the builder through, one command at a time (they run each):
 |---|---|---|
 | `make doctor` names a missing CLI | tool not installed | run the printed install command |
 | missing `.env` | not initialized | `/ipa-init` (or copy `.env.example`) |
-| `aws-check-creds` red in Tilt | expired/absent SSO session | `aws sso login`, then re-trigger |
+| `aws-check-creds` red in Tilt | expired/absent credentials for `AWS_PROFILE` (or default chain) | refresh creds for your profile (e.g. `aws sso login --profile <name>`, renew IAM session), then re-trigger |
 | port 8000 already bound | another process on :8000 | `lsof -i :8000` then free it, or change the port-forward |
 | pod `ResourceNotFoundException` | table not deployed / name mismatch | Step 4; confirm `.env` matches the deployed tier |
 | pod `AccessDeniedException` | profile lacks DynamoDB read | grant read on `{ns}_{env}_passengers`, or switch profile |

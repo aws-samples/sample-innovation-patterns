@@ -21,6 +21,13 @@ ns = os.getenv('APP_NAMESPACE', '')
 env = os.getenv('APP_ENV', 'dev')
 region = os.getenv('AWS_REGION', '')
 
+# AWS_PROFILE is OPTIONAL — matches the rest of IPA (.env.example): when set, the
+# CLI and the pod's SDK use that named profile; when omitted, both fall back to
+# the default credential chain. This replaces the old `aws sso login` helper,
+# which assumed everyone authenticates via SSO. Profile selection is auth-method
+# agnostic (SSO, IAM user, credential_process, Isengard export — all work).
+profile = os.getenv('AWS_PROFILE', '')
+
 if not ns or not region:
     fail("APP_NAMESPACE and AWS_REGION must be set in the repo-root .env. " +
          "Run /ipa-init (or copy .env.example) before `make local-up`.")
@@ -44,41 +51,55 @@ docker_build_with_restart(
 # from .env. Both AWS_REGION and APP_REGION are set (Risk #9: app-lib / boto3
 # read AWS_REGION; some code paths read APP_REGION — set both so the pod and
 # the SDK agree on region no matter which is consulted).
+helm_set = [
+    'env.APP_NAMESPACE=%s' % ns,
+    'env.APP_ENV=%s' % env,
+    'env.AWS_REGION=%s' % region,
+    'env.APP_REGION=%s' % region,
+]
+
+# When AWS_PROFILE is set, inject it into the pod env so the SDK selects that
+# named profile from the mounted ~/.aws/config (the mount sets AWS_CONFIG_FILE /
+# AWS_SHARED_CREDENTIALS_FILE but defaults to the [default] profile otherwise).
+# When unset, the line is omitted and the SDK uses the default credential chain.
+if profile:
+    helm_set.append('env.AWS_PROFILE=%s' % profile)
+
 k8s_yaml(helm(
     'infra/k8s/helm/app-lib',
     name='app-lib',
     values=['infra/k8s/envs/local-tilt/values.yaml'],
-    set=[
-        'env.APP_NAMESPACE=%s' % ns,
-        'env.APP_ENV=%s' % env,
-        'env.AWS_REGION=%s' % region,
-        'env.APP_REGION=%s' % region,
-    ],
+    set=helm_set,
 ))
 
 # Credential gate: verify the developer's AWS session is live BEFORE the pod
 # starts, so it never comes up with dead credentials and fails opaquely on the
 # first DynamoDB call. Goes red on expired/absent creds.
+#
+# Honors AWS_PROFILE when set (any auth method — SSO, IAM user,
+# credential_process, etc.); falls back to the default credential chain when
+# unset. Refresh creds however your profile expects (e.g. `aws sso login
+# --profile <name>`, renew an IAM session) and re-trigger this resource.
+check_creds_cmd = 'aws sts get-caller-identity'
+if profile:
+    check_creds_cmd += ' --profile %s' % profile
+
 local_resource(
     'aws-check-creds',
-    'aws sts get-caller-identity',
+    check_creds_cmd,
     deps=[],
     labels=['aws'],
 )
 
-# Manual-trigger helper to refresh an expired SSO session without leaving Tilt.
-local_resource(
-    'aws-sso-login',
-    'aws sso login',
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    deps=[],
-    labels=['aws'],
-)
-
-# The app waits for the credential check to pass.
+# The app waits for the credential check to pass. labels=['app'] groups it in
+# the Tilt UI under an "app" section instead of the catch-all "(unlabeled)"
+# group, parallel to the 'aws' group above. objects=[...] folds the standalone
+# ServiceAccount (a non-workload object Tilt would otherwise surface as its own
+# unlabeled 'app-lib:serviceaccount' resource) into this resource.
 k8s_resource(
     'app-lib',
     port_forwards='8000:8000',
     resource_deps=['aws-check-creds'],
+    labels=['app'],
+    objects=['app-lib:serviceaccount'],
 )

@@ -19,12 +19,20 @@ env:
   # of this overlay alone meaningful. Tilt's --set overrides it at deploy time.
   APP_ENV: "local"
 
-# T3: AWS credential delivery for the split-plane model. initCopy copies the
-# host-mounted ~/.aws (surfaced in the k3d node at /host-aws by ctlptl) into an
-# emptyDir the app container can read. See the chart CLAUDE.md for the modes.
+# T3: AWS credential delivery for the split-plane model. `direct` bind-mounts
+# the host ~/.aws (surfaced in the k3d node at /host-aws by ctlptl) read-only
+# straight into the app container. The local image runs as root, so it can read
+# the host-owned creds without the non-root copy/chmod dance.
+#
+# NOTE: `initCopy` does NOT work under Tilt here — its initContainer reuses the
+# app-lib image, and `docker_build_with_restart(entrypoint=...)` rewrites EVERY
+# app-lib container's command to the uvicorn restart wrapper. That turns the
+# copy step into a long-running uvicorn process that never exits, so the pod
+# hangs at Init:0/1 forever. `direct` has no initContainer and sidesteps it.
+# See the chart CLAUDE.md for all three modes.
 aws:
   credentials:
-    mode: initCopy
+    mode: direct
     hostPath: /host-aws
     mountPath: /root/.aws
 
