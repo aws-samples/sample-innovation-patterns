@@ -46,6 +46,13 @@ Run `/ipa-help` at any time to see current project state and which skill to run 
 
 Every skill is idempotent — safe to re-run at any time.
 
+## Run Locally on Kubernetes
+
+The backend ships as a Helm chart so you can develop the `app-lib` service the way it runs in a cluster, not just as a Lambda. A local inner-dev loop — k3d, Helm, and Tilt — runs the service in a local Kubernetes cluster at `http://localhost:8000` with live-reload on source edits, while reading a real, AWS-deployed DynamoDB table through your own `~/.aws` credentials. The same chart is the handoff artifact for a production cluster, re-pointed by a per-environment values overlay.
+
+- **[Kubernetes Local Development](../guides/kubernetes-local-development.md)** — Stand up the local k3d/Tilt loop
+- **[Kubernetes Path to Production](../guides/kubernetes-path-to-production.md)** — Take the chart to a real cluster
+
 ## Get Started
 
 - **[Installation](installation.md)** — Install prerequisites (Python 3.12, Node.js, AWS CLI, Claude Code)
