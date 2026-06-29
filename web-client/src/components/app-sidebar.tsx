@@ -118,7 +118,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const handleLogout = () => void logout()
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -179,13 +179,14 @@ function NavSamples({ items, currentPath }: { items: typeof data.samples; curren
   )
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+    <SidebarGroup>
       <SidebarGroupLabel>Samples</SidebarGroupLabel>
       <SidebarMenu>
         {visibleItems.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton
               asChild
+              tooltip={item.name}
               isActive={'url' in item && !('external' in item) && item.url === currentPath}
             >
               {'external' in item && item.external ? (
@@ -222,7 +223,7 @@ function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={item.url === currentPath}>
+              <SidebarMenuButton asChild tooltip={item.title} isActive={item.url === currentPath}>
                 {item.external ? (
                   <a href={item.url} target="_blank" rel="noopener noreferrer">
                     <item.icon />

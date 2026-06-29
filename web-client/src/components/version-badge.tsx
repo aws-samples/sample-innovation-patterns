@@ -13,7 +13,7 @@ export function VersionBadge() {
   const version = apiVersion as VersionResponse | undefined
 
   return (
-    <div className="font-mono text-[10px] text-muted-foreground/50 space-y-0.5 px-2 pt-4 pb-2">
+    <div className="font-mono text-[10px] text-muted-foreground/50 space-y-0.5 px-2 pt-4 pb-2 group-data-[collapsible=icon]:hidden">
       <div>
         web: v{__APP_VERSION__} · {__BUILD_VERSION__}
       </div>
