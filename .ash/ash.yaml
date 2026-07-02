@@ -17,6 +17,14 @@ global_settings:
     # node_modules/ contains stale or transitive packages not tracked by lockfiles at root
     - path: 'node_modules/'
       reason: 'Stale/transitive node_modules at repo root — actual deps are tracked via app-specific lockfiles (docs/pnpm-lock.yaml, web-client/package-lock.json)'
+    # app-lib/build/ is a git-ignored Lambda build artifact (vendored third-party
+    # packages copied into deployment_package/). It is not source, not tracked by
+    # git, and never present in a clean CI checkout — a local `brazil-build`/package
+    # step populates it. Scanning it floods results with findings in vendored deps'
+    # own test files (docstring_parser, referencing, cffi, jinja2, ...). Same
+    # rationale as node_modules/: artifact directory, not first-party source.
+    - path: 'app-lib/build/'
+      reason: 'Git-ignored Lambda build artifact (vendored third-party packages in deployment_package/); not first-party source and absent from clean CI checkouts. Real dependencies are scanned via app-lib/uv.lock. Mirrors the node_modules/ ignore rationale.'
   suppressions:
     # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause
     - rule_id: 'B101'
@@ -36,7 +44,7 @@ global_settings:
     - rule_id: 'GHSA-5239-wwwm-4pmq-pygments'
       path: 'utils/uv.lock'
       reason: 'pygments is a dev-only dependency (via pytest); upgrade utils/uv.lock separately if still on 2.19.x'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
       path: 'infra/cfn/cognito/cognito.yml'
@@ -100,7 +108,7 @@ global_settings:
     - rule_id: 'GHSA-f886-m6hf-6m8v-brace-expansion'
       path: 'docs/pnpm-lock.yaml'
       reason: 'No fix available — 1.1.13 is the latest v1.x release; transitive dep pinned by minimatch@3 in @docusaurus/core'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     # uuid@8.3.2 — buffer bounds check in v3/v5/v6 when `buf` is provided (CVE-2026-41907, GHSA-w5hq-g745-h8pq).
     # Transitive via @docusaurus/core → webpack-dev-server → sockjs. sockjs calls uuidv4() without a
     # `buf` argument (node_modules/sockjs/lib/transport.js:37), so the bounds bug cannot be triggered.
@@ -108,16 +116,16 @@ global_settings:
     - rule_id: 'GHSA-w5hq-g745-h8pq-uuid'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Not exploitable — sockjs calls uuid.v4() without the optional `buf` param that triggers the bounds bug. Dev-server only (webpack-dev-server transitive); not in shipped bundle. No fix available until sockjs updates.'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     - rule_id: 'CVE-2026-41907'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Not exploitable — sockjs calls uuid.v4() without the optional `buf` param that triggers the bounds bug. Dev-server only (webpack-dev-server transitive); not in shipped bundle. No fix available until sockjs updates.'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     # Gemnasium emits a separate "duplicate advisory" rule-ID for the same uuid CVE — same rationale.
     - rule_id: 'Gemnasium-653adbcf-024c-4083-8ea9-79cbe44e84f0'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Duplicate advisory for CVE-2026-41907 (uuid buffer bounds). Same rationale — sockjs calls uuid.v4() without the `buf` param; dev-server only.'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     # fast-uri path traversal — FIXED: pinned to >=3.1.1 (resolves to 3.1.2) via pnpm.overrides
     # in docs/package.json (2026-05-08). Transitive via @docusaurus/core → babel-loader →
     # schema-utils → ajv-formats → ajv → fast-uri. Suppression retained as safety net in case
@@ -125,11 +133,11 @@ global_settings:
     - rule_id: 'CVE-2026-6321'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Fixed — pinned to fast-uri 3.1.2 (>=3.1.1 patched) via pnpm.overrides in docs/package.json. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     - rule_id: 'GHSA-q3j6-qgpj-74h6'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Fixed — pinned to fast-uri 3.1.2 (>=3.1.1 patched) via pnpm.overrides in docs/package.json. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     # ip-address 10.1.0 — XSS in Address6 HTML-emitting methods (CVE-2026-42338, GHSA-v2v4-37r5-5v8g).
     # No patched version published as of 2026-05-08 (advisory range: <=10.1.0). Transitive via
     # shadcn CLI → @modelcontextprotocol/sdk → express-rate-limit → ip-address. Dev-only dependency
@@ -137,27 +145,27 @@ global_settings:
     - rule_id: 'CVE-2026-42338'
       path: 'web-client/package-lock.json'
       reason: 'No upstream fix available — advisory range <=10.1.0; 10.2.0 is latest. Dev-only: transitive via shadcn CLI → express-rate-limit; not in deployed bundle. Vulnerable Address6 HTML methods are not called by express-rate-limit.'
-      expiration: '2026-06-26'
+      expiration: '2026-08-27'
     # Hono vulnerabilities — FIXED: upgraded from 4.12.14 to 4.12.18 via npm audit fix (2026-05-08).
     # Suppressions retained as safety net in case lockfile regeneration temporarily reverts.
     - rule_id: 'CVE-2026-44455'
       path: 'web-client/package-lock.json'
       reason: 'Fixed — upgraded to hono 4.12.18 (>=4.12.16 patched) via npm audit fix. Dev-only transitive via shadcn CLI. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     - rule_id: 'CVE-2026-44456'
       path: 'web-client/package-lock.json'
       reason: 'Fixed — upgraded to hono 4.12.18 (>=4.12.16 patched) via npm audit fix. Dev-only transitive via shadcn CLI. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     # PostCSS — FIXED: upgraded from 8.5.6 to 8.5.14 via npm audit fix (2026-05-08).
     # Suppressions retained as safety net.
     - rule_id: 'CVE-2026-41305'
       path: 'web-client/package-lock.json'
       reason: 'Fixed — upgraded to postcss 8.5.14 (>=8.5.10 patched) via npm audit fix. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     - rule_id: 'GHSA-qx2v-qp2m-jg93-postcss'
       path: 'web-client/package-lock.json'
       reason: 'Fixed — upgraded to postcss 8.5.14 (>=8.5.10 patched) via npm audit fix. Suppression retained as safety net.'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     # (Removed: lambda.yml, dynamodb.yml suppressions — templates deleted in tier consolidation)
     # Dockerfile USER directive — not applicable for Lambda container images.
     # Lambda runs inside its own execution sandbox; the container USER has no security impact.
@@ -169,7 +177,7 @@ global_settings:
     - rule_id: 'GHSA-37ch-88jc-xwx2-path-to-regexp'
       path: 'docs/pnpm-lock.yaml'
       reason: 'Fixed — upgraded to 0.1.13 via npm audit fix; suppression retained as safety net'
-      expiration: '2026-06-30'
+      expiration: '2026-08-27'
     # Dockerfile HEALTHCHECK — not applicable for Lambda container images.
     # Lambda manages function health internally; Docker HEALTHCHECK is ignored by the Lambda runtime.
     - rule_id: 'CKV_DOCKER_2'
@@ -359,6 +367,12 @@ global_settings:
     - rule_id: 'CKV_AWS_19'
       path: 'infra/tf/logs/main.tf'
       reason: 'False positive — SSE IS configured via the separate aws_s3_bucket_server_side_encryption_configuration.logs resource (main.tf:24-30) using sse_algorithm = var.kms_key_arn != "" ? "aws:kms" : "AES256". Checkov flags the aws_s3_bucket resource rather than tracing the linked SSE configuration. POC.'
+    - rule_id: 'CKV_AWS_19'
+      path: 'infra/tf/codepipeline/main.tf'
+      reason: 'False positive — SSE IS configured via the separate aws_s3_bucket_server_side_encryption_configuration.artifacts resource (main.tf:26-34) using sse_algorithm = var.kms_key_arn != "" ? "aws:kms" : "AES256". Checkov flags the aws_s3_bucket resource rather than tracing the linked SSE configuration. Mirrors existing CKV_AWS_19 suppression on infra/tf/logs/main.tf. POC.'
+    - rule_id: 'CKV_AWS_19'
+      path: 'infra/cfn/tfstate/tfstate.yml'
+      reason: 'False positive — SSE is configured via BucketEncryption.ServerSideEncryptionConfiguration with SSEAlgorithm: !If [HasKmsKey, aws:kms, AES256] (tfstate.yml:27-31); checkov cannot resolve CloudFormation intrinsic functions. Mirrors existing CKV_AWS_19 suppression on infra/cfn/logs/logs.yml. POC.'
     # S3 versioning — pipeline artifacts are ephemeral build outputs, not source of truth
     - rule_id: 'CKV_AWS_21'
       path: 'infra/cfn/codepipeline/codepipeline.yml'

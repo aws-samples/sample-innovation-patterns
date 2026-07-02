@@ -25,5 +25,17 @@ WORKDIR /app
 COPY . ./app-lib/
 RUN pip install --no-cache-dir -e ./app-lib[rest]
 
+# Drop root privileges (CKV_DOCKER_3). Unlike the rest-lambda image (which runs
+# in the Lambda execution sandbox where USER has no effect), this container runs
+# as a plain pod — a non-root runtime user is a real hardening boundary. /app is
+# chowned so Tilt live-update can still sync source into the editable install.
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+USER appuser
+
+# Liveness signal for the uvicorn server (CKV_DOCKER_2). Hits the public /health
+# route (app_lib.common.app:86; listed in PUBLIC_PATHS so it bypasses JWT auth).
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"
+
 # Plain uvicorn entrypoint on :8000. The chart names this container port "http".
 CMD ["python", "-m", "uvicorn", "app_lib.common.app:app", "--host", "0.0.0.0", "--port", "8000"]

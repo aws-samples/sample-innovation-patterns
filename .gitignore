@@ -8,6 +8,12 @@ __pycache__
 !.vscode/extensions.json
 .context/
 
+# Node modules — actual deps live in app-specific lockfiles
+# (docs/pnpm-lock.yaml, web-client/package-lock.json). A stray root-level
+# `npm install` created a package-less node_modules/ that polluted the SAST
+# SBOM scan (hono/undici/vite High findings); ignore it so it cannot reappear.
+/node_modules/
+
 # Documentation site
 docs/build/
 docs/.docusaurus/
