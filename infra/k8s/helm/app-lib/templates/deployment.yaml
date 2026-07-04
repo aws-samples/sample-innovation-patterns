@@ -90,8 +90,13 @@ spec:
             periodSeconds: {{ .Values.probes.periodSeconds }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if ne .Values.aws.credentials.mode "none" }}
+          # A writable /tmp is required because securityContext sets
+          # readOnlyRootFilesystem: true. This emptyDir is the only writable
+          # path in the app container.
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if ne .Values.aws.credentials.mode "none" }}
             {{- if eq .Values.aws.credentials.mode "initCopy" }}
             - name: aws-creds
               mountPath: {{ .Values.aws.credentials.mountPath }}
@@ -101,9 +106,11 @@ spec:
               mountPath: {{ .Values.aws.credentials.mountPath }}
               readOnly: true
             {{- end }}
-          {{- end }}
-      {{- if ne .Values.aws.credentials.mode "none" }}
+            {{- end }}
       volumes:
+        # Writable scratch for the app container (readOnlyRootFilesystem: true).
+        - name: tmp
+          emptyDir: {}
         {{- if eq .Values.aws.credentials.mode "initCopy" }}
         - name: host-aws
           hostPath:
@@ -111,13 +118,12 @@ spec:
             type: Directory
         - name: aws-creds
           emptyDir: {}
-        {{- else }}
+        {{- else if ne .Values.aws.credentials.mode "none" }}
         - name: host-aws
           hostPath:
             path: {{ .Values.aws.credentials.hostPath }}
             type: Directory
         {{- end }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

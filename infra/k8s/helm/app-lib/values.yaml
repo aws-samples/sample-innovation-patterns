@@ -98,6 +98,11 @@ securityContext:
   capabilities:
     drop:
       - ALL
+  # Read-only root filesystem: neither container writes to its own rootfs. The
+  # initContainer writes only to the /aws-creds emptyDir; the app reads creds
+  # from a read-only mount and writes transient files to a writable /tmp emptyDir
+  # (mounted in templates/deployment.yaml). Removes a whole class of tamper vectors.
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
   # Pin the UID to match the rest-k8s image's `appuser` (Dockerfile: --uid 10001).
   # This is what both containers already run as, so declaring it changes nothing
