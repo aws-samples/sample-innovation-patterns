@@ -9,6 +9,14 @@
 # -- Number of pod replicas.
 replicaCount: 1
 
+# -- Mount the ServiceAccount API token into the pod. This service talks to
+# DynamoDB (via the creds mount locally, or IRSA in cloud) and never calls the
+# Kubernetes API, so it does not need a projected API token. Disabling the
+# automount removes an unused, forgeable credential. Applied to BOTH the pod
+# spec and the ServiceAccount object (see templates/). IRSA's web-identity
+# token is a separate projected volume and is unaffected by this setting.
+automountServiceAccountToken: false
+
 image:
   # -- Image repository. Locally, Tilt builds and injects "app-lib"; for a
   # cloud deploy, override with your registry/ECR path (see envs/eks).
@@ -71,6 +79,28 @@ aws:
     # SDK's HOME-based lookup when running as root, and AWS_CONFIG_FILE /
     # AWS_SHARED_CREDENTIALS_FILE are exported to make it explicit.
     mountPath: /root/.aws
+
+# -- Hardened container securityContext applied to BOTH the app container and
+# the copy-aws-credentials initContainer (see templates/deployment.yaml). This
+# is the secure baseline every rendered container ships with.
+#
+# runAsNonRoot is safe despite aws.credentials.mountPath defaulting to
+# /root/.aws: the deployment exports AWS_CONFIG_FILE / AWS_SHARED_CREDENTIALS_FILE
+# pointing at mountPath, so the SDK resolves creds by explicit path, not by HOME.
+# In initCopy mode the initContainer copies creds into an emptyDir it owns, so a
+# non-root UID can read them. The app listens on unprivileged port 8000.
+#
+# Overlays that want strict correctness may set runAsUser together with a
+# matching aws.credentials.mountPath (e.g. runAsUser: 1000 + mountPath:
+# /home/app/.aws); unspecified fields here keep these hardened defaults.
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
 
 # -- Pod resource requests/limits. Modest defaults suitable for a POC; raise
 # for production load.

@@ -716,3 +716,21 @@ global_settings:
       path: 'app-lib/uv.lock'
       reason: 'Fixed — upgraded to pymdown-extensions 10.21.3 via uv lock. Dev-only (mkdocs build dep); not bundled in deployed Lambda. Suppression retained as safety net.'
       expiration: '2026-08-23'
+    # ========================================================================
+    # app-lib Helm chart — local-dev hostPath credential mount (KICS)
+    #
+    # The app-lib chart mounts the developer's ~/.aws directory read-only into
+    # the pod for the local "split-plane" model (compute in k3d, data plane in
+    # real AWS via the dev's own creds). This is intentional and already
+    # readOnly: true. The mount exists ONLY for the direct/initCopy credential
+    # modes; the cloud none/IRSA mode (envs/eks) mounts no hostPath at all, so
+    # these suppressions are inert in the cloud posture. Privilege-escalation on
+    # both containers is FIXED via the hardened securityContext in values.yaml —
+    # only the two hostPath findings are dispositioned here.
+    # ========================================================================
+    - rule_id: 'Volume Mount With OS Directory Write Permissions'
+      path: 'infra/k8s/helm/app-lib/templates/deployment.yaml'
+      reason: 'By design — read-only (readOnly: true) hostPath mount of the developer AWS credentials for the local split-plane dev model (compute in k3d, data plane in real AWS). Present only for the direct/initCopy credential modes; the cloud none/IRSA mode mounts no hostPath. Removing it would break the documented local-dev design.'
+    - rule_id: 'Non Kube System Pod With Host Mount'
+      path: 'infra/k8s/helm/app-lib/templates/deployment.yaml'
+      reason: 'By design — the app pod intentionally mounts the developer AWS credentials via a read-only hostPath for the local split-plane dev model. Present only for the direct/initCopy credential modes; the cloud none/IRSA mode (envs/eks) mounts no hostPath and this suppression is inert there.'

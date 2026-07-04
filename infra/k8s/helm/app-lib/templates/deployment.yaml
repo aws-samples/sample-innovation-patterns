@@ -15,6 +15,13 @@ spec:
         {{- include "app-lib.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "app-lib.serviceAccountName" . }}
+      # This service reaches DynamoDB via the credential mount (local) or IRSA
+      # (cloud) and never calls the Kubernetes API, so it needs no projected
+      # API token. Disabling the automount removes an unused, forgeable
+      # credential from the pod. IRSA's web-identity token is a SEPARATE
+      # projected volume injected by the EKS pod-identity webhook and is
+      # unaffected by this setting.
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -27,6 +34,8 @@ spec:
         - name: copy-aws-credentials
           image: {{ include "app-lib.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           command:
             - /bin/sh
             - -c
@@ -44,6 +53,8 @@ spec:
         - name: {{ .Chart.Name }}
           image: {{ include "app-lib.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: 8000

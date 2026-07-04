@@ -37,6 +37,26 @@ aws:
     # IRSA replaces the host credential mount entirely — mount NOTHING. Setting
     # mode anything other than "none" in cloud would (incorrectly) try to mount
     # a host path that does not exist on a managed node.
+    #
+    # SECURITY — why the cloud posture is clean. The LOCAL overlay
+    # (envs/local-tilt, mode: direct) trips four KICS "Critical" SAST findings
+    # against the chart's deployment.yaml, all rooted in the split-plane dev
+    # model (compute in k3d, data plane in real AWS via the developer's creds):
+    #   - "Privilege Escalation Allowed" (x2)                — the two containers
+    #   - "Volume Mount With OS Directory Write Permissions" — the ~/.aws hostPath
+    #   - "Non Kube System Pod With Host Mount"              — the ~/.aws hostPath
+    # These are acceptable for LOCAL dev only (a readOnly mount of the
+    # developer's own ~/.aws on a throwaway k3d node) and are triaged as such in
+    # the security dashboard. The native KICS scanner does NOT read .ash/ash.yaml
+    # suppressions, so they must be dismissed manually (see infra/k8s/SECURITY-TRIAGE.md).
+    #
+    # They WOULD be a real problem on a managed cluster — which is exactly why
+    # this cloud overlay sets mode: none. With mode: none the chart renders NO
+    # hostPath volume and NO host mount, so the two hostPath findings cannot
+    # occur here; credentials arrive via the IRSA role annotated above. The
+    # hardened container securityContext (allowPrivilegeEscalation: false,
+    # capabilities.drop: [ALL], runAsNonRoot, seccompProfile: RuntimeDefault) is
+    # inherited from the chart defaults and applies to this overlay too.
     mode: none
 
 # Cloud env: auth ON (production posture). The convergence trio
