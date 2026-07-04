@@ -84,6 +84,17 @@ global_settings:
     - rule_id: 'CKV_AWS_136'
       path: 'infra/tf/ecr/main.tf'
       reason: 'Out of scope for POC — ECR uses default AES-256 encryption; customers can add an encryption_configuration block with encryption_type = "KMS" when productionizing. Mirrors CFN suppression on infra/cfn/ecr/ecr.yml.'
+    # S3 server access logging on the Terraform state bucket — intentionally omitted.
+    # This stack bootstraps a TF state backend for a POC. In any real environment the
+    # state infrastructure already exists (a platform/landing-zone team owns the state
+    # bucket and its logging destination), so this stack would not be deployed there.
+    # Enabling logging here would couple this first-to-deploy bootstrap stack to the
+    # later logs stack via ImportValue. The state store already has versioning (tracks
+    # every change), SSE, TLS-only, and full public-access block; CloudTrail data events
+    # are the standard audit mechanism. Documented at infra/cfn/tfstate/tfstate.yml.
+    - rule_id: 'CKV_AWS_18'
+      path: 'infra/cfn/tfstate/tfstate.yml'
+      reason: 'Out of scope for POC — bootstrap TF state backend; real environments already own state infra + its logging destination. Enabling logging here couples this first-to-deploy stack to the logs stack via ImportValue. Versioning/SSE/TLS-only/public-access-block already present; CloudTrail data events are the audit mechanism.'
     # ECR immutable tags — out of scope for POC; mutable tags allow iterative development.
     # Customers should switch to IMMUTABLE when productionizing.
     - rule_id: 'CKV_AWS_51'

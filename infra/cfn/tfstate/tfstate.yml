@@ -20,6 +20,17 @@ Resources:
   StateBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
+    # Server access logging (CKV_AWS_18) is intentionally omitted. This template
+    # bootstraps a Terraform state backend for a POC. In any real environment the
+    # state infrastructure already exists — a platform/landing-zone team owns the
+    # state bucket and its logging destination — so this stack would not be
+    # deployed there. Enabling logging here would couple this first-to-deploy
+    # bootstrap stack to the later logs stack (infra/cfn/logs/logs.yml) via an
+    # ImportValue, creating a deploy-ordering dependency. The controls that matter
+    # for a state store are already present: versioning (every state change is
+    # tracked and recoverable), SSE, TLS-only enforced by the bucket policy below,
+    # and a full public-access block. For S3 audit, CloudTrail data events are the
+    # standard mechanism. Suppressed in .ash/ash.yaml (CKV_AWS_18, this path).
     Properties:
       BucketName: !Sub '${Namespace}-${Environment}-tfstate-${AWS::AccountId}-${AWS::Region}'
       VersioningConfiguration:
