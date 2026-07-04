@@ -99,6 +99,14 @@ securityContext:
     drop:
       - ALL
   runAsNonRoot: true
+  # Pin the UID to match the rest-k8s image's `appuser` (Dockerfile: --uid 10001).
+  # This is what both containers already run as, so declaring it changes nothing
+  # at runtime — it just makes the high, non-root UID explicit in the manifest so
+  # a scanner can confirm it (KICS "Container Running With Low UID" wants >=10000).
+  # A UID this high also sidesteps any collision with host users on a node.
+  # An overlay that runs a different image should override this to match that
+  # image's user (and, if it reads creds by HOME, a matching mountPath).
+  runAsUser: 10001
   seccompProfile:
     type: RuntimeDefault
 
@@ -111,6 +119,17 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+
+# -- Resource requests/limits for the initCopy credential-copy initContainer.
+# Small by design — it runs a single `cp`+`chmod` and exits. Declared so the
+# initContainer is not unbounded (KICS "Memory Requests/Limits Not Defined").
+initResources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 50m
+    memory: 32Mi
 
 # -- Liveness/readiness probe configuration (both hit GET /health).
 probes:

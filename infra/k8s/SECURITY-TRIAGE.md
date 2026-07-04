@@ -69,34 +69,47 @@ container `securityContext`, so none of these can occur in a deployed posture.
 
 ## KICS Kubernetes analyzer — Medium findings (GitLab SAST)
 
-GitLab's KICS **Kubernetes** analyzer scans the raw Helm template the same way
-the KICS Critical scanner does (above) — it reads `deployment.yaml` /
-`serviceaccount.yaml` / `service.yaml` **before** Helm renders
-`{{- toYaml .Values.securityContext }}` and `{{- toYaml .Values.resources }}`,
-so it reports controls as missing that the chart actually applies. These do
-**not** appear in the ASH report (`.ash/ash.yaml` suppressions do not reach the
-native KICS scanner), so they are dismissed here.
+GitLab's KICS **Kubernetes** analyzer **does** render the Helm chart before
+scanning (it runs `helm template` internally), so — unlike the KICS Critical
+scanner noted above — it sees the values injected through
+`{{- toYaml .Values.securityContext }}` and `{{- toYaml .Values.resources }}`.
+We confirmed this: after the `securityContext` was hardened, the Seccomp /
+NET_RAW / "Running As Root" Mediums **disappeared** on the next scan, and the
+surviving findings' line numbers tracked edits to the template. So the Mediums
+below were **real gaps**, not template-blindness — most are now **fixed in the
+chart**, and only two classes remain as documented dispositions.
 
-Verify every claim below with:
-`helm template app-lib infra/k8s/helm/app-lib` — the securityContext block,
-`resources` block, and `automountServiceAccountToken: false` all render.
+These findings do **not** appear in the ASH report (`.ash/ash.yaml` suppressions
+do not reach the native KICS scanner), so the two remaining dispositions must be
+dismissed in the dashboard.
+
+Verify every fix below with:
+`helm template app-lib infra/k8s/helm/app-lib` — the `securityContext` (incl.
+`runAsUser: 10001`), the app **and** initContainer `resources` blocks, and
+`automountServiceAccountToken: false` all render.
 
 | Finding | Line(s) | Reason | Justification |
 |---|---|---|---|
-| Seccomp Profile Is Not Configured | 26, 43 | **False positive** | `seccompProfile.type: RuntimeDefault` is set on both containers via the shared `securityContext` in `values.yaml`; renders on every container. |
-| NET_RAW Capabilities Not Being Dropped | 26, 43 | **False positive** | `capabilities.drop: [ALL]` is set on both containers via the shared `securityContext`; dropping ALL includes NET_RAW. |
-| Container Running As Root | 26, 43 | **False positive** | `runAsNonRoot: true` is set on both containers via the shared `securityContext`. |
-| Memory Requests Not Defined | 26 | **False positive** | `resources.requests.memory: 128Mi` renders via `{{- toYaml .Values.resources }}`. |
-| Memory Limits Not Defined | 26 | **False positive** | `resources.limits.memory: 512Mi` renders via `{{- toYaml .Values.resources }}`. |
-| Service Account Token Automount Not Disabled | 16 | **FIXED** | Chart now sets `automountServiceAccountToken: false` on both the pod spec and the ServiceAccount (`values.yaml`, `deployment.yaml`, `serviceaccount.yaml`). The service calls DynamoDB, never the k8s API. |
-| Container Running With Low UID | 26, 43 | **Acceptable risk** | `runAsUser` is intentionally left unset so the image's own non-root UID applies; `runAsNonRoot: true` already guarantees a non-root user. Overlays may pin `runAsUser` (see `values.yaml` note). Bounded: local k3d dev only; cloud uses IRSA + hardened defaults. |
-| Using Unrecommended Namespace | svc-account:5, service:3, deployment:4 | **Acceptable risk** | The chart is namespace-agnostic by design — no `metadata.namespace` is hardcoded (that would fork the single-source-of-truth model; see chart CLAUDE.md). The namespace is supplied at install time via `helm install -n <ns>` from the convergence trio, never `default`. |
-| S3 Bucket Logging Disabled | tfstate.yml:23 | **Acceptable risk** | KICS-named variant of `CKV_AWS_18`, already dispositioned in `.ash/ash.yaml` (line 351): the Terraform state bucket is internal-only, accessed only by the terraform CLI, and auditable via CloudTrail S3 data events. |
+| Seccomp Profile Is Not Configured | app + init container | **FIXED** | `seccompProfile.type: RuntimeDefault` in the shared `securityContext` (`values.yaml`) renders on both containers. Resolved on re-scan. |
+| NET_RAW Capabilities Not Being Dropped | app + init container | **FIXED** | `capabilities.drop: [ALL]` in the shared `securityContext` renders on both containers (dropping ALL includes NET_RAW). Resolved on re-scan. |
+| Container Running As Root | app + init container | **FIXED** | `runAsNonRoot: true` in the shared `securityContext`. Resolved on re-scan. |
+| Service Account Token Automount Not Disabled | pod spec | **FIXED** | `automountServiceAccountToken: false` on both the pod spec and the ServiceAccount (`values.yaml`, `deployment.yaml`, `serviceaccount.yaml`). The service calls DynamoDB, never the k8s API. |
+| Memory Requests Not Defined | initContainer | **FIXED** | The initCopy initContainer previously declared no `resources`. It now renders `.Values.initResources` (requests 16Mi / limits 32Mi). The app container already had `.Values.resources`. |
+| Memory Limits Not Defined | initContainer | **FIXED** | Same as above — `initResources.limits.memory: 32Mi` renders on the initContainer. |
+| Container Running With Low UID | app + init container | **FIXED** | `runAsUser: 10001` added to the shared `securityContext`, matching the rest-k8s image's `appuser` (Dockerfile `--uid 10001`). This is the UID both containers already ran as, so it changes nothing at runtime — it just makes the high (>=10000), non-root UID explicit so the scanner can confirm it. |
+| Using Unrecommended Namespace | serviceaccount, service, deployment | **Acceptable risk** | The chart is namespace-agnostic by design — no `metadata.namespace` is hardcoded (that would fork the single-source-of-truth model; see chart CLAUDE.md). The namespace is supplied at install time via `helm install -n <ns>` from the convergence trio, never `default`. **Dismiss in dashboard.** |
+| S3 Bucket Logging Disabled | tfstate.yml:23 | **Acceptable risk** | KICS-named variant of `CKV_AWS_18`, already dispositioned in `.ash/ash.yaml` (line 351): the Terraform state bucket is internal-only, accessed only by the terraform CLI, and auditable via CloudTrail S3 data events. **Dismiss in dashboard.** |
 
-> **Note on the FIXED item:** `automountServiceAccountToken: false` is the one
-> Medium that was a genuine gap, not a template-blindness artifact — the chart
-> previously never set it. It is now hardened and needs no dashboard dismissal
-> once the scan re-runs. All other rows are dismissals.
+> **Most of these were genuine gaps and are now fixed in the chart** — they need
+> no dashboard action once the scan re-runs and clears them. Only the two
+> **Acceptable risk** rows (Unrecommended Namespace ×3, tfstate S3 logging)
+> remain as manual dismissals, because both reflect deliberate design choices
+> rather than missing controls.
+>
+> **Correction:** an earlier draft of this table labeled the Seccomp / NET_RAW /
+> Root / Memory findings "false positive (template blindness)." That was wrong —
+> KICS does render the chart. They were real, and are now fixed rather than
+> dismissed.
 
 ## Related suppression records
 

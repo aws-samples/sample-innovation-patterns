@@ -21,8 +21,13 @@ env:
 
 # T3: AWS credential delivery for the split-plane model. `direct` bind-mounts
 # the host ~/.aws (surfaced in the k3d node at /host-aws by ctlptl) read-only
-# straight into the app container. The local image runs as root, so it can read
-# the host-owned creds without the non-root copy/chmod dance.
+# straight into the app container, skipping the initCopy copy/chmod step (which
+# cannot run under Tilt — see NOTE below). The container runs as the image's
+# non-root appuser (UID 10001, per the chart securityContext); direct mode works
+# as long as the mounted ~/.aws files are readable by that UID. If a creds-read
+# ever fails locally with EACCES, that permission mismatch is the cause — widen
+# the host file perms or switch this overlay to a root securityContext for local
+# use only.
 #
 # NOTE: `initCopy` does NOT work under Tilt here — its initContainer reuses the
 # app-lib image, and `docker_build_with_restart(entrypoint=...)` rewrites EVERY

@@ -42,6 +42,10 @@ spec:
             - |
               cp -rL /host-aws/. /aws-creds/ 2>/dev/null || true
               chmod -R 0400 /aws-creds/* 2>/dev/null || true
+          # The copy step is trivial; give it the same modest envelope so both
+          # containers declare requests/limits (no unbounded init memory).
+          resources:
+            {{- toYaml .Values.initResources | nindent 12 }}
           volumeMounts:
             - name: host-aws
               mountPath: /host-aws
