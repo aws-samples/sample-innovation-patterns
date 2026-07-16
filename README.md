@@ -10,6 +10,8 @@ IPA is a library of AI-driven skills that automate AWS infrastructure deployment
 
 **The output is designed for your path to production.** IPA generates standard IaC templates (CloudFormation YAML or Terraform HCL), plain GNU Makefiles with inline CLI calls, and commented `.env` files — no proprietary abstractions, no runtime dependencies on IPA or a coding agent. An AWS engineer can open any generated file, understand it without IPA context, and integrate it into whatever CI/CD pipeline, change management process, or deployment workflow their organization requires. IPA gets you to a working POC fast; the artifacts it produces are the starting point for production, not a dead end.
 
+> **⚠️ Important:** These samples are **not production-ready**. They pass automated security scanning at the time of contribution but are not guaranteed to receive ongoing security patches or dependency updates. You must thoroughly review any sample code before deploying to production. See [SECURITY.md](SECURITY.md) for details.
+
 ## What It Deploys
 
 A full-stack composition deploys a complete serverless web application in a single session:
