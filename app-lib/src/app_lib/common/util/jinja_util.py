@@ -47,7 +47,10 @@ class JinjaUtil:
             if template is not None:
                 # Render from template string
                 logger.debug("Rendering template from string")
-                environment = jinja2.Environment()  # nosec B701 # nosemgrep: direct-use-of-jinja2 — renders YAML, not HTML
+                # Enable auto-escaping unconditionally for security (mitigates XSS)
+                environment = jinja2.Environment(  # nosemgrep: direct-use-of-jinja2 — autoescape enabled
+                    autoescape=True,
+                )
                 jinja_template = environment.from_string(template)
 
             else:
@@ -63,10 +66,10 @@ class JinjaUtil:
                 template_filename = os.path.basename(template_path)
 
                 # Create environment with FileSystemLoader
-                environment = jinja2.Environment(  # nosemgrep: direct-use-of-jinja2 — autoescape enabled below
+                environment = jinja2.Environment(  # nosemgrep: direct-use-of-jinja2 — autoescape enabled
                     loader=jinja2.FileSystemLoader(template_dir),
-                    # Enable auto-escaping for security
-                    autoescape=jinja2.select_autoescape(["html", "xml"]),
+                    # Enable auto-escaping unconditionally for security (mitigates XSS)
+                    autoescape=True,
                 )
                 jinja_template = environment.get_template(template_filename)
 
