@@ -8,6 +8,7 @@ sidebar_position: 0
 React frontend SPA with ShadCN UI components, RTK Query state management, and feature flags.
 
 - **[ShadCN UI / Kitchen Sink](shadcn-kitchen-sink)** — UI component library and the kitchen sink demo page
+- **[Design System](design-system)** — Semantic tokens, theming, and rules for extending the UI (for humans and AI design tools)
 - **[RTK / Codegen](rtk-codegen)** — Redux Toolkit Query and API code generation
 - **[Feature Flags](feature-flags)** — Feature flag system and configuration
 - **[UX-First Mocking](ux-first-mocking)** — Mock-UX mode (MSW), the `MOCK_API` toggle, and the mock-to-real migration loop
