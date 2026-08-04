@@ -19,7 +19,7 @@ Use this guide when:
 - A solution's design documents need living-doc upkeep (status, last-updated) as the POC evolves
 - A decision must be made about whether a solution's design content ships publicly or stays internal
 
-Do not use this guide to write an engineering feature spec — those live in `working/specs/<feature>/` and are authored with the `/ai-code-*` skills.
+Do not use this guide to write an engineering feature spec — those live in `working/<feature>/` and are authored with the `/ai-code-*` skills.
 
 ## Before You Start
 

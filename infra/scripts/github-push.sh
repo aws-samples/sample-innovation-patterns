@@ -27,6 +27,7 @@ EXCLUDE_PATHS=(
   "docs/docs/developer-docs/internal"
   "docs/docs/guides/releasing.md"
   "scripts/.gitignore"
+  "internal"
 )
 
 git remote add "$GITHUB_REMOTE" "$GITHUB_REPO" 2>/dev/null || true

@@ -37,7 +37,7 @@ The project uses **trunk-based development** on `main`. Daily work lands directl
 
 Prior to v0.1.7, the project used a Gitflow-lite model: `develop` was the default branch, and releases required merging `develop` into `main`, then reconciling SHAs back. The trunk-based model eliminates the merge ceremony and SHA reconciliation overhead.
 
-For the full design rationale, see the [016-trunk-based-release spec](../../../../working/specs/016-trunk-based-release/README.md) (local working directory — not deployed).
+For the full design rationale, see the `016-trunk-based-release` spec at `docs/docs/working/legacy/specs/.archive/016-trunk-based-release/README.md` (local working directory — git-ignored, not deployed).
 
 ## Background: Tools
 

@@ -67,12 +67,12 @@ The core principle is **docs appear where they are created, driven by front matt
 
 ### `docs/working/` (Local-Only)
 
-The `working/` directory only appears when it exists on disk (checked via `existsSync()` in both `docusaurus.config.ts` and `sidebars.ts`). It is excluded from production builds. Subdirectories follow an aidocs/aicode workflow structure:
+The `working/` directory only appears when it exists on disk (checked via `existsSync()` in both `docusaurus.config.ts` and `sidebars.ts`). It is excluded from production builds. It is the single flat working root declared as `output_path` in `.context/README.md` — artifact folders sit directly beneath it, one per feature or document:
 
-| Subdirectory | Purpose |
-|--------------|---------|
-| `working/specs/` | Feature specifications (README.md + research.md + optional plan.md) |
-| `working/docs/` | Document drafts (README.md + research.md + outline.md + draft.md) |
+| Entry | Purpose |
+|-------|---------|
+| `working/<YYYY-MM-DD-slug>/` | One artifact folder per feature or document (README.md + research.md + optional outline.md, draft.md, plan.md) |
+| `working/legacy/` | Artifacts migrated from the previous nested `specs/` + `docs/` layout — historical reference only |
 
 ## Known Quirks
 

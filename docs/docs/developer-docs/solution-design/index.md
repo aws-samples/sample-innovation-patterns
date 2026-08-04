@@ -46,7 +46,7 @@ Every document under a solution carries, near the top:
 - A **last-updated** date — `> Last updated: YYYY-MM-DD`.
 - A one-line note that the document is living, and that the canonical settled version (if any) lives in `developer-docs/`, `guides/`, or `user-docs/`.
 
-Each solution's landing page (`solution-design/<solution>/index.md`) carries a **status table** (Document · Status · Last-updated · Description) so the state of the whole set is visible at a glance. This reuses the manifest pattern already used in `working/specs/README.md` — no new convention.
+Each solution's landing page (`solution-design/<solution>/index.md`) carries a **status table** (Document · Status · Last-updated · Description) so the state of the whole set is visible at a glance. This reuses the manifest pattern already used in the working root's spec manifest (`working/legacy/specs/README.md`) — no new convention.
 
 ## Public or Internal
 
