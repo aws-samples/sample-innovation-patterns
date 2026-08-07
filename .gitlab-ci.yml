@@ -75,21 +75,83 @@ pages:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# Manual tag-and-release: click the play button to tag the current commit,
-# push to origin, and mirror to GitHub. The builder bumps VERSION and updates
-# CHANGELOG before pushing; this job reads VERSION and creates the tag.
+# ---------------------------------------------------------------------------
+# Stage 1 — internal release. Three jobs whose NAMES are the documentation:
 #
-# The `changes: [VERSION]` guard is intentionally removed — the manual trigger
-# replaces auto-detection. release-check.sh validates VERSION↔tag at runtime.
-tag-and-release:
+#   release:preview  automatic on every push to main, non-blocking, creates
+#                    nothing. Shows what the next release would be.
+#   release          manual. Derives minor/patch from Conventional Commit
+#                    history, tags origin, creates a GitLab Release.
+#   release:major    manual, CONFIRM_VERSION-gated. The only way to reach a
+#                    major version while the project is pre-1.0.
+#
+# The version is DERIVED from tags and commit history — there is no VERSION
+# file. `git-cliff --bumped-version` is the single source of truth.
+#
+# Publishing to the public GitHub mirror is stage 2 (`publish:github:*`) and is
+# deliberately NOT part of any job here. Cutting an internal release publishes
+# nothing publicly.
+#
+# Why these are manual jobs on a BRANCH pipeline rather than tag-triggered: a
+# tag pipeline cannot work here. `pages` requires $CI_COMMIT_BRANCH (unset on
+# tag pipelines) and the release jobs require $CI_COMMIT_TAG == null. A manual
+# job on a branch pipeline sidesteps both.
+# ---------------------------------------------------------------------------
+.release-base:
   stage: release
   image: public.ecr.aws/docker/library/python:3.12-bookworm
   variables:
-    # Full clone required: github-push.sh amends the release commit and force-pushes
-    # to the GitHub mirror. A shallow clone makes git's pack negotiation reference
-    # ancestor objects past the shallow boundary, which GitHub rejects with
-    # "did not receive expected object <sha>".
+    # Full clone required: version derivation walks history back to the newest
+    # release tag, and tag operations need the tag objects themselves. A shallow
+    # clone silently derives from the wrong base.
     GIT_DEPTH: "0"
+  before_script:
+    # Pinned to match the version every mechanism in this pipeline was verified
+    # against. git-cliff is not in the base image.
+    - pip install --quiet --disable-pip-version-check 'git-cliff==2.10.1'
+    - git fetch origin --tags --force
+    - git config user.email "ci@code.aws.dev"
+    - git config user.name "GitLab CI"
+
+# Automatic, non-blocking preview. Prints the version that would be cut and the
+# exact notes that would be published, and creates nothing.
+#
+# `allow_failure: true` keeps it non-blocking; the derived-equals-latest branch
+# below keeps it GREEN when there is simply nothing to release. Both are needed
+# — a job that is usually red is a job everyone learns to ignore, at which point
+# it also hides the one time it means something.
+release:preview:
+  extends: .release-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      allow_failure: true
+    - when: never
+  needs: []
+  script:
+    - LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+    - DERIVED=$(git-cliff --bumped-version)
+    # Quoted: a bare `: ` in a YAML plain scalar parses as a mapping key.
+    - 'echo "current release: $LATEST"'
+    - 'echo "would release:   $DERIVED"'
+    - |
+      if [ "$DERIVED" = "$LATEST" ]; then
+        echo ""
+        echo "Nothing to release — no commits since $LATEST affect the version."
+        echo "Only conventional commits (feat:, fix:, ...) derive a new version."
+        exit 0
+      fi
+    - echo ""
+    - echo "--- release notes for $DERIVED ---"
+    - git-cliff --unreleased --strip all
+    - echo "--- end release notes ---"
+    - echo ""
+    - echo "To cut this release, run the 'release' job. Nothing has been created."
+
+# Ordinary release: minor and patch. Cannot produce a major bump while pre-1.0
+# (cliff.toml sets breaking_always_bump_major = false), so reaching 1.0.0
+# requires the separately named release:major job.
+release:
+  extends: .release-base
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
       when: manual
@@ -98,32 +160,132 @@ tag-and-release:
   needs:
     - job: ash
       optional: true
+  script:
+    - TAG=$(git-cliff --bumped-version)
+    - LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+    - |
+      if [ "$TAG" = "$LATEST" ]; then
+        echo "Nothing to release — derived version equals the current tag ($LATEST)."
+        echo "Only conventional commits (feat:, fix:, ...) derive a new version."
+        exit 1
+      fi
+    - |
+      if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
+        echo "error: tag $TAG already exists on origin — nothing to release" >&2
+        exit 1
+      fi
+    - echo "Releasing $TAG"
+    # Before tagging: assert tag hygiene and that $TAG is what history derives.
+    # Running it after would leave a wrong tag behind on failure.
+    - bash infra/scripts/release-check.sh "$TAG"
+    # --tag stamps the heading as "## [X.Y.Z] - <date>". Without it the notes are
+    # headed "## [Unreleased]", which is wrong on a tag that names a version —
+    # and the publish path's heading assertion looks for "## [".
+    - git-cliff --unreleased --tag "$TAG" --strip all > /tmp/release-notes.md
+    - git tag -a "$TAG" --cleanup=verbatim -F /tmp/release-notes.md
+    - git push origin "$TAG"
+    - bash infra/scripts/gitlab-release.sh "$TAG" /tmp/release-notes.md
+    - echo ""
+    - echo "Released $TAG internally. Nothing was published to GitHub."
+    - echo "To publish this tag publicly, run 'publish:github:plan' first."
+
+# Major release. Separately named and confirmation-gated because it is one of
+# only two irreversible acts in the release path (the other is publishing).
+#
+# NOTE: breaking_always_bump_major = false is INERT once the major reaches 1.
+# After 1.0.0 the ordinary `release` job will coin majors from feat!: commits
+# and this job becomes decorative — accepted, since a feat!: commit genuinely
+# should mean a major at that point. This job exists for the 0.x -> 1.0
+# transition, which is the transition it will actually be used for.
+release:major:
+  extends: .release-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: false
+    - when: never
+  needs:
+    - job: ash
+      optional: true
+  script:
+    - TAG=$(git-cliff --bump major --bumped-version)
+    # Gate BEFORE anything is created. A gate that fires after tagging is not a gate.
+    - |
+      if [ "${CONFIRM_VERSION:-}" != "$TAG" ]; then
+        echo "error: major release requires explicit confirmation" >&2
+        echo "would cut: $TAG" >&2
+        echo "hint: re-run this job with CONFIRM_VERSION=$TAG" >&2
+        exit 1
+      fi
+    - echo "Releasing MAJOR $TAG (confirmed)"
+    - bash infra/scripts/release-check.sh "$TAG" major
+    - git-cliff --bump major --unreleased --tag "$TAG" --strip all > /tmp/release-notes.md
+    - git tag -a "$TAG" --cleanup=verbatim -F /tmp/release-notes.md
+    - git push origin "$TAG"
+    - bash infra/scripts/gitlab-release.sh "$TAG" /tmp/release-notes.md
+    - echo ""
+    - echo "Released $TAG internally. Nothing was published to GitHub."
+
+# ---------------------------------------------------------------------------
+# Stage 2 — public publish. Two jobs:
+#
+#   publish:github:plan  manual dry run. Prints TAG, FLOOR, the full notes body,
+#                        the filtered-path report, and the exact CONFIRM_TAG
+#                        value. Publishes nothing.
+#   publish:github       manual, CONFIRM_TAG-gated. The one irreversible act in
+#                        the release path — it force-pushes a public repository
+#                        that has accepted pull requests.
+#
+# Publishing is deliberately separate from cutting an internal release, so an
+# internal release can be cut without going public and an OLDER tag can be
+# published later. The floor (what GitHub already has) is resolved from GitHub
+# itself, so notes cover every change since the last publish even when several
+# internal releases were skipped.
+#
+# The plan job exists as a NAMED job rather than a DRY_RUN flag so that someone
+# publishing for the first time finds it without needing to know a variable name.
+# ---------------------------------------------------------------------------
+.publish-base:
+  stage: release
+  image: public.ecr.aws/docker/library/python:3.12-bookworm
+  variables:
+    # Full clone required on two counts: the publish path unshallows before
+    # reasoning about ancestry (a truncated graph answers "not an ancestor" for
+    # commits that are), and git's pack negotiation otherwise references objects
+    # past the shallow boundary, which GitHub rejects.
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: false
+    - when: never
   before_script:
+    - pip install --quiet --disable-pip-version-check 'git-cliff==2.10.1'
     # $GITHUB_DEPLOY_KEY is base64-encoded (masked + protected CI variable).
+    # It lives on the publish jobs only — stage 1 never touches GitHub.
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
     - |
-      echo "GITHUB_DEPLOY_KEY raw length: ${#GITHUB_DEPLOY_KEY}"
       DECODED_LEN=$(printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di 2>/dev/null | wc -c || true)
-      echo "GITHUB_DEPLOY_KEY base64-decoded length: ${DECODED_LEN:-0}"
       if [ "${DECODED_LEN:-0}" -lt 200 ]; then
-        echo "ERROR: decoded value is too short (${DECODED_LEN:-0} bytes)."
+        echo "ERROR: GITHUB_DEPLOY_KEY decodes to only ${DECODED_LEN:-0} bytes." >&2
         exit 1
       fi
     - printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di | ssh-add -
     - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+    - git fetch origin --tags --force
+
+# Dry run. Set TAG to publish something other than the newest internal tag.
+publish:github:plan:
+  extends: .publish-base
+  needs: []
   script:
-    - VERSION=$(tr -d '[:space:]' < VERSION)
-    - |
-      if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v$VERSION"; then
-        echo "Tag v$VERSION already exists on origin — nothing to release"
-        echo "Bump VERSION before clicking Tag & Release"
-        exit 1
-      fi
-    - git config user.email "ci@code.aws.dev"
-    - git config user.name "GitLab CI"
-    - git tag -a "v$VERSION" -m "Release v$VERSION"
-    - git push origin "v$VERSION"
-    - export CI_COMMIT_TAG="v$VERSION"
-    - make -f infra/scripts/release.mk release-check
-    - bash infra/scripts/github-push.sh
+    - bash internal/release/publish-github.sh --dry-run ${TAG:-}
+
+# The irreversible act. Requires CONFIRM_TAG to equal the tag being published;
+# run publish:github:plan first to learn the value.
+publish:github:
+  extends: .publish-base
+  needs: []
+  script:
+    - bash internal/release/publish-github.sh ${TAG:-}

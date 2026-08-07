@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.8]
+## [Unreleased]
+
+<!-- These notes were hand-authored under a "## [0.1.8]" heading, but v0.1.8 was
+     never tagged on any remote and never will be — the version is now derived
+     from Conventional Commit history, and this window derives to 0.2.0. The
+     content is real and is carried forward here so the next release absorbs it. -->
 
 ### Added
 - **Kubernetes / Tilt offering — turnkey local inner-dev loop (local-only this round)** — a new way for builders to develop the `app-lib` FastAPI service against Kubernetes locally. `make local-setup && make local-up` stands up a k3d cluster + local registry (via `ctlptl`), builds a new plain-uvicorn:8000 container (`infra/containers/rest-k8s/`, additive to the existing Lambda `rest-lambda` image), and deploys a cloud-ready Helm chart (`infra/k8s/helm/app-lib/`) through Tilt with live-update on `app-lib/src` edits and a `:8000` port-forward. Root `Makefile` gains `doctor`/`local-setup`/`local-up`/`local-destroy`/`local-reset` targets; `doctor` checks the six required CLIs (docker, kubectl, helm, k3d, tilt, ctlptl) plus the AWS CLI, prints exact install commands, and fails fast without auto-installing or creating a partial cluster.
@@ -68,7 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`update-cognito-callback` parameter drift** — the post-deploy step now reads `COGNITO_DOMAIN_PREFIX` from `.env` (populated by `env.mk` from the live `CognitoDomain` stack output) instead of recomputing it as `$(APP_NAMESPACE)-$(APP_ENV)-$(APP_ACCOUNT_HASH)`. The recomputed value could differ from the deployed parameter (different `AWS_ACCOUNT_ID`, different `.env` across hosts, etc.), which CFN treated as a property change → REPLACE on `AWS::Cognito::UserPoolDomain` → live domain destroyed mid-update. Reading the deployed value eliminates the drift.
 - **Frontend deploy `LogBucketDomainName` empty in CodeBuild** — `deploy-frontend` previously read `$(LOG_BUCKET_NAME)` directly from `.env`, but `.env` did not exist in CodeBuild and the variable was not in the CodeBuild EnvironmentVariables. The empty value produced `LogBucketDomainName=.s3.amazonaws.com`, causing `WebBucket` to fail with "The specified bucket is not valid." Now generalized via the env.mk refactor — every deploy stage's prelude populates `.env` from live stack state.
 
-## [0.1.5] - 2026-05-13
+## 0.1.5 - 2026-05-13
+
+<!-- Never tagged on any remote. Retained as a record of work that shipped
+     without a tag; deliberately unbracketed, since there is no tag to link to
+     and no v0.1.5 will be created retroactively. -->
 
 ### Added
 
@@ -158,8 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.7...HEAD
 [0.1.7]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.6...v0.1.7
-[0.1.6]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.5...v0.1.6
-[0.1.5]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.4...v0.1.5
+[0.1.6]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.4...v0.1.6
 [0.1.4]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/aws-samples/sample-innovation-patterns/compare/v0.1.1...v0.1.2

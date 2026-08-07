@@ -73,7 +73,7 @@ Displays a composition summary showing the deployment order, stack wiring visual
 
 ### Phase 4 — Generate
 
-Creates seven artifacts in `scripts/`:
+Creates eight artifacts — seven in `scripts/`, plus `cliff.toml` at the repository root:
 
 | File | Purpose |
 |------|---------|
@@ -83,7 +83,11 @@ Creates seven artifacts in `scripts/`:
 | `scripts/post-deploy.mk` | Post-deployment operations (config generation, S3 upload, CDN invalidation) |
 | `scripts/env.mk` | Environment variable sync (writes stack outputs to `.env`) |
 | `scripts/test.mk` | Placeholder test target |
+| `scripts/release.mk` | Release targets — derive version, write changelog, create annotated tag |
 | `scripts/SECURITY-DISPOSITION.md` | Security findings register |
+| `cliff.toml` | Changelog and version-derivation config (repository root; an existing file is left untouched) |
+
+`scripts/release.mk` runs on `make`, `git`, and `git-cliff` alone. Any forge-specific step is skipped rather than failed when no forge is configured, so it works in a solution with no remote at all. Like `scripts/test.mk`, it is generated but not exercised by IPA's own tests — review it before relying on it for a customer release.
 
 ### Phase 5 — Report
 

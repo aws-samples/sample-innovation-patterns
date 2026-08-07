@@ -62,7 +62,12 @@ Markdown (Claude Code skill format): Follow standard conventions
 
 ## Commit Messages
 
-Use [Conventional Commits](https://www.conventionalcommits.org/) format for all commit messages.
+Every commit message MUST use [Conventional Commits](https://www.conventionalcommits.org/) format. This is not a style preference — the format is the input to two automated outputs:
+
+1. **Version derivation.** The next release version is computed from commit history, not read from a file. A `fix:` commit produces a patch bump, `feat:` a minor bump; a commit that matches no conventional type produces **no bump at all**.
+2. **Published release notes.** The GitHub Release body is generated from these messages. A non-conventional commit appears in **no** changelog section and is invisible to anyone reading the release.
+
+So a commit written as `Update: modify 7 file(s)` is silently skipped by both — the work ships, but nothing records that it did. Write `fix(app-lib): ...` instead.
 
 ### Format
 

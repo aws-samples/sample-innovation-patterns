@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] VERSION bumped (if releasing)
+- [ ] Commits follow Conventional Commits (drives version derivation and release notes)
 - [ ] CHANGELOG.md updated (if releasing)
 - [ ] Tests pass
 - [ ] No secrets in committed files

@@ -44,8 +44,15 @@ sort_commits = "oldest"
 tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 protect_breaking_commits = false
 commit_parsers = [
-    # Non-conventional diffstat-shaped noise: influences neither the derived
-    # version nor any changelog section. Must precede the grouping parsers.
+    # OPTIONAL — delete this line in a new project.
+    #
+    # It exists because the repository this template came from had a run of
+    # auto-generated "Update: modify N file(s)" commits that would otherwise fill
+    # the changelog with diffstat noise. A fresh project has no such history.
+    #
+    # Kept here as the pattern to copy when you inherit a repository whose
+    # history predates the convention: one skip parser neutralizes the changelog
+    # symptom without rewriting history.
     { message = "^Update:", skip = true },
     { message = "^feat", group = "Added" },
     { message = "^fix", group = "Fixed" },
