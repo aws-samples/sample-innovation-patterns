@@ -46,12 +46,24 @@ release-preview:
 	  echo "--- end release notes ---"; \
 	fi
 
-# Generate CHANGELOG.md from conventional commit history using git-cliff
+# Regenerate CHANGELOG.md from conventional commit history using git-cliff.
 # Requires: git-cliff (install: cargo install git-cliff, or brew install git-cliff)
+#
+# CHANGELOG.md is a GENERATED ARTIFACT — this rewrites the whole file, and any
+# hand-edit is lost on the next release. Prose belongs in the COMMIT BODY, which
+# cliff.toml renders as indented continuation text under each bullet.
+#
+# CHANGELOG_FLOOR is the cutover: everything after it is generated, everything at
+# or before it is frozen in cliff.toml's `footer`. Conventional Commits were
+# adopted in v0.1.6, so generating across that boundary drops v0.1.1 entirely and
+# reduces v0.1.3 to a bare heading — verified. Do not lower this without moving
+# the corresponding sections into the footer.
+CHANGELOG_FLOOR ?= v0.1.4
+
 release-changelog:
 	$(call check_releasable)
-	@git-cliff --tag "v$(VERSION)" -o CHANGELOG.md
-	@echo "Generated CHANGELOG.md through v$(VERSION)"
+	@git-cliff "refs/tags/$(CHANGELOG_FLOOR).." --tag "v$(VERSION)" -o CHANGELOG.md
+	@echo "Regenerated CHANGELOG.md through v$(VERSION) (floor: $(CHANGELOG_FLOOR))"
 
 # Prepare a release: generate CHANGELOG, print next steps.
 # Confirms the derived version before writing anything — the version is derived
@@ -65,7 +77,9 @@ release-prep:
 	@$(MAKE) -f infra/scripts/release.mk release-changelog VERSION=$(VERSION)
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Review and edit CHANGELOG.md (git-cliff output is a starting point)"
+	@echo "  1. Review CHANGELOG.md — but do NOT edit it. It is generated, and the"
+	@echo "     next release overwrites it. To fix wording, amend the COMMIT BODY;"
+	@echo "     to add a missing entry, add an empty commit carrying the prose."
 	@echo "  2. Commit: git commit -am 'chore: release v$(VERSION)'"
 	@echo "  3. Push to main"
 	@echo "  4. Run the 'release' job in the GitLab pipeline for that commit"

@@ -18,6 +18,10 @@ body = """
 {% for commit in commits -%}
 - {% if commit.scope %}**{{ commit.scope }}** — {% endif %}\
 {{ commit.message | split(pat="\n") | first | upper_first | trim }}
+{%- if commit.body %}
+{% set indented = commit.body | trim | replace(from="\n", to="\n  ") %}
+  {{ indented }}
+{%- endif %}
 {% endfor %}
 {% endfor -%}
 """
@@ -32,7 +36,109 @@ body = """
 #
 # Tags and forge Release objects are the durable, navigable record.
 
-trim = true
+# ---------------------------------------------------------------------------
+# Frozen history: v0.1.4 and older.
+#
+# CHANGELOG.md is a GENERATED artifact. It is regenerated wholesale on every
+# release from `refs/tags/v0.1.4..` — so anything hand-written into the file is
+# destroyed on the next release by design, and this footer is the ONLY place
+# pre-cutover history can live.
+#
+# The cutover is v0.1.4 because Conventional Commits were adopted in v0.1.6:
+# before that, commit subjects were mostly "Update: modify N file(s)", which
+# cliff.toml skips. Regenerating across that boundary yields a bare heading for
+# v0.1.3 and drops v0.1.1 entirely (no qualifying commits) — verified. These 77
+# lines are that era's real history, preserved verbatim.
+#
+# Do not add new versions here. Everything from v0.1.6 forward is generated from
+# commit subjects + bodies.
+# ---------------------------------------------------------------------------
+footer = """
+## [0.1.4] - 2026-05-13
+
+### Added
+
+- **`/ipa-stack-logs`** — new prepare-lifecycle stack for a centralized S3 log bucket (CloudFront, S3 access, VPC flow logs). Composed via `/ipa-compose` and auto-included as a transitive dependency when a downstream stack wires `LogBucketName`. Generates `update-env-logs` env.mk target and a `prepare.mk` teardown note for non-empty buckets.
+
+### Changed
+
+- **`/ipa-security`** — log bucket extracted from the security stack into the new `/ipa-stack-logs` prepare stack. `/ipa-security` now provisions only IAM roles (one CloudFormation stack instead of two). The frontend tier's `LogBucketDomainName` parameter now sources from `logs` instead of `security`.
+- **`/ipa-compose`** — recursive auto-include now resolves `logs` alongside `cognito`/`ecr`/`codecommit`. Generated deploy targets that reference `$(LOG_BUCKET_NAME)` now emit a pre-check that validates the `{ns}-{env}-logs` stack exists before deploying.
+
+### Fixed
+
+- **Docs site** — Docusaurus `baseUrl` now derives from `CI_PAGES_URL` so the GitLab Pages deploy tracks the project slug instead of a hardcoded path.
+
+## [0.1.3] - 2026-05-12
+
+### Changed
+
+- **Compose CodePipeline** — integrated `codecommit` and `codepipeline` as composable prepare-lifecycle stacks in `/ipa-compose`. Added `## Stack Identity`, `## Wirable Parameters`, `## Compose Config`, and `## Deploy Order` to both stack skills. Compose auto-includes `codecommit` as a transitive dependency of `codepipeline`, prompts for repository name and source branch, and generates `prepare.mk` targets with full cross-stack wiring. Added `update-env-pipeline` target to env.mk generation.
+
+### Deprecated
+
+- **`/ipa-codepipeline`** — replaced with the standard compose+prepare flow (`/ipa-compose codepipeline` → `/ipa-prepare`). Existing deployments are compatible; re-compose to align.
+
+## [0.1.2] - 2026-05-11
+
+### Changed
+
+- **Lifecycle refactor** — collapsed 5-skill lifecycle into 4-step flow: `/ipa-init` → `/ipa-compose` → `/ipa-prepare` → `/ipa-deploy`. `/ipa-security` is now embedded in `/ipa-compose` (triggered on first compose) and supports three paths: existing role ARN, managed policy, or the new Innovation Builder Stack (recommended — permissions boundary + 47-service policy + four scoped roles). `/ipa-compose` auto-runs `/ipa-init` when `.env` is missing; `/ipa-deploy` hard-gates on prepare stacks instead of auto-triggering. Split `infra/cfn/generated/security.yml` into `iam.yml` + `log-bucket.yml`.
+- **Skill naming** — renamed all `ipa.*` skills to use `-` as the separator instead of `.` (e.g., `/ipa.compose` → `/ipa-compose`, `/ipa.stack.backend` → `/ipa-stack-backend`). Affects 17 skill directories, frontmatter, internal references, and all published documentation.
+
+### Added
+
+- **`/ipa-help`** — new diagnostic skill that reports IPA project state and suggests the next lifecycle skill to run. Read-only; does not invoke other skills.
+- **Innovation Builder Security stack** — new single-template CloudFormation stack at `infra/cfn/security/innovation-builder-security.yml` consolidating the IAM policy + permissions boundary, CodeBuild role, SageMaker execution role, builder role, and EC2 builder role into one deployable artifact. Consumed as-is by `/ipa-security`; deploy this OR the per-resource templates, not both.
+- **`/ipa-security` skill** — full implementation supporting three setup paths (existing role ARN, AWS managed policy, or the Innovation Builder Stack), with deploy/update/review flows, `.env` wiring for `DEPLOYMENT_ROLE_ARN`/`PERMISSIONS_BOUNDARY_ARN`, and stack drift handling.
+
+### Removed
+
+- **`/ipa-quickstart`** — removed; the 4-step lifecycle is the new quickstart.
+
+## [0.1.1] - 2026-04-26
+
+### Changed
+
+- **Docs site** — GitHub Pages now deploys on pushes to `main` instead of release tags, matching the existing GitLab Pages trigger and avoiding the `github-pages` environment protection rule that blocks tag-based deploys.
+
+### Fixed
+
+- **Release pipeline** — `github-push.sh` now sets a local committer identity before amending the filtered release commit, preventing `fatal: unable to auto-detect email address` in CI.
+- **Release pipeline** — after amending the release commit to strip internal-only paths, the release tag is now moved to the amended commit so GitHub's tag, `main`, and auto-generated release tarball all reference the same filtered tree.
+- **Auto-tag** — rule no longer excludes `$CI_PIPELINE_SOURCE == "push"`, which was blocking the job from ever firing on a standard push-to-main. Tag existence now checked against `origin` to tolerate CI's shallow clone.
+
+## [0.1.0] - 2026-04-26
+
+### Added
+
+- **IPA Skills Framework** — composable Claude Code skills for AWS infrastructure deployment
+  - Lifecycle skills: `/ipa.init`, `/ipa.security`, `/ipa.compose`, `/ipa.prepare`, `/ipa.deploy`, `/ipa.destroy`
+  - Authoring skills: `/ipa.author.stack`, `/ipa.author.guide`
+  - CI/CD skill: `/ipa.codepipeline`
+- **Tier Stacks** — consolidated CloudFormation templates for serverless applications
+  - Backend tier: Lambda + API Gateway v2 + DynamoDB + CloudWatch
+  - Frontend tier: S3 + CloudFront + OAC
+  - Queue tier: SQS + DLQ + worker Lambda + ESM + DynamoDB + CloudWatch
+- **Prepare Stacks** — one-time prerequisite infrastructure
+  - Cognito User Pool with OAuth 2.0 Hosted UI
+  - ECR repository for container images
+- **Patterns** — composable solution templates
+  - `react-rest-lambda` — full-stack serverless web application
+  - `sqs-lambda` — background job processing (compose-only, layers onto base pattern)
+- **Application Library (`app-lib/`)** — Python 3.12 library with FastAPI, PynamoDB, JWT auth, and feature-centric module architecture
+- **Web Client (`web-client/`)** — React 19 + TypeScript SPA with RTK Query, Cognito OIDC, and OpenAPI codegen pipeline
+- **Documentation Site** — Docusaurus 3 with autogenerated sidebars, Mermaid diagrams, and local-only working section
+- **Security** — ASH integration in GitLab CI, least-privilege IAM, encryption by default
+- **Generated Makefiles** — plain GNU Make with inline `aws` CLI calls; no runtime dependency on IPA
+"""
+
+# MUST stay false. `trim = true` strips leading whitespace from every rendered
+# line, which flattens the two-space indent the body block above depends on —
+# turning a commit body's sub-bullets into siblings of their parent bullet and
+# breaking Markdown nesting. It fails silently: output looks fine to git-cliff,
+# and only renders wrong. Verified against git-cliff 2.10.1.
+trim = false
 
 [git]
 conventional_commits = true
