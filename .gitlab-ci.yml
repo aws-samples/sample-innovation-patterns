@@ -266,9 +266,18 @@ release:major:
     - apt-get update -qq && apt-get install -y -qq openssh-client
     - eval $(ssh-agent -s)
     - |
+      # 350 bytes, not 200: the smallest key type we would ever use is an
+      # OpenSSH ed25519 private key, which measures 387 bytes — so a 200-byte
+      # floor accepts a key truncated to roughly half its length. The threshold
+      # exists to catch a mis-pasted or clipped CI variable before ssh-add
+      # fails with something less obvious, so it has to sit just under the
+      # smallest legitimate key rather than far below it.
       DECODED_LEN=$(printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di 2>/dev/null | wc -c || true)
-      if [ "${DECODED_LEN:-0}" -lt 200 ]; then
+      if [ "${DECODED_LEN:-0}" -lt 350 ]; then
         echo "ERROR: GITHUB_DEPLOY_KEY decodes to only ${DECODED_LEN:-0} bytes." >&2
+        echo "hint: expected >= 350 (an ed25519 private key is ~387 bytes, RSA-2048" >&2
+        echo "      ~1800). A short value usually means the variable was truncated" >&2
+        echo "      when pasted, or holds a PUBLIC key rather than the private one." >&2
         exit 1
       fi
     - printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di | ssh-add -
