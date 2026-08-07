@@ -3,16 +3,11 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import {existsSync, readFileSync} from 'fs';
+import {existsSync} from 'fs';
 import {resolve} from 'path';
 
 const showWorking = existsSync(resolve(__dirname, 'docs/working'));
 const showUserDocs = existsSync(resolve(__dirname, 'docs/user-docs'));
-
-const versionPath = resolve(__dirname, '../VERSION');
-const version = existsSync(versionPath)
-  ? readFileSync(versionPath, 'utf-8').trim()
-  : null;
 
 const docsTarget = process.env.DOCS_TARGET || 'gitlab';
 
@@ -73,11 +68,10 @@ const config: Config = {
           label: 'Working',
           position: 'left' as const,
         }] : []),
-        ...(version ? [{
-          type: 'html' as const,
-          position: 'right' as const,
-          value: `<span class="navbar-version">v${version}</span>`,
-        }] : []),
+        // No version item. The version is derived from git tags at release time
+        // rather than stored in a file, so there is nothing for a static site
+        // build to read. The released version is on the repository's releases
+        // page, which the link below reaches.
         docsTarget === 'github'
           ? {
               href: 'https://github.com/aws-samples/sample-innovation-patterns',

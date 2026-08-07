@@ -5,7 +5,12 @@ sidebar_position: 20
 
 # Commit Messages
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages. This convention enables automated CHANGELOG generation via [git-cliff](https://git-cliff.org/) and makes the commit history scannable at a glance.
+Every commit message must use [Conventional Commits](https://www.conventionalcommits.org/) format. This is not a style preference — the format is the input to two automated outputs:
+
+1. **Version derivation.** The next release version is computed from commit history, not read from a file. A `fix:` commit produces a patch bump and `feat:` a minor bump; a commit matching no conventional type produces **no bump at all**.
+2. **Published release notes.** The GitHub Release body is generated from these messages. A non-conventional commit lands in **no** changelog section and is invisible to anyone reading the release.
+
+A commit written as `Update: modify 7 file(s)` is skipped by both. The work still ships — nothing records that it did.
 
 ## Format
 
@@ -87,6 +92,15 @@ chore: release v0.2.0
 
 ## Tooling
 
-The project uses [git-cliff](https://git-cliff.org/) to generate `CHANGELOG.md` from Conventional Commit history. Configuration is in [`cliff.toml`](https://github.com/aws-samples/sample-innovation-patterns/blob/main/cliff.toml) at the repo root.
+The project uses [git-cliff](https://git-cliff.org/) to generate `CHANGELOG.md` from Conventional Commit history, and to derive the next version from it. Configuration is in [`cliff.toml`](https://github.com/aws-samples/sample-innovation-patterns/blob/main/cliff.toml) at the repo root.
 
-Non-conventional commits (from before this convention was adopted) are preserved in the CHANGELOG under "Changed" rather than dropped.
+Two configured behaviors are worth knowing:
+
+- **`Update:`-prefixed commits are skipped.** A batch of diffstat-shaped messages predating this convention would otherwise fill the changelog with entries like "modify 7 file(s)". They are filtered out rather than grouped.
+- **A breaking change stays within `0.x` while the project is pre-1.0.** A `feat!:` commit derives `0.x+1`, not `1.0.0`. Reaching `1.0.0` is a deliberate, separately confirmed act. Once the major version reaches 1, a breaking change derives the next major as usual.
+
+## Where This Convention Pays Off
+
+The release standard is what consumes these messages. Composed solutions receive the same practice as generated artifacts (`scripts/release.mk` and a root `cliff.toml`), so the convention is worth following in customer projects too, not just here.
+
+See [Releasing a Solution](../../guides/releasing-a-solution.md) for how a version is derived, what the generated release target does, and why it works with no forge at all.

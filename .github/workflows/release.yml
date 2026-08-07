@@ -16,19 +16,58 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # Required so the tag ANNOTATION is present, not just the ref. The
+          # release body is read from that annotation below, and a shallow fetch
+          # is the known failure case for tag objects.
+          fetch-depth: 0
 
-      - name: Extract changelog for this version
+      - name: Fetch tag objects
+        run: git fetch --tags --force
+
+      - name: Read release notes from the tag annotation
         id: changelog
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          SECTION=$(sed -n "/^## \[$TAG\]/,/^## \[/p" CHANGELOG.md | sed '$d')
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$SECTION" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          # The notes are carried ON the annotated tag by the publish path
+          # (internal/release/publish-github.sh). They cover every change since
+          # the last GitHub publish, which may span several versions.
+          #
+          # This deliberately does NOT parse CHANGELOG.md. The previous approach
+          # used a sed range address (`/^## \[$TAG\]/,/^## \[/p`) which terminates
+          # at the second `##` heading by construction, so it can only ever return
+          # the newest section — it cannot express a cumulative window covering
+          # releases that were skipped on the public side.
+          BODY=$(git tag -l --format='%(contents)' "$TAG")
+
+          if [ -z "$BODY" ]; then
+            echo "::error::tag $TAG carries no annotation body"
+            echo "Release notes are expected on the annotated tag. Check that the"
+            echo "publish path pushed an annotated tag object, and that"
+            echo "fetch-depth: 0 plus an explicit tag fetch preserved it."
+            exit 1
+          fi
+
+          if ! printf '%s' "$BODY" | grep -q '^## \['; then
+            echo "::error::tag $TAG annotation has no '## [version]' heading"
+            echo "This is the signature of a body written with 'git tag -a -m',"
+            echo "which strips #-leading lines as comments and exits 0."
+            exit 1
+          fi
+
+          {
+            echo "body<<GITHUB_OUTPUT_EOF"
+            printf '%s\n' "$BODY"
+            echo "GITHUB_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
+          # `body` is authoritative — generate_release_notes is deliberately
+          # omitted. The annotation already covers the full window since the last
+          # publish; auto-generated content alongside it would be redundant at
+          # best and contradictory at worst.
           body: ${{ steps.changelog.outputs.body }}
-          generate_release_notes: true

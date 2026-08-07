@@ -8,7 +8,7 @@ model: opus
 
 # /ipa-compose — Compose Deployment from Stack Skills
 
-This skill reads stack skills directly, composes them into a project-specific deployment configuration, and generates six executable artifacts: five Makefiles (prepare, deploy, build, post-deploy, test) and a security disposition register. It also handles first-time security provisioning via delegation to `/ipa-security`.
+This skill reads stack skills directly, composes them into a project-specific deployment configuration, and generates eight artifacts: six Makefiles (prepare, deploy, build, post-deploy, test, release), a changelog/version-derivation config, and a security disposition register. It also handles first-time security provisioning via delegation to `/ipa-security`.
 
 **Lifecycle**: `/ipa-init` → **`/ipa-compose`** → `/ipa-prepare` → `/ipa-deploy`
 
@@ -269,6 +269,8 @@ Artifacts to generate:
   - scripts/post-deploy.mk                      (post-deploy Makefile — always generated)
   - scripts/env.mk                              (environment variable sync — always generated)
   - scripts/test.mk
+  - scripts/release.mk                          (release Makefile — always generated)
+  - cliff.toml                                  (changelog config — always generated)
   - scripts/SECURITY-DISPOSITION.md
 ```
 
@@ -467,6 +469,22 @@ Generate a stub `test` target with a no-op echo. Test content will be added late
 
 ---
 
+### Step 8.5: Generate release.mk and cliff.toml
+
+Write `scripts/release.mk` and a solution `cliff.toml` at the repository root. Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) for both.
+
+Generate unconditionally — independent of `APP_IAC` and of which tiers were composed. Releasing a solution's source is not an infrastructure lifecycle stage, so it does not vary with the composition.
+
+Three rules carry over from the template and must not be simplified away:
+
+- The forge step **skips rather than fails** when no forge exists. `make -f scripts/release.mk release` must exit 0 in a solution with no remote configured.
+- The tag annotation uses `--cleanup=verbatim -F <file>`, never `-m`, and asserts afterwards that the headings survived. `-m` deletes every `#`-leading line as a comment and exits 0.
+- Notes generation passes `--tag "$(TAG)"`, or the annotation is headed `## [Unreleased]` instead of the version.
+
+If a `cliff.toml` already exists at the repository root, leave it untouched and note that in the summary.
+
+---
+
 ### Step 9: Generate Security Disposition Register
 
 Write `scripts/SECURITY-DISPOSITION.md`.
@@ -522,6 +540,8 @@ Generated artifacts:
   ✓ scripts/post-deploy.mk                     (post-deploy Makefile)
   ✓ scripts/env.mk                             (environment variable sync — .env writes)
   ✓ scripts/test.mk                            (test Makefile)
+  ✓ scripts/release.mk                         (release Makefile — make + git only)
+  ✓ cliff.toml                                 (changelog / version derivation config)
   ✓ scripts/SECURITY-DISPOSITION.md              (security disposition register)
 
 Summary:
@@ -533,6 +553,9 @@ Summary:
 Next steps:
   • Review generated artifacts
   • Run `make -f scripts/test.mk test-validate` to validate templates
+  • Run `make -f scripts/release.mk release-preview` to see the derived version
+    (scripts/release.mk and scripts/test.mk are generated but not exercised
+     by IPA's own tests — review before relying on them for a release)
   • Run `/ipa-prepare` to deploy one-time prerequisites (ECR, etc.)
   • Run `/ipa-deploy` to deploy the composed stacks
 ```

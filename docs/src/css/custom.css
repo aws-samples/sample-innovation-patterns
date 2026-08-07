@@ -54,11 +54,3 @@
     no-repeat;
 }
 
-.navbar-version {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--ifm-color-emphasis-200);
-  color: var(--ifm-color-emphasis-700);
-  font-weight: 500;
-}

@@ -1,6 +1,6 @@
 # Innovation Patterns Agent (IPA)
 
-![IPA Version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Faws-samples%2Fsample-innovation-patterns%2Fmain%2FVERSION&search=%5Cd%2B%5C.%5Cd%2B%5C.%5Cd%2B&label=IPA%20Version&prefix=v)
+![IPA Version](https://img.shields.io/github/v/release/aws-samples/sample-innovation-patterns?label=IPA%20Version)
 
 > **[Read the full documentation](https://aws-samples.github.io/sample-innovation-patterns/)**
 
