@@ -1,13 +1,18 @@
 # Internal Release
 
-Assets supporting IPA's release process. The process has **two independent stages**, and understanding the split is most of understanding the release path.
+Assets supporting IPA's release process. The process has **three parts**, and understanding the split is most of understanding the release path.
 
-| Stage | Where | Jobs | Effect |
-|-------|-------|------|--------|
-| 1 — internal release | GitLab | `release:preview`, `release`, `release:major` | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
-| 2 — public publish | GitLab → GitHub | `publish:github:plan`, `publish:github` | Publishes a **chosen** tag to the public mirror with cumulative notes. |
+| Part | Where | Jobs | Effect |
+|------|-------|------|--------|
+| 1 — prepare for review | GitLab | `release:prepare`, `release:prepare:major` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request. **Creates no tag.** |
+| 2 — internal release | GitLab | `release:auto` (automatic on merge); `release`, `release:major` (break-glass) | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
+| 3 — public publish | GitLab → GitHub | `publish:github:plan`, `publish:github` | Publishes a **chosen** tag to the public mirror with cumulative notes. |
 
-Stage 1 is documented in the [releasing runbook](../../docs/docs/developer-docs/internal/operations/runbooks/releasing.md). This file documents stage 2.
+Part 2 is triggered by a human merging part 1's merge request — the merge is the approval, and no button is pressed. `release:preview` runs automatically on every push and creates nothing.
+
+Parts 1 and 2 are documented in the [releasing runbook](../../docs/docs/developer-docs/internal/operations/runbooks/releasing.md). This file documents part 3.
+
+Part 3 cannot be chained off part 2. A tag pushed by CI triggers no pipeline, so such a chain would silently never fire — the failure mode is "push a tag; nothing happens, no error anywhere." That is why publication is a separate manual act rather than a convenience that was never wired up.
 
 ## What publishing actually withholds
 

@@ -126,10 +126,16 @@ build(infra): consolidate backend tier template parameters
 
 ### Release Commits
 
-When preparing a release, use:
+The release commit subject is:
 ```
-chore: release v0.2.0
+chore(release): v0.2.0
 ```
+
+This subject is a **contract, not a convention**. The automatic release job detects that a release was merged by matching `chore(release): ` in the commits since the newest tag — so a release commit with any other subject is not detected, and merging it produces no tag.
+
+`infra/scripts/release-prepare.sh` writes this commit, so it is not normally typed by hand. The same string is used as the merge request title, because a squashed merge takes its commit subject from the title. Renaming a release merge request therefore breaks detection.
+
+`^chore` is skipped by `cliff.toml`, so the release commit contributes no changelog entry — the release ceremony stays invisible in the notes it produces.
 
 <!-- MANUAL ADDITIONS START -->
 

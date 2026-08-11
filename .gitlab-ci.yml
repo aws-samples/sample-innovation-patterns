@@ -76,14 +76,39 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # ---------------------------------------------------------------------------
-# Stage 1 — internal release. Three jobs whose NAMES are the documentation:
+# Stage 1 — internal release. Jobs whose NAMES are the documentation.
 #
-#   release:preview  automatic on every push to main, non-blocking, creates
-#                    nothing. Shows what the next release would be.
-#   release          manual. Derives minor/patch from Conventional Commit
-#                    history, tags origin, creates a GitLab Release.
-#   release:major    manual, CONFIRM_VERSION-gated. The only way to reach a
-#                    major version while the project is pre-1.0.
+# THE NORMAL FLOW is two steps, and only the first is a button:
+#
+#   release:prepare        manual. Regenerates CHANGELOG.md on a release/vX.Y.Z
+#                          branch and opens a merge request. Creates NO tag —
+#                          this is the review gate.
+#   release:auto           AUTOMATIC on every push to main. Tags and creates the
+#                          GitLab Release when a release MR was merged; does
+#                          nothing on any other push. No button press.
+#
+# So: click prepare, review the notes, merge. The merge is the approval.
+#
+# SUPPORTING:
+#
+#   release:preview        automatic on every push, non-blocking, creates nothing.
+#                          Shows what the next release would be.
+#   release:prepare:major  manual, CONFIRM_VERSION-gated. The reviewed route to a
+#                          major version — same flow, still no tag.
+#
+# BREAK-GLASS (not the normal path — recovery only, when release:auto fails for
+# reasons unrelated to the release being correct):
+#
+#   release                manual. Tags and releases directly, no review.
+#   release:major          manual, CONFIRM_VERSION-gated. Direct major, no review.
+#
+# All four release paths call infra/scripts/release-run.sh, so they cannot drift
+# from one another, and its absence-on-origin assertion means no two of them can
+# ever create the same tag.
+#
+# Publishing to the public GitHub mirror is stage 2 and is deliberately NOT part
+# of any job here. It also cannot be chained off release:auto: a CI-pushed tag
+# triggers no pipeline, so such a chain would silently never fire.
 #
 # The version is DERIVED from tags and commit history — there is no VERSION
 # file. `git-cliff --bumped-version` is the single source of truth.
@@ -147,9 +172,151 @@ release:preview:
     - echo ""
     - echo "To cut this release, run the 'release' job. Nothing has been created."
 
-# Ordinary release: minor and patch. Cannot produce a major bump while pre-1.0
-# (cliff.toml sets breaking_always_bump_major = false), so reaching 1.0.0
-# requires the separately named release:major job.
+# Prepare a release for REVIEW. Regenerates CHANGELOG.md on a release/vX.Y.Z
+# branch and opens a merge request. Creates NO tag and NO GitLab Release.
+#
+# This is the review gate. Before it existed, nobody saw the release notes in
+# reviewable form before a tag existed — and a tag is the one artifact here that
+# cannot be cleanly retracted. At v0.2.0 the committed CHANGELOG.md still read
+# "## [Unreleased]" while the tag and the Release both said 0.2.0, because
+# regenerating it was an optional step someone had to remember. Here the
+# changelog IS the merge request.
+#
+# No `needs: [ash]`, unlike the release jobs below. `ash` gates the irreversible
+# act of RELEASING; this job creates a reviewable MR and no tag, and the MR is
+# itself gated by whatever runs on the release branch. Waiting on ash here would
+# delay the review gate without protecting anything irreversible.
+#
+# A job-token push starts NO pipeline (GitLab documents this explicitly), so
+# there is no loop risk and no [skip ci] guard is needed. It does require the
+# project setting Settings > CI/CD > Job token permissions > "Allow Git push
+# requests to this project's repository", and release/* must be UNPROTECTED.
+release:prepare:
+  extends: .release-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: false
+    - when: never
+  needs: []
+  script:
+    # Push over HTTPS with the job token. The default clone remote is already
+    # job-token-authenticated for FETCH; this makes it usable for PUSH.
+    - git remote set-url --push origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - bash infra/scripts/release-prepare.sh
+
+# Prepare a MAJOR release for review. The same flow as release:prepare — same
+# script, same branch-and-MR shape — with the CONFIRM_VERSION gate. Separately
+# named for the same reason release:major is: the job list is the runbook, and a
+# major bump should not be reachable by clicking the ordinary button.
+#
+# Still creates no tag, so this is the SAFER of the two major paths: the
+# irreversible act is deferred to a reviewed merge.
+release:prepare:major:
+  extends: .release-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: false
+    - when: never
+  needs: []
+  script:
+    - git remote set-url --push origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - bash infra/scripts/release-prepare.sh major
+
+# THE NORMAL RELEASE PATH. Automatic, on every push to main, and its usual
+# outcome is to do nothing.
+#
+# Merging a release MR is the approval, so tagging afterwards is bookkeeping —
+# and bookkeeping is what CI is for. Before this job, a releaser had to notice
+# the merge landed, find the pipeline, and click a button, which is the same
+# remember-to-do-it gap that produced the stale changelog at v0.2.0.
+#
+# TWO conditions must BOTH hold, and neither alone is sufficient:
+#
+#   1. the derived version differs from the newest tag, and
+#   2. a `chore(release): ` commit is reachable since that tag.
+#
+# Condition 1 alone would tag on every ordinary feature merge. Condition 2 alone
+# would re-tag an already-released marker. This pairing is also why auto-tagging
+# works now when it was reverted in 2026-05: that attempt gated on
+# `changes: [VERSION]`, so there was no way to merge to main for non-release
+# purposes without either faking a release or losing one. Derivation supplies the
+# semantic trigger a file-modification check could not.
+#
+# Why the marker rather than merge-request variables: every CI_MERGE_REQUEST_*
+# variable requires an OPEN merge request and a merge-request pipeline. After a
+# merge both conditions fail, so this pipeline cannot see the MR it came from.
+# Merge-commit subject tests and parent-count tests were both tried and both fail
+# under a squash merge — verified. The marker survives both methods because
+# release-prepare.sh makes the MR TITLE the marker (GitLab defaults a squash
+# commit's subject to the title).
+#
+# NOT gated on $CI_PIPELINE_SOURCE. Its value on a merge-triggered pipeline has
+# never been observed in this project, and gating on an unobserved value is how
+# you get a job that silently never runs — this repository already has one
+# recorded instance of exactly that (a rule on $CI_PIPELINE_SOURCE != "push" that
+# was dead code and never fired).
+release:auto:
+  extends: .release-base
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
+    - when: never
+  needs:
+    - job: ash
+      optional: true
+  script:
+    - TAG=$(git-cliff --bumped-version)
+    - LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+    - |
+      if [ "$TAG" = "$LATEST" ]; then
+        echo "No release: derived version equals the current tag ($LATEST)."
+        echo "Nothing in this push affects the version. This is the normal outcome"
+        echo "for an ordinary push — nothing was created."
+        exit 0
+      fi
+    - |
+      # The release marker, scoped to the range since the newest tag. Scoping is
+      # what makes "reachable AND untagged" precise: a marker older than $LATEST
+      # was already released and is invisible here.
+      if [ "$LATEST" = "none" ]; then
+        RANGE="HEAD"
+      else
+        RANGE="$LATEST..HEAD"
+      fi
+      if ! git log "$RANGE" --format='%s' | grep -q '^chore(release): '; then
+        echo "No release: $TAG is derivable, but no release marker was found in $RANGE."
+        echo ""
+        echo "This is the normal outcome for an ordinary feature merge. A release"
+        echo "happens only when a prepared release MR is merged, which carries a"
+        echo "'chore(release): ' commit subject."
+        echo "hint: to release $TAG, run the 'release:prepare' job and merge the"
+        echo "      merge request it opens."
+        exit 0
+      fi
+    - echo "Release marker found for $TAG — releasing."
+    # ADVISORY_CHANGELOG: a changelog mismatch WARNS rather than fails here.
+    # A mismatch in this path usually means somebody else merged something while
+    # the release was under review — ordinary team activity, not a release defect,
+    # and not something the releaser can control. The notes attached to the tag
+    # are generated fresh from history, so the PUBLISHED notes are complete
+    # regardless; only the committed file lags, and it is regenerated in full at
+    # the next release. See infra/scripts/release-check.sh for the full reasoning.
+    - ADVISORY_CHANGELOG=1 bash infra/scripts/release-run.sh
+
+# BREAK-GLASS. Manual, and not the normal path — release:auto above is.
+#
+# Kept deliberately: the automatic path can fail for reasons that have nothing to
+# do with the release being correct (a runner outage, a transient API failure, ash
+# unavailable), and a release process with no manual override is one that blocks
+# on its own infrastructure.
+#
+# It CANNOT double-tag. It calls the same release-run.sh, whose absence-on-origin
+# assertion covers both orderings — automatic-then-manual and manual-then-automatic.
+#
+# Unlike release:auto it does NOT set ADVISORY_CHANGELOG, so the changelog
+# assertion stays a hard gate here: an operator running this regenerated the
+# changelog moments ago, so a mismatch means they got it wrong.
 release:
   extends: .release-base
   rules:
@@ -161,33 +328,7 @@ release:
     - job: ash
       optional: true
   script:
-    - TAG=$(git-cliff --bumped-version)
-    - LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-    - |
-      if [ "$TAG" = "$LATEST" ]; then
-        echo "Nothing to release — derived version equals the current tag ($LATEST)."
-        echo "Only conventional commits (feat:, fix:, ...) derive a new version."
-        exit 1
-      fi
-    - |
-      if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
-        echo "error: tag $TAG already exists on origin — nothing to release" >&2
-        exit 1
-      fi
-    - echo "Releasing $TAG"
-    # Before tagging: assert tag hygiene and that $TAG is what history derives.
-    # Running it after would leave a wrong tag behind on failure.
-    - bash infra/scripts/release-check.sh "$TAG"
-    # --tag stamps the heading as "## [X.Y.Z] - <date>". Without it the notes are
-    # headed "## [Unreleased]", which is wrong on a tag that names a version —
-    # and the publish path's heading assertion looks for "## [".
-    - git-cliff --unreleased --tag "$TAG" --strip all > /tmp/release-notes.md
-    - git tag -a "$TAG" --cleanup=verbatim -F /tmp/release-notes.md
-    - git push origin "$TAG"
-    - bash infra/scripts/gitlab-release.sh "$TAG" /tmp/release-notes.md
-    - echo ""
-    - echo "Released $TAG internally. Nothing was published to GitHub."
-    - echo "To publish this tag publicly, run 'publish:github:plan' first."
+    - bash infra/scripts/release-run.sh
 
 # Major release. Separately named and confirmation-gated because it is one of
 # only two irreversible acts in the release path (the other is publishing).
@@ -215,16 +356,12 @@ release:major:
         echo "error: major release requires explicit confirmation" >&2
         echo "would cut: $TAG" >&2
         echo "hint: re-run this job with CONFIRM_VERSION=$TAG" >&2
+        echo "hint: the REVIEWED route to a major is 'release:prepare:major', which" >&2
+        echo "      opens an MR and creates no tag. Prefer it over this job." >&2
         exit 1
       fi
     - echo "Releasing MAJOR $TAG (confirmed)"
-    - bash infra/scripts/release-check.sh "$TAG" major
-    - git-cliff --bump major --unreleased --tag "$TAG" --strip all > /tmp/release-notes.md
-    - git tag -a "$TAG" --cleanup=verbatim -F /tmp/release-notes.md
-    - git push origin "$TAG"
-    - bash infra/scripts/gitlab-release.sh "$TAG" /tmp/release-notes.md
-    - echo ""
-    - echo "Released $TAG internally. Nothing was published to GitHub."
+    - bash infra/scripts/release-run.sh major
 
 # ---------------------------------------------------------------------------
 # Stage 2 — public publish. Two jobs:

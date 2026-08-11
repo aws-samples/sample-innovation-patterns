@@ -93,8 +93,11 @@ Framework-level build, version, and release helpers live in `infra/scripts/` —
 | `docker.mk` | ECR authentication (`ecr-login`) and Docker build/tag/push (`docker-build-push`) macros, included by `build.mk` |
 | `version.py` | Reads version from `app-lib/pyproject.toml` + git SHA; produces Docker tags, semver strings |
 | `configure_frontend.py` | Generates `web-client/dist/config.js` with runtime configuration (`window.__CONFIG__`) |
-| `release.mk` | Framework release automation (`release-check`, `release-prep`) used by GitLab CI and humans |
-| `release-check.sh` | Verifies the `VERSION` file matches the current git tag |
+| `release.mk` | Framework release automation (`release-preview`, `release-prepare`, `release-changelog`, `release-check`) used by GitLab CI and humans |
+| `release-prepare.sh` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request for review. Creates no tag |
+| `release-run.sh` | Cuts the release: asserts, generates notes, creates the annotated tag, pushes it, and creates the release object |
+| `release-check.sh` | Asserts tag hygiene, that the tag matches the version derived from commit history, and that `CHANGELOG.md` matches its generated output — all before any tag is created |
+| `changelog-lib.sh` | Single definition of the changelog floor and generation command, shared by every path that writes or verifies `CHANGELOG.md` |
 | `archive.sh` | Creates a `.tar.gz` of the repo (respecting `.gitignore`) for offline handoff |
 | `openapi-codegen.mk` | API client generation helper (placeholder) |
 

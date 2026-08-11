@@ -3,7 +3,7 @@
 
 -include .env
 
-.PHONY: release-check release-prep release-changelog release-preview
+.PHONY: release-check release-prep release-changelog release-preview release-prepare
 
 # The version is DERIVED from tags and Conventional Commit history. There is no
 # VERSION file — it was retired because it conflated two different questions
@@ -54,11 +54,15 @@ release-preview:
 # cliff.toml renders as indented continuation text under each bullet.
 #
 # CHANGELOG_FLOOR is the cutover: everything after it is generated, everything at
-# or before it is frozen in cliff.toml's `footer`. Conventional Commits were
-# adopted in v0.1.6, so generating across that boundary drops v0.1.1 entirely and
-# reduces v0.1.3 to a bare heading — verified. Do not lower this without moving
-# the corresponding sections into the footer.
-CHANGELOG_FLOOR ?= v0.1.4
+# or before it is frozen in cliff.toml's `footer`. See infra/scripts/changelog-lib.sh
+# for the full rationale — the value is defined there so that this makefile, the
+# release-check assertion, and release-prepare.sh cannot disagree about it.
+#
+# Read from the fragment, with the literal default as a fallback so this makefile
+# still works if invoked from a checkout where the fragment is absent.
+CHANGELOG_LIB = infra/scripts/changelog-lib.sh
+CHANGELOG_FLOOR ?= $(shell sed -n 's/^CHANGELOG_FLOOR="\$${CHANGELOG_FLOOR:-\(v[0-9.]*\)}"/\1/p' $(CHANGELOG_LIB) 2>/dev/null || true)
+CHANGELOG_FLOOR := $(if $(CHANGELOG_FLOOR),$(CHANGELOG_FLOOR),v0.1.4)
 
 release-changelog:
 	$(call check_releasable)
@@ -76,11 +80,22 @@ release-prep:
 	@read -r reply; case "$$reply" in [yY]*) ;; *) echo "Aborted."; exit 1 ;; esac
 	@$(MAKE) -f infra/scripts/release.mk release-changelog VERSION=$(VERSION)
 	@echo ""
-	@echo "Next steps:"
-	@echo "  1. Review CHANGELOG.md — but do NOT edit it. It is generated, and the"
-	@echo "     next release overwrites it. To fix wording, amend the COMMIT BODY;"
-	@echo "     to add a missing entry, add an empty commit carrying the prose."
-	@echo "  2. Commit: git commit -am 'chore: release v$(VERSION)'"
-	@echo "  3. Push to main"
-	@echo "  4. Run the 'release' job in the GitLab pipeline for that commit"
-	@echo "     (it derives the tag itself — no version needs to be typed)"
+	@echo "CHANGELOG.md is regenerated in your working tree, uncommitted."
+	@echo ""
+	@echo "This target is for INSPECTING the generated notes. It is not the release"
+	@echo "flow — do not commit this and push it to main."
+	@echo ""
+	@echo "To actually prepare the release, discard this and run release-prepare,"
+	@echo "which puts the same content on a release branch behind a merge request:"
+	@echo "  git checkout -- CHANGELOG.md"
+	@echo "  make -f infra/scripts/release.mk release-prepare"
+	@echo ""
+	@echo "Or click 'release:prepare' in the GitLab pipeline for the current commit."
+
+# Prepare a release for REVIEW: cut release/vX.Y.Z carrying a regenerated
+# CHANGELOG.md and open a merge request. Creates NO tag.
+#
+# The local counterpart of the release:prepare CI job — same script, so the
+# behaviour cannot differ between the two.
+release-prepare:
+	@bash infra/scripts/release-prepare.sh $(BUMP_MODE)

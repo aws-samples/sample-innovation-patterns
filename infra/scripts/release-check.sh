@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Three assertions, run BEFORE a tag is created: tag hygiene, derived-equals-
+# requested, and CHANGELOG.md matches the generated output.
+#
+# The first two are HARD in every path. Neither can be tripped by somebody else's
+# merge — a disagreeing tag is a broken clone and a mismatched version is a
+# mistaken request, so a failure is always a real problem with this release.
+#
+# The third honours ADVISORY_CHANGELOG=1 (set only by the automatic path), where
+# a mismatch usually means ordinary team activity rather than a defect. The
+# reasoning is at that assertion.
+
 # Tag hygiene: every local release tag must point at the same commit as origin's
 # tag of the same name.
 #
@@ -98,17 +109,35 @@ echo "ok: $tag matches the derived version"
 # ---------------------------------------------------------------------------
 #
 # The file is a build output of `git-cliff "refs/tags/$CHANGELOG_FLOOR.."`, not a
-# hand-maintained document. Nothing in CI writes it: the release job pushes tags
-# only, and CI_JOB_TOKEN cannot push to a protected branch. So the committed file
-# goes stale the moment someone releases without running `release-prep` — which is
-# exactly what happened at v0.2.0, where the file still read "## [Unreleased]"
-# while the tag and the published Release both said 0.2.0.
+# hand-maintained document.
 #
-# This compares the committed file byte-for-byte against a fresh generation for
-# $tag. It is not a nuisance check: it can only fail when the file genuinely does
-# not match what this release will publish, and the fix is one command. It runs
+# It IS written in CI, by release-prepare.sh, onto a release/* branch that a human
+# reviews and merges. What CI cannot do is write it directly to the trunk: a job
+# token cannot push to a PROTECTED branch, and main is protected. That single fact
+# is what shapes the whole flow — the release branch is writable and the trunk is
+# not, so the changelog reaches main through a reviewed merge rather than a
+# commit-back.
+#
+# (An earlier version of this comment claimed CI_JOB_TOKEN cannot push at all.
+# That generalisation was wrong: branch push with a job token is generally
+# available as of GitLab 18.4, subject to a project setting. Only the
+# protected-branch half of the claim was ever true.)
+#
+# Before that flow existed, the committed file went stale the moment someone
+# released without regenerating it — exactly what happened at v0.2.0, where the
+# file still read "## [Unreleased]" while the tag and the published Release both
+# said 0.2.0. This assertion is why that cannot recur silently.
+#
+# This compares the committed file against a fresh generation for $tag, ignoring
+# only the release date in version headings (see normalise_release_dates below).
+# It is not a nuisance check: it can only fail when the file genuinely does not
+# match what this release will publish, and the fix is one command. It runs
 # before tagging, so a failure leaves no tag behind.
-CHANGELOG_FLOOR="${CHANGELOG_FLOOR:-v0.1.4}"
+# CHANGELOG_FLOOR and the generation command itself live in one shared place, so
+# that what this script VERIFIES cannot drift from what release-prepare.sh and
+# release.mk WRITE.
+# shellcheck source=infra/scripts/changelog-lib.sh
+. "$(dirname "$0")/changelog-lib.sh"
 
 if [ ! -f CHANGELOG.md ]; then
   echo "error: CHANGELOG.md is missing" >&2
@@ -117,9 +146,39 @@ if [ ! -f CHANGELOG.md ]; then
 fi
 
 expected="$(mktemp)"
-trap 'rm -f "$expected"' EXIT
+expected_norm="$(mktemp)"
+committed_norm="$(mktemp)"
+# One trap for all three. A second `trap ... EXIT` would silently replace this
+# one rather than adding to it, leaking whichever file the first trap covered.
+trap 'rm -f "$expected" "$expected_norm" "$committed_norm"' EXIT
 
-if ! git-cliff "refs/tags/$CHANGELOG_FLOOR.." --tag "$tag" -o "$expected" 2>/dev/null; then
+# The release date is normalised out of version headings before comparing.
+#
+# For an UNRELEASED version, cliff.toml's heading template stamps the moment of
+# generation, not the commit date and not the tag date:
+#
+#   ## [{{ version ... }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+#
+# So a changelog generated on one day and verified on the next differs by one
+# line, and a byte-for-byte comparison fails on it. That is a false failure: the
+# date is the one field in the heading that cannot be verified before the tag
+# exists, because there is nothing yet to read it from. Once the tag exists,
+# git-cliff reads the date from the tag and it becomes stable.
+#
+# The pattern is anchored at both ends and requires the full
+# "## [X.Y.Z] - YYYY-MM-DD" shape, so it rewrites version headings and nothing
+# else — not a bullet that mentions a date, not a body line containing "## [".
+# The version itself is NOT normalised, so a changelog generated for the wrong
+# version still fails. `sed -E` rather than `-r`: `-E` is POSIX and works under
+# both GNU sed (the CI image) and BSD sed (an operator's macOS workstation).
+#
+# Coupled to cliff.toml's `body` heading template — if that heading format
+# changes, this pattern must change with it.
+normalise_release_dates() {
+  sed -E 's/^(## \[[0-9]+\.[0-9]+\.[0-9]+\]) - [0-9]{4}-[0-9]{2}-[0-9]{2}$/\1 - <date>/' "$1"
+}
+
+if ! generate_changelog "$tag" "$expected"; then
   echo "error: could not generate the expected CHANGELOG for $tag" >&2
   echo "hint: does the floor tag $CHANGELOG_FLOOR exist locally? A shallow clone" >&2
   echo "      may not have it — the release job sets GIT_DEPTH: 0 for this reason." >&2
@@ -136,10 +195,57 @@ if ! grep -q '^## \[' "$expected"; then
   exit 1
 fi
 
-if ! diff -q "$expected" CHANGELOG.md >/dev/null 2>&1; then
+normalise_release_dates "$expected" > "$expected_norm"
+normalise_release_dates CHANGELOG.md > "$committed_norm"
+
+if ! diff -q "$expected_norm" "$committed_norm" >/dev/null 2>&1; then
+  # ADVISORY_CHANGELOG: warn instead of failing. Set ONLY by the automatic
+  # release path, and the asymmetry is deliberate.
+  #
+  # In the MANUAL path the operator regenerated the changelog moments ago, so a
+  # mismatch means they got it wrong — a real error, worth catching before a tag
+  # exists.
+  #
+  # In the AUTOMATIC path a mismatch usually means somebody ELSE merged something
+  # while the release was under review. That is ordinary team activity, not a
+  # defect in the release, and failing on it would block releases for a reason
+  # the releaser cannot control — which is how you get an assertion operators
+  # learn to bypass.
+  #
+  # Nothing is lost by warning here: the notes attached to the tag are generated
+  # fresh from history at release time (release-run.sh), so the PUBLISHED notes
+  # are complete regardless. Only the committed file is briefly behind, and it is
+  # regenerated in full from CHANGELOG_FLOOR at the next release, which recovers
+  # the missing entry automatically.
+  #
+  # The other two assertions stay HARD in both paths: tag hygiene and
+  # derived-equals-requested cannot be tripped by someone else's merge, so a
+  # failure there is always a real problem.
+  if [ "${ADVISORY_CHANGELOG:-}" = "1" ]; then
+    echo "warning: CHANGELOG.md does not match what $tag will publish" >&2
+    echo "" >&2
+    { diff "$expected" CHANGELOG.md || true; } | head -40 >&2
+    echo "" >&2
+    echo "note: this is ADVISORY in the automatic release path and does NOT block" >&2
+    echo "      the release. The most likely cause is a commit merged to the" >&2
+    echo "      default branch while this release was under review." >&2
+    echo "note: the notes attached to the tag are generated fresh from history, so" >&2
+    echo "      the PUBLISHED notes are complete. Only the committed file is" >&2
+    echo "      behind, and the next release regenerates it in full — the missing" >&2
+    echo "      entry reappears then, in this version's section." >&2
+    echo "hint: to reconcile it now: " >&2
+    echo "        make -f infra/scripts/release.mk release-changelog VERSION=${tag#v}" >&2
+    echo "" >&2
+    echo "ok: CHANGELOG.md check completed with warnings (advisory mode)"
+    exit 0
+  fi
+
   echo "error: CHANGELOG.md does not match what $tag will publish" >&2
   echo "" >&2
-  diff "$expected" CHANGELOG.md | head -40 >&2
+  # The UNNORMALISED diff, deliberately: an operator debugging a mismatch needs
+  # the real line content. A diff full of "- <date>" placeholders would obscure
+  # the line they actually need to see.
+  { diff "$expected" CHANGELOG.md || true; } | head -40 >&2
   echo "" >&2
   echo "hint: CHANGELOG.md is GENERATED, not hand-edited. Regenerate and commit it:" >&2
   echo "        make -f infra/scripts/release.mk release-changelog VERSION=${tag#v}" >&2
@@ -148,6 +254,9 @@ if ! diff -q "$expected" CHANGELOG.md >/dev/null 2>&1; then
   echo "      bodies, which cliff.toml renders under each bullet. To add a missing" >&2
   echo "      entry, add an empty commit carrying the prose:" >&2
   echo "        git commit --allow-empty -m 'feat(scope): subject' -m 'body...'" >&2
+  echo "hint: the release DATE in a version heading is excluded from this" >&2
+  echo "      comparison, so a date difference is not what failed here — look" >&2
+  echo "      for a content or version difference in the diff above." >&2
   exit 1
 fi
 
