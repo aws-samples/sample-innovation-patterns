@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-11
+
+### Fixed
+- **ipa** — Add MR-gated release flow with automatic tag on merge
+
+  Cutting a release was a single button press that tagged origin
+  immediately, with no review of the notes and no enforcement that
+  CHANGELOG.md had been regenerated. That produced v0.2.0, whose committed
+  changelog read "## [Unreleased]" while the tag and the published Release
+  both said 0.2.0 — the changelog step was documented as optional.
+  
+  The release is now prepared as a merge request and tagged by merging it:
+  
+    release:prepare  regenerates CHANGELOG.md on release/vX.Y.Z and opens
+                     an MR. Creates no tag.
+    release:auto     automatic on every push to main. Tags and creates the
+                     GitLab Release when a release MR was merged.
+  
+  Merging is the approval, so the notes are read as a diff before anything
+  irreversible exists.
+- **ipa** — Accept detached HEAD in release-prepare branch guard
+
+  A GitLab runner checks out a detached HEAD ("Checking out <sha> as
+  detached HEAD (ref is main)"), so `git rev-parse --abbrev-ref HEAD`
+  returned the literal string "HEAD" and never "main". The precondition
+  guard was written for a local run, so release:prepare rejected its own
+  CI job on every invocation and had never succeeded in CI.
+  
+  Prefer CI_COMMIT_BRANCH, which GitLab sets to the branch the pipeline
+  ran for even on a detached checkout. This does not weaken the guard: the
+  job rule already gates on $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH, the
+  variable is set by GitLab rather than the script, and locally it is unset
+  so the rev-parse form applies unchanged.
+  
+  The other release paths were unaffected because none asks what branch it
+  is on — release-run.sh tags HEAD, which works detached. That is why only
+  this job failed.
+
 ## [0.2.0] - 2026-08-07
 
 ### Added
