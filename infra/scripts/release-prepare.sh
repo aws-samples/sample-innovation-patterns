@@ -37,7 +37,19 @@ DEFAULT_BRANCH="${CI_DEFAULT_BRANCH:-main}"
 # Preconditions
 # ---------------------------------------------------------------------------
 
-current_branch=$(git rev-parse --abbrev-ref HEAD)
+# CI_COMMIT_BRANCH first, and it is not a nicety: a GitLab runner checks out a
+# DETACHED HEAD ("Checking out 76097c5a as detached HEAD (ref is main)"), so
+# `rev-parse --abbrev-ref HEAD` returns the literal string "HEAD" in every CI run
+# and the guard below rejected its own release:prepare job. CI_COMMIT_BRANCH
+# carries the branch the pipeline ran for, which is what the guard means to ask.
+#
+# Trusting it does not weaken the guard: the job rule already gates on
+# $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH, and GitLab sets the variable, not the
+# script. Locally it is unset and the rev-parse form applies unchanged.
+#
+# The other release paths never tripped this because they ask no branch question —
+# release-run.sh tags HEAD, which works detached.
+current_branch="${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 if [ "$current_branch" != "$DEFAULT_BRANCH" ]; then
   # A leftover release/* checkout is the expected state after a run that failed
   # at the push, so recover from it rather than dead-ending: the release branch
