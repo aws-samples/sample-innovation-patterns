@@ -32,7 +32,9 @@ release-check:
 	@bash infra/scripts/release-check.sh
 
 # Print the version that would be cut and the notes that would be published.
-# Creates nothing — the local counterpart of the release:preview CI job.
+# Creates nothing. This is the ONLY preview — there is no CI preview job, because
+# this target and release:prepare (whose MR diff IS the notes) both already answer
+# the question it would have answered.
 release-preview:
 	@echo "current release: $(if $(LATEST_TAG),$(LATEST_TAG),none)"
 	@echo "would release:   v$(VERSION)"

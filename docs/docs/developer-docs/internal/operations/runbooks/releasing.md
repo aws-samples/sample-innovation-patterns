@@ -38,23 +38,26 @@ The job names are the documentation. All of them run on a **branch** pipeline fo
 | `release:prepare` | Manual | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request | A branch and an MR. **No tag.** |
 | `release:auto` | **Automatic**, every push to `main` | Tags and creates the GitLab Release when a release MR was merged. Does nothing on any other push. | A tag and a GitLab Release — or nothing |
 
-### Supporting
-
-| Job | Trigger | What it does |
-|-----|---------|--------------|
-| `release:preview` | **Automatic**, every push to `main` | Prints the derived version and the exact notes. Creates nothing. Non-blocking. |
-| `release:prepare:major` | Manual, `CONFIRM_VERSION`-gated | The reviewed route to a major version — same flow, still no tag. |
-
 ### Break-glass
 
-Not the normal path. These tag directly, with no review, and exist because the automatic path can fail for reasons unrelated to the release being correct — a runner outage, a transient API failure, `ash` unavailable. A release process with no manual override blocks on its own infrastructure.
+Not the normal path. This tags directly, with no review, and exists because the automatic path can fail for reasons unrelated to the release being correct — a runner outage, a transient API failure, `ash` unavailable. A release process with no manual override blocks on its own infrastructure.
 
 | Job | Trigger | What it does |
 |-----|---------|--------------|
 | `release` | Manual | Derives, asserts, tags `origin`, creates a GitLab Release. No review. |
-| `release:major` | Manual, `CONFIRM_VERSION`-gated | The same, forcing a major bump. |
 
-All four release paths call `infra/scripts/release-run.sh`, so they cannot drift from one another — and its absence-on-origin assertion means **no two of them can ever create the same tag**, in either order.
+Both release paths call `infra/scripts/release-run.sh`, so they cannot drift from one another — and its absence-on-origin assertion means **the two of them can never create the same tag**, in either order.
+
+### There is no preview job
+
+Two things already answer "what would a release look like right now?", so a CI job that printed it on every push was removed:
+
+- **Locally** — `make -f infra/scripts/release.mk release-preview` prints the derived version and the notes, and creates nothing.
+- **Reviewably** — `release:prepare` opens a merge request whose diff *is* the notes, and creates no tag. It is reversible: close the MR and delete the branch.
+
+### There is no major job either
+
+A major version is reached by supplying `BUMP=major` as a variable when running `release:prepare` or `release` — see [The major gate](#the-major-gate) for the confirmation it requires. Any other value is rejected, so a typo fails loudly rather than quietly cutting a minor.
 
 ### release:prepare
 
@@ -87,13 +90,9 @@ This pairing is why automatic tagging works now, having been tried and reverted 
 The title is the marker. Rename it and a squashed merge carries no marker, so the release silently does not fire — you get a merged MR and no tag.
 :::
 
-### release:preview
+### The major gate
 
-Runs on its own, so the answer to "what would a release look like right now?" is always already on screen. When nothing in the window affects the version it prints *nothing to release* and passes — a preview that failed on most pushes would be a preview everybody learned to ignore.
-
-### release:prepare:major and release:major
-
-While the project is pre-1.0, `cliff.toml` sets `breaking_always_bump_major = false`, so a `feat!:` commit derives `0.x+1` rather than `1.0.0`. Reaching a major version therefore requires one of the major jobs, and both require confirmation:
+While the project is pre-1.0, `cliff.toml` sets `breaking_always_bump_major = false`, so a `feat!:` commit derives `0.x+1` rather than `1.0.0`. Reaching a major version therefore requires `BUMP=major`, and that mode requires confirmation:
 
 ```
 error: preparing a major release requires explicit confirmation
@@ -101,12 +100,14 @@ would prepare: v1.0.0
 hint: re-run with CONFIRM_VERSION=v1.0.0
 ```
 
-Run it once to learn the value, then re-run with that value supplied as a CI variable. It fails before creating anything.
+Run it once to learn the value, then re-run with that value supplied as a CI variable alongside `BUMP=major`. It fails before creating anything.
 
-Prefer `release:prepare:major` — it opens a merge request and creates no tag, so the irreversible act is still deferred to a reviewed merge.
+Prefer `release:prepare` with `BUMP=major` over `release` with `BUMP=major` — it opens a merge request and creates no tag, so the irreversible act is still deferred to a reviewed merge.
+
+The gate lives **inside** `release-prepare.sh` and `release-run.sh`, not in a job's script block. It therefore holds however the script is invoked, including from a workstation. It previously lived in the `release:major` job block, where it guarded exactly one invocation route.
 
 :::note Post-1.0 behavior
-`breaking_always_bump_major = false` is **inert** once the major reaches 1 — at `v1.0.0` a `feat!:` commit derives `v2.0.0` normally. After the 1.0 transition, ordinary derivation coins majors and the major-specific jobs become decorative. That is the correct semantic: past 1.0, a breaking change genuinely should mean a major, and `release:preview` is what keeps it from being a surprise.
+`breaking_always_bump_major = false` is **inert** once the major reaches 1 — at `v1.0.0` a `feat!:` commit derives `v2.0.0` normally. After the 1.0 transition, ordinary derivation coins majors and `BUMP=major` becomes decorative. That is the correct semantic: past 1.0, a breaking change genuinely should mean a major, and `make release-preview` is what keeps it from being a surprise.
 :::
 
 ## Procedure: Cutting a Release
@@ -268,7 +269,7 @@ No commit since the last tag affects the version. Most often every commit in the
 
 **Fix:** if the work deserves a release, it deserves a conventional commit message. Nothing is wrong with the pipeline.
 
-### A major job fails without creating anything
+### A BUMP=major run fails without creating anything
 
 Expected — that is the gate. Read the `hint:` line, which names the exact `CONFIRM_VERSION` value, and re-run with it.
 
@@ -312,7 +313,7 @@ Tags are the single source of truth. `git-cliff --bumped-version` answers the fi
 Two configured behaviors matter when reading a derivation:
 
 - **`Update:`-prefixed commits are skipped entirely.** They affect neither the version nor any changelog section. A batch of these predates the convention.
-- **A breaking change stays within `0.x` while pre-1.0.** See the major jobs above.
+- **A breaking change stays within `0.x` while pre-1.0.** See [the major gate](#the-major-gate) above.
 
 ### git-cliff
 
@@ -343,7 +344,7 @@ The release ceremony is invisible to the changelog by design: `chore(release):` 
 
 | Target | What it does |
 |--------|--------------|
-| `release-preview` | Prints the derived version and notes. Creates nothing. The local counterpart of `release:preview`. |
+| `release-preview` | Prints the derived version and notes. Creates nothing. **The only preview** — there is no CI preview job. |
 | `release-prepare` | Cuts `release/vX.Y.Z` with a regenerated `CHANGELOG.md` and opens a merge request. The local counterpart of `release:prepare`. |
 | `release-changelog` | Regenerates `CHANGELOG.md` through the derived version |
 | `release-prep` | Regenerates `CHANGELOG.md` in the working tree for **inspection**. Not the release flow — use `release-prepare`. |
@@ -357,7 +358,7 @@ Prepares a release for review: derives the version, regenerates `CHANGELOG.md` o
 
 ### infra/scripts/release-run.sh
 
-The release act itself, called by all four release jobs so they cannot drift: derive, assert absent on `origin`, run `release-check.sh` **before** tagging, generate notes, tag with `--cleanup=verbatim -F`, push the tag, create the GitLab Release.
+The release act itself, called by both release jobs so they cannot drift: derive, gate a `major` on `CONFIRM_VERSION`, assert absent on `origin`, run `release-check.sh` **before** tagging, generate notes, tag with `--cleanup=verbatim -F`, push the tag, create the GitLab Release.
 
 `--cleanup=verbatim -F` is load-bearing rather than stylistic. The public side (`.github/workflows/release.yml`) reads the tag annotation and requires it to contain `## [` headings; the default cleanup mode strips comment-looking lines and reflows content, and `verbatim` also preserves the two-space nested indentation `cliff.toml` produces.
 
@@ -381,9 +382,13 @@ Holds `CHANGELOG_FLOOR` and the single `git-cliff` invocation that generates the
 
 ## Reference: CI Variables
 
+### BUMP
+
+Supplied at job-run time to `release:prepare` or `release`. The only accepted value is `major`; anything else is rejected. Leave it unset for an ordinary minor or patch release.
+
 ### CONFIRM_VERSION
 
-Supplied at job-run time to `release:prepare:major` and `release:major` only. Not a stored variable — run the job once, read the value from the failure message, re-run with it.
+Supplied at job-run time alongside `BUMP=major` only. Not a stored variable — run the job once, read the value from the failure message, re-run with it.
 
 ### CONFIRM_TAG
 
@@ -432,7 +437,6 @@ sequenceDiagram
 
     H->>O: push conventional commits to main
     O->>CI: push pipeline
-    CI->>CI: release:preview — derive, print notes (automatic)
 
     H->>CI: click release:prepare (manual)
     CI->>CI: regenerate CHANGELOG.md, commit chore(release): vX.Y.Z

@@ -4,11 +4,11 @@ Assets supporting IPA's release process. The process has **three parts**, and un
 
 | Part | Where | Jobs | Effect |
 |------|-------|------|--------|
-| 1 — prepare for review | GitLab | `release:prepare`, `release:prepare:major` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request. **Creates no tag.** |
-| 2 — internal release | GitLab | `release:auto` (automatic on merge); `release`, `release:major` (break-glass) | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
+| 1 — prepare for review | GitLab | `release:prepare` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request. **Creates no tag.** |
+| 2 — internal release | GitLab | `release:auto` (automatic on merge); `release` (break-glass) | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
 | 3 — public publish | GitLab → GitHub | `publish:github:plan`, `publish:github` | Publishes a **chosen** tag to the public mirror with cumulative notes. |
 
-Part 2 is triggered by a human merging part 1's merge request — the merge is the approval, and no button is pressed. `release:preview` runs automatically on every push and creates nothing.
+Part 2 is triggered by a human merging part 1's merge request — the merge is the approval, and no button is pressed. A major version is reached with `BUMP=major` on either part-1 or part-2's job, gated on `CONFIRM_VERSION`; there are no separately named major jobs. There is no preview job either — `make -f infra/scripts/release.mk release-preview` covers it locally.
 
 Parts 1 and 2 are documented in the [releasing runbook](../../docs/docs/developer-docs/internal/operations/runbooks/releasing.md). This file documents part 3.
 

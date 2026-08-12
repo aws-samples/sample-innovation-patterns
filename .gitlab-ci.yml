@@ -76,7 +76,7 @@ pages:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # ---------------------------------------------------------------------------
-# Stage 1 — internal release. Jobs whose NAMES are the documentation.
+# Stage 1 — internal release. THREE jobs, whose NAMES are the documentation.
 #
 # THE NORMAL FLOW is two steps, and only the first is a button:
 #
@@ -89,33 +89,36 @@ pages:
 #
 # So: click prepare, review the notes, merge. The merge is the approval.
 #
-# SUPPORTING:
-#
-#   release:preview        automatic on every push, non-blocking, creates nothing.
-#                          Shows what the next release would be.
-#   release:prepare:major  manual, CONFIRM_VERSION-gated. The reviewed route to a
-#                          major version — same flow, still no tag.
-#
 # BREAK-GLASS (not the normal path — recovery only, when release:auto fails for
 # reasons unrelated to the release being correct):
 #
 #   release                manual. Tags and releases directly, no review.
-#   release:major          manual, CONFIRM_VERSION-gated. Direct major, no review.
 #
-# All four release paths call infra/scripts/release-run.sh, so they cannot drift
-# from one another, and its absence-on-origin assertion means no two of them can
-# ever create the same tag.
+# A MAJOR version is reached by supplying BUMP=major when running either job,
+# not through separately named jobs. Both are CONFIRM_VERSION-gated in that mode,
+# and the gate lives INSIDE release-prepare.sh and release-run.sh rather than in
+# a job's script block — so it holds however the script is invoked, including
+# from a workstation. Prefer BUMP=major on release:prepare: it opens an MR and
+# creates no tag, so the irreversible act stays deferred to a reviewed merge.
 #
-# Publishing to the public GitHub mirror is stage 2 and is deliberately NOT part
-# of any job here. It also cannot be chained off release:auto: a CI-pushed tag
+# There is NO preview job. `make -f infra/scripts/release.mk release-preview`
+# answers "what would a release look like right now?" locally, and
+# release:prepare answers it reviewably — the MR diff IS the notes, and it is
+# reversible by closing the MR and deleting the branch. A CI job that ran on
+# every push to print that same information earned nothing that either of those
+# does not already give.
+#
+# Both release paths call infra/scripts/release-run.sh, so they cannot drift from
+# one another, and its absence-on-origin assertion means the two of them can never
+# create the same tag, in either order.
+#
+# Publishing to the public GitHub mirror is stage 2 (`publish:github:*`) and is
+# deliberately NOT part of any job here — cutting an internal release publishes
+# nothing publicly. It also cannot be chained off release:auto: a CI-pushed tag
 # triggers no pipeline, so such a chain would silently never fire.
 #
 # The version is DERIVED from tags and commit history — there is no VERSION
 # file. `git-cliff --bumped-version` is the single source of truth.
-#
-# Publishing to the public GitHub mirror is stage 2 (`publish:github:*`) and is
-# deliberately NOT part of any job here. Cutting an internal release publishes
-# nothing publicly.
 #
 # Why these are manual jobs on a BRANCH pipeline rather than tag-triggered: a
 # tag pipeline cannot work here. `pages` requires $CI_COMMIT_BRANCH (unset on
@@ -138,40 +141,6 @@ pages:
     - git config user.email "ci@code.aws.dev"
     - git config user.name "GitLab CI"
 
-# Automatic, non-blocking preview. Prints the version that would be cut and the
-# exact notes that would be published, and creates nothing.
-#
-# `allow_failure: true` keeps it non-blocking; the derived-equals-latest branch
-# below keeps it GREEN when there is simply nothing to release. Both are needed
-# — a job that is usually red is a job everyone learns to ignore, at which point
-# it also hides the one time it means something.
-release:preview:
-  extends: .release-base
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
-      allow_failure: true
-    - when: never
-  needs: []
-  script:
-    - LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-    - DERIVED=$(git-cliff --bumped-version)
-    # Quoted: a bare `: ` in a YAML plain scalar parses as a mapping key.
-    - 'echo "current release: $LATEST"'
-    - 'echo "would release:   $DERIVED"'
-    - |
-      if [ "$DERIVED" = "$LATEST" ]; then
-        echo ""
-        echo "Nothing to release — no commits since $LATEST affect the version."
-        echo "Only conventional commits (feat:, fix:, ...) derive a new version."
-        exit 0
-      fi
-    - echo ""
-    - echo "--- release notes for $DERIVED ---"
-    - git-cliff --unreleased --strip all
-    - echo "--- end release notes ---"
-    - echo ""
-    - echo "To cut this release, run the 'release' job. Nothing has been created."
-
 # Prepare a release for REVIEW. Regenerates CHANGELOG.md on a release/vX.Y.Z
 # branch and opens a merge request. Creates NO tag and NO GitLab Release.
 #
@@ -191,6 +160,11 @@ release:preview:
 # there is no loop risk and no [skip ci] guard is needed. It does require the
 # project setting Settings > CI/CD > Job token permissions > "Allow Git push
 # requests to this project's repository", and release/* must be UNPROTECTED.
+#
+# BUMP=major prepares a MAJOR release instead, via the same script and the same
+# branch-and-MR shape. release-prepare.sh rejects any other value, so a typo
+# fails loudly rather than quietly preparing a minor. It also enforces the
+# CONFIRM_VERSION gate in that mode: run once to learn the value, re-run with it.
 release:prepare:
   extends: .release-base
   rules:
@@ -203,26 +177,7 @@ release:prepare:
     # Push over HTTPS with the job token. The default clone remote is already
     # job-token-authenticated for FETCH; this makes it usable for PUSH.
     - git remote set-url --push origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-    - bash infra/scripts/release-prepare.sh
-
-# Prepare a MAJOR release for review. The same flow as release:prepare — same
-# script, same branch-and-MR shape — with the CONFIRM_VERSION gate. Separately
-# named for the same reason release:major is: the job list is the runbook, and a
-# major bump should not be reachable by clicking the ordinary button.
-#
-# Still creates no tag, so this is the SAFER of the two major paths: the
-# irreversible act is deferred to a reviewed merge.
-release:prepare:major:
-  extends: .release-base
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
-      when: manual
-      allow_failure: false
-    - when: never
-  needs: []
-  script:
-    - git remote set-url --push origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-    - bash infra/scripts/release-prepare.sh major
+    - bash infra/scripts/release-prepare.sh ${BUMP:-}
 
 # THE NORMAL RELEASE PATH. Automatic, on every push to main, and its usual
 # outcome is to do nothing.
@@ -317,6 +272,16 @@ release:auto:
 # Unlike release:auto it does NOT set ADVISORY_CHANGELOG, so the changelog
 # assertion stays a hard gate here: an operator running this regenerated the
 # changelog moments ago, so a mismatch means they got it wrong.
+#
+# BUMP=major forces a major bump and is CONFIRM_VERSION-gated inside
+# release-run.sh — a direct, unreviewed major is the least safe act available
+# here, so it takes two deliberate variables rather than one button.
+#
+# NOTE: breaking_always_bump_major = false is INERT once the major reaches 1.
+# After 1.0.0 ordinary derivation coins majors from feat!: commits and BUMP=major
+# becomes decorative — accepted, since a feat!: commit genuinely should mean a
+# major at that point. The mode exists for the 0.x -> 1.0 transition, which is
+# the transition it will actually be used for.
 release:
   extends: .release-base
   rules:
@@ -328,40 +293,7 @@ release:
     - job: ash
       optional: true
   script:
-    - bash infra/scripts/release-run.sh
-
-# Major release. Separately named and confirmation-gated because it is one of
-# only two irreversible acts in the release path (the other is publishing).
-#
-# NOTE: breaking_always_bump_major = false is INERT once the major reaches 1.
-# After 1.0.0 the ordinary `release` job will coin majors from feat!: commits
-# and this job becomes decorative — accepted, since a feat!: commit genuinely
-# should mean a major at that point. This job exists for the 0.x -> 1.0
-# transition, which is the transition it will actually be used for.
-release:major:
-  extends: .release-base
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TAG == null
-      when: manual
-      allow_failure: false
-    - when: never
-  needs:
-    - job: ash
-      optional: true
-  script:
-    - TAG=$(git-cliff --bump major --bumped-version)
-    # Gate BEFORE anything is created. A gate that fires after tagging is not a gate.
-    - |
-      if [ "${CONFIRM_VERSION:-}" != "$TAG" ]; then
-        echo "error: major release requires explicit confirmation" >&2
-        echo "would cut: $TAG" >&2
-        echo "hint: re-run this job with CONFIRM_VERSION=$TAG" >&2
-        echo "hint: the REVIEWED route to a major is 'release:prepare:major', which" >&2
-        echo "      opens an MR and creates no tag. Prefer it over this job." >&2
-        exit 1
-      fi
-    - echo "Releasing MAJOR $TAG (confirmed)"
-    - bash infra/scripts/release-run.sh major
+    - bash infra/scripts/release-run.sh ${BUMP:-}
 
 # ---------------------------------------------------------------------------
 # Stage 2 — public publish. Two jobs:

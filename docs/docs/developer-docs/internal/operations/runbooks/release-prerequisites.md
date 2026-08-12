@@ -164,7 +164,7 @@ What is known from the configuration:
   terminate in `- when: never`, so none of them runs on a non-default branch.
 - `pages` gates on the default branch alone, so it does not either.
 - Of the two included components, only **`ash`** gates anything: `release` and
-  `release:major` declare `needs: [job: ash, optional: true]`. Whether `ash`
+  `release:auto` declare `needs: [job: ash, optional: true]`. Whether `ash`
   itself runs on a non-default branch is what this check establishes.
 - **`acq` gates nothing.** No job declares a `needs:` on anything it provides, and
   `.gitignore` ignores `.acq/`, so its output is local scratch. It cannot block a

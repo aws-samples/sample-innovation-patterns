@@ -69,8 +69,8 @@ commit_parsers = [
 
 [bump]
 # Pre-1.0 guard: a `feat!:` commit yields 0.x+1 rather than 1.0.0. Reaching 1.0.0
-# is a deliberate act via the release:major job, not something ordinary derivation
-# can stumble into.
+# must be a deliberate, explicitly requested major bump (`git-cliff --bump major`),
+# not something ordinary derivation can stumble into.
 #
 # INERT once the major is >= 1 — verified: at v1.0.0 a `feat!:` still derives
 # v2.0.0. This is pre-1.0 scaffolding, not a permanent invariant.

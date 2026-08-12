@@ -8,13 +8,15 @@
 # Environment:
 #   ADVISORY_CHANGELOG=1  treat a CHANGELOG.md mismatch as a warning rather than
 #                         a failure. Set ONLY by the automatic path — see below.
+#   CONFIRM_VERSION       required to equal the derived tag when the argument is
+#                         `major`. Run once to learn the value, re-run with it.
 #
-# This script is called by THREE jobs: release:auto (automatic, on a merge to the
-# default branch), release (manual break-glass), and release:major. They must do
-# the same thing, which is why the sequence lives here rather than inline in
-# .gitlab-ci.yml three times. Two copies of an eight-step sequence, one of which
-# pushes tags, is the kind of duplication that diverges silently and gets
-# discovered by a bad release.
+# This script is called by TWO jobs: release:auto (automatic, on a merge to the
+# default branch) and release (manual break-glass, which passes `major` through
+# from its BUMP variable). They must do the same thing, which is why the sequence
+# lives here rather than inline in .gitlab-ci.yml twice. Two copies of an
+# eight-step sequence, one of which pushes tags, is the kind of duplication that
+# diverges silently and gets discovered by a bad release.
 #
 # It performs NO trigger detection. Deciding whether a release should happen is
 # the caller's job: the automatic path requires a release marker, the manual
@@ -25,6 +27,7 @@
 # ---------------------------------------------------------------------------
 #
 # 1. Derive, and no-op when there is nothing to release.
+# 1b. Gate a major bump on CONFIRM_VERSION.
 # 2. Assert the tag is absent on origin — before anything local is created.
 # 3. Run release-check.sh, which asserts tag hygiene, that the tag matches the
 #    derived version, and that CHANGELOG.md matches. It runs BEFORE tagging
@@ -64,6 +67,26 @@ LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
 if [ "$TAG" = "$LATEST" ]; then
   echo "Nothing to release — derived version equals the current tag ($LATEST)."
   echo "Only conventional commits (feat:, fix:, ...) derive a new version."
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 1b. Major gate, BEFORE anything is created. A gate that fires after tagging is
+#     not a gate.
+#
+#     This lives HERE rather than in the calling job's script block, which is
+#     where it used to live (the retired `release:major` job). In a job block it
+#     guarded one invocation route; here it guards every one of them, including
+#     a direct run from a workstation. A direct, unreviewed major is the least
+#     safe act this script performs, so the gate belongs where the act does.
+# ---------------------------------------------------------------------------
+
+if [ "$BUMP_MODE" = "major" ] && [ "${CONFIRM_VERSION:-}" != "$TAG" ]; then
+  echo "error: a major release requires explicit confirmation" >&2
+  echo "would cut: $TAG" >&2
+  echo "hint: re-run with CONFIRM_VERSION=$TAG" >&2
+  echo "hint: the REVIEWED route to a major is 'release:prepare' with BUMP=major," >&2
+  echo "      which opens a merge request and creates no tag. Prefer it." >&2
   exit 1
 fi
 
