@@ -5,155 +5,80 @@ sidebar_position: 10
 
 # Releasing
 
-How to cut a release of the IPA framework. The version is **derived** from Conventional Commit history — there is nothing to type and no file to bump.
+How to cut a release of the IPA framework. The version is **derived** from Conventional Commit history — there is nothing to type and no file to bump. Release notes live on the annotated tag and the GitLab Release object; there is no committed changelog.
 
 ## TL;DR
 
 ```
-1. Click the "release:prepare" job on the pipeline for main.
-   -> it opens a merge request containing the regenerated CHANGELOG.md
+1. Click "gitlab:release:preview" on the pipeline for main.
+   -> prints the version that would be cut and the exact notes. Creates nothing.
 
-2. Read the notes in that merge request. Merge it.
-   -> merging tags the release and creates the GitLab Release, automatically
+2. Click "gitlab:release".
+   -> tags origin and creates the GitLab Release
+
+3. (Optional, separate) Click "github:release" to publish to the public mirror.
+   -> the FIRST click is a dry run. Re-run it with the CONFIRM_TAG it prints.
 ```
 
-That is the whole internal flow. Two steps, one of them a button. **Merging is the approval** — there is no confirmation after it, and a tag cannot be cleanly retracted, so read the notes before merging rather than after.
+Step 1 is a **voluntary pre-flight, not a gate** — nothing stops you clicking `gitlab:release` without it. There is no pre-tag review of the notes; see [The trade this flow makes](#the-trade-this-flow-makes).
 
-Publishing to the public GitHub mirror is a **separate** act that is not part of this flow. See [Publishing to GitHub](#publishing-to-github).
+Publishing to the public GitHub mirror is a **separate** act that is not part of cutting an internal release. See [Publishing to GitHub](#publishing-to-github).
 
 ## Prerequisites
 
-- Push access to `main` on GitLab
-- The `release:prepare` job needs the project setting *Allow Git push requests to this project's repository*, and `release/*` must be unprotected. See [Release Prerequisites](release-prerequisites.md) for what has been verified and what has not.
-- **`git-cliff`** installed locally, only if you want to preview or regenerate `CHANGELOG.md` by hand — `brew install git-cliff`. CI installs its own pinned copy.
+- Push access to `main` on GitLab.
+- `GITHUB_DEPLOY_KEY` as a masked, protected CI variable — **only** for publishing. No internal release job touches it. See [GITHUB_DEPLOY_KEY](#github_deploy_key).
+- **`git-cliff`** installed locally, only if you want to preview from a workstation — `brew install git-cliff`. CI installs its own pinned copy.
+
+:::note No project setting is required
+Nothing in the release path pushes a **branch** any more, so the *Allow Git push requests to this project's repository* setting (Settings → CI/CD → Job token permissions) is **not** needed, and no `release/*` branch has to be left unprotected. The only ref any release job writes is the tag.
+:::
 
 ## The Jobs
 
-The job names are the documentation. All of them run on a **branch** pipeline for `main`.
+The job names are the documentation. All three run on a **branch** pipeline for `main`, and all three are **manual**.
 
-### Normal flow
+| Job | What it does | What it creates | What it does NOT create |
+|-----|--------------|-----------------|--------------------------|
+| `gitlab:release:preview` | Prints the current tag, the version that would be cut, and the exact notes body | Nothing | No tag, no branch, no Release object |
+| `gitlab:release` | Derives, asserts, tags `origin`, creates the GitLab Release | An annotated tag and a GitLab Release | Nothing on GitHub |
+| `github:release` | Publishes a chosen tag to the public mirror with cumulative notes. **First run is a dry run** | With `CONFIRM_TAG`: a filtered public tree, a public tag, and a GitHub Release | Without `CONFIRM_TAG`: nothing at all |
 
-| Job | Trigger | What it does | What it creates |
-|-----|---------|--------------|-----------------|
-| `release:prepare` | Manual | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request | A branch and an MR. **No tag.** |
-| `release:auto` | **Automatic**, every push to `main` | Tags and creates the GitLab Release when a release MR was merged. Does nothing on any other push. | A tag and a GitLab Release — or nothing |
+Both `gitlab:*` jobs call `infra/scripts/release.sh`, so the preview cannot report notes that differ from what a release publishes. Its absence-on-origin assertion means repeated clicks cannot double-tag.
 
-### Supporting
+`gitlab:release:preview` is `allow_failure: true` — it creates nothing, so a failure is informational. `gitlab:release` is not: it creates something irreversible, so a failure is loud.
 
-| Job | Trigger | What it does |
-|-----|---------|--------------|
-| `release:preview` | **Automatic**, every push to `main` | Prints the derived version and the exact notes. Creates nothing. Non-blocking. |
-| `release:prepare:major` | Manual, `CONFIRM_VERSION`-gated | The reviewed route to a major version — same flow, still no tag. |
-
-### Break-glass
-
-Not the normal path. These tag directly, with no review, and exist because the automatic path can fail for reasons unrelated to the release being correct — a runner outage, a transient API failure, `ash` unavailable. A release process with no manual override blocks on its own infrastructure.
-
-| Job | Trigger | What it does |
-|-----|---------|--------------|
-| `release` | Manual | Derives, asserts, tags `origin`, creates a GitLab Release. No review. |
-| `release:major` | Manual, `CONFIRM_VERSION`-gated | The same, forcing a major bump. |
-
-All four release paths call `infra/scripts/release-run.sh`, so they cannot drift from one another — and its absence-on-origin assertion means **no two of them can ever create the same tag**, in either order.
-
-### release:prepare
-
-Derives the version, regenerates `CHANGELOG.md` over the `CHANGELOG_FLOOR` range, commits it as `chore(release): vX.Y.Z` on `release/vX.Y.Z`, and pushes with merge-request-creating push options.
-
-It creates **no tag**, and says so in its own output. It is safe to run twice: a second run with identical content reports the branch as already prepared and exits successfully.
-
-When nothing since the newest tag affects the version, it exits **successfully** having created nothing. That is not a failure — it is the answer to "is there anything to release?"
-
-:::note If the merge request is not created
-A job-token push may not honour MR-creating push options on every GitLab instance. The job handles this: the branch is still pushed and the output prints the URL for opening the merge request by hand. One click, no lost work, no new credential.
-:::
-
-### release:auto
-
-Runs on every push to `main`, and its usual outcome is to do nothing.
-
-It releases only when **both** conditions hold:
-
-1. the derived version differs from the newest tag, **and**
-2. a `chore(release): ` commit is reachable since that tag.
-
-Neither alone is sufficient. Condition 1 alone would tag on every ordinary feature merge. Condition 2 alone would re-tag a marker that was already released.
-
-This pairing is why automatic tagging works now, having been tried and reverted in 2026-05: that attempt gated on `changes: [VERSION]`, so there was no way to merge to `main` for non-release purposes without either faking a release or losing one. Derivation supplies the semantic trigger a file-modification check could not.
-
-**Why a commit marker rather than "was this MR a release MR?"** Every `CI_MERGE_REQUEST_*` variable requires an *open* merge request and a merge-request pipeline. After a merge, both conditions fail — this pipeline cannot see the merge request it came from. Testing the merge-commit subject and testing the parent count were both tried, and both fail under a squash merge. The marker works under both merge methods because `release-prepare.sh` makes the **merge request title** the marker, and GitLab defaults a squash commit's subject to the title.
-
-:::warning Do not rename a release merge request
-The title is the marker. Rename it and a squashed merge carries no marker, so the release silently does not fire — you get a merged MR and no tag.
-:::
-
-### release:preview
-
-Runs on its own, so the answer to "what would a release look like right now?" is always already on screen. When nothing in the window affects the version it prints *nothing to release* and passes — a preview that failed on most pushes would be a preview everybody learned to ignore.
-
-### release:prepare:major and release:major
-
-While the project is pre-1.0, `cliff.toml` sets `breaking_always_bump_major = false`, so a `feat!:` commit derives `0.x+1` rather than `1.0.0`. Reaching a major version therefore requires one of the major jobs, and both require confirmation:
-
-```
-error: preparing a major release requires explicit confirmation
-would prepare: v1.0.0
-hint: re-run with CONFIRM_VERSION=v1.0.0
-```
-
-Run it once to learn the value, then re-run with that value supplied as a CI variable. It fails before creating anything.
-
-Prefer `release:prepare:major` — it opens a merge request and creates no tag, so the irreversible act is still deferred to a reviewed merge.
-
-:::note Post-1.0 behavior
-`breaking_always_bump_major = false` is **inert** once the major reaches 1 — at `v1.0.0` a `feat!:` commit derives `v2.0.0` normally. After the 1.0 transition, ordinary derivation coins majors and the major-specific jobs become decorative. That is the correct semantic: past 1.0, a breaking change genuinely should mean a major, and `release:preview` is what keeps it from being a surprise.
-:::
+Clicking `gitlab:release` when there is nothing to release exits **successfully** having created nothing — see [the troubleshooting entry](#nothing-happened).
 
 ## Procedure: Cutting a Release
 
 ### Step 1: Land your work
 
-Commit with Conventional Commit messages and push to `main`. The message format is what determines the version and the release notes — a non-conventional commit derives no bump and appears in no section.
+Commit with Conventional Commit messages and push to `main`. The message format is what determines the version and the notes — a non-conventional commit derives no bump and appears in no section.
 
-### Step 2: Click release:prepare
+### Step 2: Click gitlab:release:preview
 
-Open the pipeline for your commit and run the `release:prepare` job. It prints the branch it created and the merge request it opened:
-
-```
-Preparing v0.3.0 (current: v0.2.0)
-
-ok: committed chore(release): v0.3.0 on release/v0.3.0 (CHANGELOG.md only)
-ok: pushed release/v0.3.0 to origin
-ok: merge request: https://code.aws.dev/.../-/merge_requests/57
-
-Prepared v0.3.0 for review.
-  branch:  release/v0.3.0 (one commit, CHANGELOG.md only)
-  NO TAG was created by this job, and nothing was published.
-```
-
-If it reports nothing to release, no commit in the window affects the version.
-
-### Step 3: Review the notes
-
-Open the merge request. The diff **is** the release notes. Ask:
+Read the notes it prints. Ask:
 
 - Are the entries accurate?
 - Is the derived version right? A `feat:` gives a minor bump, a `fix:` a patch.
 - Is anything missing? Work committed with a non-conventional subject is invisible here.
 
-Do not hand-edit `CHANGELOG.md` to fix something. It is a generated file and the next release overwrites it. Change the **source**: amend the commit body to fix wording, or add an empty commit carrying the prose for a missing entry, then re-run `release:prepare`.
+To fix wording, amend the commit body — prose lives in commit bodies, which `cliff.toml` renders as indented continuation text under each bullet. To add a missing entry, add an empty commit carrying the prose:
 
-### Step 4: Merge
+```bash
+git commit --allow-empty -m 'feat(scope): subject' -m 'body...'
+```
 
-Merging tags the release. `release:auto` runs on the resulting pipeline for `main`, detects the marker, and creates the tag and the GitLab Release.
+### Step 3: Click gitlab:release
 
-Either merge method works — merge commit or squash.
+It derives, runs every assertion **before** creating anything, then tags `origin` and creates the GitLab Release.
 
-### Step 5: Verify
+### Step 4: Verify
 
 - [ ] The tag exists on GitLab
 - [ ] A GitLab **Release object** exists for that tag, not just a bare tag
-- [ ] The Release body carries the generated notes with headings intact
+- [ ] The Release body carries the generated notes with `## [` headings intact
 - [ ] Nothing changed on GitHub — publishing is separate
 
 ## Procedure: Hotfix on Main
@@ -170,24 +95,26 @@ Either merge method works — merge commit or squash.
 
 Cutting an internal release and publishing to the public mirror are **separate acts**. Nothing in the internal flow pushes anything public.
 
-| Job | Trigger | What it does |
-|-----|---------|--------------|
-| `publish:github:plan` | Manual | Prints the tag, the floor, the full notes body, the filtered-path report, and the `CONFIRM_TAG` value. Publishes nothing. |
-| `publish:github` | Manual, gated | Publishes. Requires `CONFIRM_TAG`. The one irreversible act in the release path. |
+There is one job, and **its first run publishes nothing**:
 
-:::note Publication cannot be automated off release:auto
+| Run | Effect |
+|-----|--------|
+| `github:release` with no `CONFIRM_TAG` | Prints `TAG`, `FLOOR`, the full notes body, and the filtered-path report. Publishes nothing. Ends with `hint: re-run with CONFIRM_TAG=<tag>` |
+| `github:release` with `CONFIRM_TAG=<tag>` | Publishes. The one irreversible act in the release path — it force-pushes a public repository that has accepted pull requests |
+
+:::note Publication cannot be automated off a release
 A tag pushed by CI triggers **no pipeline** — GitLab documents this explicitly for job-token pushes. Chaining publication off the release tag would therefore fail silently: the tag appears, nothing happens, and no error is reported anywhere. Publication stays a deliberate manual act because that is the only shape that works.
 :::
 
 ### Procedure
 
-1. Run `publish:github:plan`. Set the `TAG` variable to publish something other than the newest internal tag; leave it unset for the newest.
+1. Run `github:release`. Set the `TAG` variable to publish something other than the newest internal tag; leave it unset for the newest.
 2. Read its output — the notes body is exactly what the public Release will carry.
-3. Run `publish:github` with `CONFIRM_TAG` set to the value the plan printed.
+3. Re-run `github:release` with `CONFIRM_TAG` set to the value it printed.
 
 ### Publishing an older tag
 
-Supply `TAG=v0.3.0` to either job. Nothing is retagged internally: the internal tag already exists and is correct, and only the public side is brought forward. The operator's local tags are byte-identical before and after a publish run.
+Supply `TAG=v0.3.0`. Nothing is retagged internally: the internal tag already exists and is correct, and only the public side is brought forward. The operator's local tags are byte-identical before and after a publish run — the publish path writes no local ref at all.
 
 ### What a gap in the public tag sequence means
 
@@ -195,82 +122,64 @@ The public tag sequence is allowed to be gapped — `v0.1.7` then `v0.4.0` with 
 
 **Publishing does not withhold code.** The publish path amends the tip and force-pushes `main`, so the code of a release you never published reaches the public repository the next time you publish anything. What is withheld is the **tag and the Release object**.
 
-So a gap describes real, already-public code that no Release object documents. That is why the notes for a publish cover everything since the last publish rather than just the newest version: the release notes for `v0.4.0` published over a floor of `v0.1.7` contain a section per intervening version, so nothing that shipped goes undescribed.
+So a gap describes real, already-public code that no Release object documents. That is why the notes for a publish cover everything since the last publish rather than just the newest version: the notes for `v0.4.0` published over a floor of `v0.1.7` contain a section per intervening version, so nothing that shipped goes undescribed.
 
 The floor is resolved from GitHub itself — GitHub is the only authority on what GitHub already has, so there is no "last published" record to drift.
 
 For the mechanisms and their hazards, see [`internal/release/README.md`](https://code.aws.dev/proserve/genaiid/other/candidate-reusable-assets/innovation-patterns/-/blob/main/internal/release/README.md).
 
+## The trade this flow makes
+
+**There is no pre-tag review of the release notes.** Earlier the notes reached `main` as a committed `CHANGELOG.md` on a release branch behind a merge request, and that diff was the review gate. Retiring the committed changelog retired the gate with it.
+
+What that gate was added for cannot recur: at `v0.2.0` the committed changelog still read `## [Unreleased]` while the tag and the Release both said 0.2.0. A file that does not exist cannot go stale relative to its tag, so the incident class is structurally impossible now rather than merely guarded against.
+
+What is genuinely lost is a *blocking* look at the notes before a tag exists. `gitlab:release:preview` replaces it with a voluntary one.
+
+**Commit-message adherence is now the single point of failure.** With no changelog to review, a non-conventional commit is invisible: it derives no bump and appears in no notes section, and there is no artifact in which anyone would notice. Adherence has been measured at 27%, 17%, and 33% in past samples. There is no commitlint job — the convention is advisory, and this is the risk that carries.
+
 ## Troubleshooting
 
-### I merged the release MR but no tag appeared
+### I clicked gitlab:release and nothing happened {#nothing-happened}
 
-`release:auto` did not find its marker. The likely causes, in order:
+The job went **green** and created nothing. That is the no-op, and it is the most likely confusing outcome — a green job is easier to miss than a red one. Read the log: it names the tag it compared against.
 
-1. **The merge request was renamed.** The title is the marker. Under a squash merge the commit subject comes from the title, so a renamed MR produces a commit with no `chore(release): ` subject.
-2. **The changelog commit was dropped** during a rebase or an amend.
-3. **The derived version already equals the newest tag** — the release was already cut.
-
-**Fix:** read the `release:auto` job log. It states which condition failed and prints the range it searched. If the marker is genuinely absent, use the break-glass `release` job, or re-run `release:prepare` and merge the new MR.
-
-### release:auto warns that CHANGELOG.md does not match
-
-Expected, and it does **not** block the release. It means a commit landed on `main` while the release was under review, so the committed changelog no longer matches a fresh generation.
-
-Nothing is wrong with the release. The notes attached to the tag are generated fresh from history at release time, so the **published** notes are complete and include the late commit. Only the committed file lags — and the whole file is regenerated at the next release, which recovers the missing entry in this version's section.
-
-This assertion is advisory in the automatic path and a hard gate in the break-glass path. The asymmetry is deliberate: in the manual path the operator regenerated the changelog moments ago, so a mismatch means they got it wrong. In the automatic path it usually means somebody else merged something, which is ordinary team activity and not a release defect.
-
-**Fix (optional):** reconcile it now with `make -f infra/scripts/release.mk release-changelog VERSION=<x.y.z>`, or leave it to self-heal.
-
-### release-check fails: local tag disagrees with origin
-
-Your clone has a tag pointing at a different commit than `origin`'s tag of the same name. Almost always caused by having run a mirror push, which force-moves tags locally by design.
-
-**Fix:** the error prints it — `git fetch origin --tags --force`.
-
-### release-check fails: tag does not match the derived version
-
-You asked for a version that history does not derive. The error names both values.
-
-**Fix:** release the derived version, or add the commits that would justify the one you wanted.
-
-### release-check fails: CHANGELOG.md does not match what the tag will publish
-
-In the break-glass path this is a hard failure. The committed `CHANGELOG.md` differs from a fresh generation for the tag being released, which means it was not regenerated for this release or it was hand-edited.
-
-**Fix:** regenerate and commit it. The error prints the command:
-
-```bash
-make -f infra/scripts/release.mk release-changelog VERSION=0.3.0
-git commit -am 'chore(release): v0.3.0'
-```
-
-Do not edit the file to make the diff go away — the next release regenerates the whole file and the edit is lost. To change the **wording** of an entry, amend the commit body. To add a **missing** entry, add an empty commit carrying the prose:
-
-```bash
-git commit --allow-empty -m 'feat(scope): subject' -m 'body...'
-```
-
-:::note A date difference is not what failed
-The release date in a version heading is excluded from the comparison, so `## [0.3.0] - 2026-08-08` and `## [0.3.0] - 2026-08-11` compare equal. For an unreleased version git-cliff stamps the generation date, so the date carries no information until the tag exists — checking it would fail every release whose review crossed midnight. If the guard fired, look for a **content** or **version** difference in the diff it printed.
-:::
-
-### release:prepare cannot push the branch
-
-The job-token push was refused. The error names the cause: the project setting *Allow Git push requests to this project's repository* (Settings → CI/CD → Job token permissions), which is off by default and requires Maintainer or Owner, or a protected-branch rule matching `release/*`.
-
-See [Release Prerequisites](release-prerequisites.md) for the checks and the documented fallback.
-
-### "Nothing to release"
-
-No commit since the last tag affects the version. Most often every commit in the window is `chore:`, `test:`, `style:`, or `Update:`-shaped — all of which are configured to derive no bump.
+The usual cause is that every commit since the last tag is `chore:`, `test:`, `style:`, or `Update:`-shaped, all of which are configured to derive no bump.
 
 **Fix:** if the work deserves a release, it deserves a conventional commit message. Nothing is wrong with the pipeline.
 
-### A major job fails without creating anything
+### I clicked github:release and it published nothing
 
-Expected — that is the gate. Read the `hint:` line, which names the exact `CONFIRM_VERSION` value, and re-run with it.
+That is the dry run, and it is what the first click always does. The log ends with the exact value to re-run with:
+
+```
+hint: re-run with CONFIRM_TAG=v0.2.1
+```
+
+Re-run the job with that variable set. Everything above that line in the log is what a real publish would do.
+
+### The release fails: local tag disagrees with origin
+
+Your clone has a tag pointing at a different commit than `origin`'s tag of the same name. Almost always caused by having run a mirror push under an older implementation, which force-moved tags locally.
+
+A disagreeing tag is not cosmetic: `git describe` returns the wrong base, so the version derives from the wrong place and nothing complains. That is why this is asserted rather than trusted.
+
+**Fix:** the error prints it — `git fetch origin --tags --force`.
+
+### The release fails: tag exists locally but NOT on origin
+
+A previous run created the tag and failed before pushing it, so that release was never published. The error offers both recoveries: push the existing tag and create its Release object, or delete the local tag and start over.
+
+### A release is refused because it changes the MAJOR version
+
+Expected — that is the gate. Read the `hint:` line, which names the exact value:
+
+```
+error: this release changes the MAJOR version (v0.9.3 -> v1.0.0)
+hint: re-run with CONFIRM_VERSION=v1.0.0
+```
+
+Re-run with that value supplied as a CI variable. It fails before creating anything, and the value must match the derived tag exactly — so if history moves in between, the stale value stops working rather than releasing the wrong version.
 
 ### The GitLab Release object is missing but the tag exists
 
@@ -280,7 +189,7 @@ The tag push succeeded and the Release API call failed. The tag is fine.
 
 ### git-cliff not installed locally
 
-Only the local `make` targets need it; CI installs its own.
+Only the local `make` targets need it; CI installs its own pinned copy.
 
 ```bash
 brew install git-cliff
@@ -288,20 +197,13 @@ brew install git-cliff
 
 ### Pipeline missing the manual buttons
 
-The release jobs only appear on pipelines running on the default branch (`main`). Pipelines on feature branches do not show them, and neither do pipelines on a `release/*` branch.
+The release jobs only appear on pipelines running on the default branch (`main`). Pipelines on feature branches do not show them.
 
 ## Background: Trunk-Based Workflow
 
-The project uses **trunk-based development** on `main`. Daily work lands directly on `main` or via short-lived feature branches merged back to `main`. **There is no `develop` branch.**
+The project uses **trunk-based development** on `main`. Daily work lands directly on `main` or via short-lived feature branches merged back to `main`. **There is no `develop` branch**, and the release path creates no branch of its own.
 
-Prior to v0.1.7, the project used a Gitflow-lite model: `develop` was the default branch, and releases required merging `develop` into `main`, then reconciling SHAs back. The trunk-based model eliminated that merge ceremony and SHA reconciliation overhead.
-
-**A `release/vX.Y.Z` branch is not a return to that model,** and the distinction is worth stating precisely because the two are easily conflated:
-
-- What was removed was a **long-lived parallel branch** — `develop` existed permanently alongside `main`, and every release meant reconciling two histories.
-- What the release flow adds is an **ephemeral branch per version** — it carries one machine-authored commit, lives only for the duration of one review, and is deleted on merge. There is no second permanent line of development, and no reconciliation.
-
-The release branch exists for exactly one reason: a merge request is the only way to review generated release notes as a diff before a tag exists. It is a review artifact, not a development branch.
+v0.1.6 was the last release cut under the earlier Gitflow-lite model, where `develop` was the default branch and every release meant merging `develop` into `main` and reconciling SHAs back.
 
 ## Background: Version Derivation
 
@@ -309,14 +211,15 @@ There is **no `VERSION` file**. It was retired because it conflated two differen
 
 Tags are the single source of truth. `git-cliff --bumped-version` answers the first question; `git describe` answers the second.
 
-Two configured behaviors matter when reading a derivation:
+Three configured behaviors matter when reading a derivation:
 
-- **`Update:`-prefixed commits are skipped entirely.** They affect neither the version nor any changelog section. A batch of these predates the convention.
-- **A breaking change stays within `0.x` while pre-1.0.** See the major jobs above.
+- **`Update:`-prefixed commits are skipped entirely.** They affect neither the version nor any notes section. A batch of these predates the convention.
+- **Only strict `vX.Y.Z` tags are eligible as a derivation base.** `cliff.toml`'s `tag_pattern` enforces it, so a stray prerelease-shaped tag like `v0.9.9-rc1` cannot become the base.
+- **A breaking change stays within `0.x` while pre-1.0.** `cliff.toml` sets `breaking_always_bump_major = false`, so a `feat!:` commit derives `0.x+1` rather than `1.0.0`. This setting is **inert** once the major reaches 1 — at `v1.0.0` a `feat!:` derives `v2.0.0` normally. The guard that survives the 1.0 transition is the version-shape check in `release.sh`, which refuses any release raising the major unless `CONFIRM_VERSION` matches.
 
 ### git-cliff
 
-[git-cliff](https://git-cliff.org/) generates the CHANGELOG from git history by parsing Conventional Commit messages, and derives the next version from the same history. Configuration is `cliff.toml` at the repo root.
+[git-cliff](https://git-cliff.org/) generates the notes from git history by parsing Conventional Commit messages, and derives the next version from the same history. Configuration is `cliff.toml` at the repo root.
 
 CI installs a pinned `git-cliff==2.10.1` — the version every mechanism in the release path was verified against.
 
@@ -324,8 +227,8 @@ CI installs a pinned `git-cliff==2.10.1` — the version every mechanism in the 
 
 See the public [Commit Messages](../../../../developer-docs/contributing/commit-messages.md) reference for the full type/scope table. Quick reference:
 
-| Type | CHANGELOG Section |
-|------|-------------------|
+| Type | Release notes section |
+|------|-----------------------|
 | `feat` | Added |
 | `fix` | Fixed |
 | `docs` | Documentation |
@@ -335,63 +238,57 @@ See the public [Commit Messages](../../../../developer-docs/contributing/commit-
 | `revert` | Reverted |
 | `style`, `test`, `chore`, `Update:` | (skipped) |
 
-The release ceremony is invisible to the changelog by design: `chore(release):` subjects, merge commits, and squash subjects all produce no notes output, under either merge method.
-
 ## Reference: Scripts
+
+### infra/scripts/release.sh
+
+The whole release act, in one script, called by both `gitlab:*` jobs and runnable from a workstation. It takes **no arguments** — the version is derived, not requested.
+
+**The ordering is the design.** Everything that can refuse runs before the tag exists, because a gate that fires after tagging is not a gate:
+
+1. **Derive** with `git-cliff --bumped-version`.
+2. **Preview** (`PREVIEW=1`) — returns first, so it needs no network and cannot report notes a release would not publish.
+3. **No-op** — exits 0 when the derived version equals the newest tag, but only once `origin` confirms that tag was actually pushed.
+4. **Major guard** — refuses unless `CONFIRM_VERSION` equals the derived tag.
+5. **Tag hygiene** — every local release tag must match `origin`'s tag of the same name.
+6. **Tag absence** — refuses if the tag exists locally or on `origin`. This is the double-tag guard.
+7. **Notes**, asserting the output contains a `^## \[` heading.
+8. **Tag, push, Release object.**
+
+`--cleanup=verbatim -F` on the tag is **load-bearing rather than stylistic**. Git's default cleanup mode strips `#`-leading lines as comments and reflows content — and exits 0 while doing it, so the loss is silent. The public side (`.github/workflows/release.yml`) reads this annotation and requires `## [` headings. `verbatim` also preserves the two-space nested indentation `cliff.toml` produces, which is why its `trim = false` is mandatory for the same reason.
+
+### infra/scripts/gitlab-release.sh
+
+Creates the GitLab Release object for an existing tag, via the REST API with `CI_JOB_TOKEN`. Kept as a separate script because it is the recovery path when the tag pushed but the Release object failed — it is idempotent, reporting an existing Release as success.
+
+The REST API rather than the `release:` CI keyword: that keyword needs `release-cli`, a Go binary absent from the `python:3.12-bookworm` image the release jobs use for `git-cliff`.
 
 ### infra/scripts/release.mk
 
 | Target | What it does |
 |--------|--------------|
-| `release-preview` | Prints the derived version and notes. Creates nothing. The local counterpart of `release:preview`. |
-| `release-prepare` | Cuts `release/vX.Y.Z` with a regenerated `CHANGELOG.md` and opens a merge request. The local counterpart of `release:prepare`. |
-| `release-changelog` | Regenerates `CHANGELOG.md` through the derived version |
-| `release-prep` | Regenerates `CHANGELOG.md` in the working tree for **inspection**. Not the release flow — use `release-prepare`. |
-| `release-check` | Runs the three release assertions |
+| `release-preview` | Delegates to `PREVIEW=1 release.sh`. Creates nothing. The local counterpart of `gitlab:release:preview`. |
+| `release` | Delegates to `release.sh`. **Tags and pushes for real** — the recovery path when CI is unavailable. |
 
-All of them derive `VERSION` by default. Override explicitly when you need to: `VERSION=0.3.0`.
+Both delegate rather than reimplement, so a local run and a CI run cannot disagree.
 
-### infra/scripts/release-prepare.sh
-
-Prepares a release for review: derives the version, regenerates `CHANGELOG.md` on `release/vX.Y.Z`, commits it as `chore(release): vX.Y.Z`, and pushes with MR-creating push options. Creates no tag. Idempotent. Pushes only to `release/*` — never to `main`, on any path.
-
-### infra/scripts/release-run.sh
-
-The release act itself, called by all four release jobs so they cannot drift: derive, assert absent on `origin`, run `release-check.sh` **before** tagging, generate notes, tag with `--cleanup=verbatim -F`, push the tag, create the GitLab Release.
-
-`--cleanup=verbatim -F` is load-bearing rather than stylistic. The public side (`.github/workflows/release.yml`) reads the tag annotation and requires it to contain `## [` headings; the default cleanup mode strips comment-looking lines and reflows content, and `verbatim` also preserves the two-space nested indentation `cliff.toml` produces.
-
-### infra/scripts/release-check.sh
-
-Three assertions:
-
-1. **Tag hygiene** — every local release tag must point at the same commit as `origin`'s tag of the same name. This is a reachable state, not a hypothetical: the mirror push amends the release commit and force-moves the tag locally, so any clone that has run a release carries the disagreement. A disagreeing tag poisons both version derivation and any publish range.
-2. **Derived matches requested** — the tag about to be created must equal what history derives.
-3. **`CHANGELOG.md` matches the generated output** — the committed file is compared against a fresh generation for the tag being released. The **release date** in a version heading is excluded, because for an unreleased version git-cliff stamps the generation date and it cannot be meaningfully verified before the tag exists.
-
-All three run **before** the tag is created, so a failure leaves no wrong tag behind.
-
-Assertions 1 and 2 are hard in every path. Assertion 3 honours `ADVISORY_CHANGELOG=1`, which `release:auto` sets — see the troubleshooting entry above for why.
-
-### infra/scripts/changelog-lib.sh
-
-Holds `CHANGELOG_FLOOR` and the single `git-cliff` invocation that generates the changelog. Sourced by `release-check.sh` and `release-prepare.sh`, and read by `release.mk`, so what one path *writes* cannot drift from what another path *verifies*.
-
-`CHANGELOG_FLOOR` is the cutover: everything after it is generated from history, everything at or before it is frozen text in `cliff.toml`'s `footer`. Conventional Commits were adopted in v0.1.6, so generating across that boundary drops v0.1.1 entirely and reduces v0.1.3 to a bare heading.
+:::note Why manual jobs on a branch pipeline rather than tag-triggered
+A tag pipeline cannot work here. `pages` requires `$CI_COMMIT_BRANCH`, which is unset on tag pipelines, and the release jobs require `$CI_COMMIT_TAG == null`. A manual job on a branch pipeline sidesteps both.
+:::
 
 ## Reference: CI Variables
 
 ### CONFIRM_VERSION
 
-Supplied at job-run time to `release:prepare:major` and `release:major` only. Not a stored variable — run the job once, read the value from the failure message, re-run with it.
+Supplied at job-run time to `gitlab:release`, and only needed when the release raises the **major** version. Not a stored variable — run the job once, read the value from the failure message, re-run with it. It must equal the derived tag exactly.
 
 ### CONFIRM_TAG
 
-Supplied at job-run time to `publish:github` only. Run `publish:github:plan` first to learn the value.
+Supplied at job-run time to `github:release`. Its **absence is the dry run**, so run the job once and read the value out of its output.
 
 ### GITHUB_DEPLOY_KEY
 
-An SSH private key with push access to `github.com:aws-samples/sample-innovation-patterns`. Used only by the **publishing** jobs, not by any internal release job.
+An SSH private key with push access to `github.com:aws-samples/sample-innovation-patterns`. Used only by `github:release`, not by any internal release job.
 
 **Setup steps:**
 
@@ -419,7 +316,7 @@ An SSH private key with push access to `github.com:aws-samples/sample-innovation
    rm deploy_key deploy_key.pub
    ```
 
-The CI job decodes it at runtime: `printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di | ssh-add -`.
+The CI job decodes it at runtime: `printf '%s' "$GITHUB_DEPLOY_KEY" | base64 -di | ssh-add -`. A 350-byte floor on the decoded length catches a truncated or mis-pasted value before `ssh-add` fails with something less obvious.
 
 ## Reference: Release Flow Diagram
 
@@ -431,32 +328,33 @@ sequenceDiagram
     participant GH as GitHub
 
     H->>O: push conventional commits to main
-    O->>CI: push pipeline
-    CI->>CI: release:preview — derive, print notes (automatic)
 
-    H->>CI: click release:prepare (manual)
-    CI->>CI: regenerate CHANGELOG.md, commit chore(release): vX.Y.Z
-    CI->>O: push release/vX.Y.Z -o merge_request.create
-    Note over O: a job-token push starts NO pipeline —<br/>which is why the next step waits for a human
+    H->>CI: click gitlab:release:preview (manual)
+    CI->>CI: derive, print notes — creates NOTHING
 
-    H->>O: review the notes as a diff, then MERGE
-    O->>CI: push pipeline on main (human-authored merge)
-    CI->>CI: release:auto — derived != latest AND marker present?
-    CI->>CI: release-check.sh (BEFORE tagging)
+    H->>CI: click gitlab:release (manual)
+    CI->>CI: derive, no-op check, major guard, tag hygiene, tag absence
     CI->>CI: generate notes, annotate tag --cleanup=verbatim
     CI->>O: push tag vX.Y.Z
     CI->>O: POST /releases
     Note over CI,O: internal release complete.<br/>NOTHING published to GitHub.
 
-    H->>CI: click publish:github with CONFIRM_TAG (manual)
+    H->>CI: click github:release, no CONFIRM_TAG (manual)
+    CI->>CI: print TAG, FLOOR, notes, filtered paths — publishes NOTHING
+
+    H->>CI: re-run github:release with CONFIRM_TAG
     CI->>GH: filtered force-push + tag object
     GH->>GH: release.yml reads the annotation, creates a Release
 ```
 
 ## Migration History
 
+**Current era — tag-only releases.** The committed `CHANGELOG.md` was retired, and with it the ephemeral release branch, the release merge request, the marker commit subject the automatic tagger keyed on, the tag-on-merge job itself, and the separate major-release jobs. Notes live on the annotated tag and the Release object. Six internal jobs and two publish jobs became three manual buttons. The v0.2.0 failure mode is structurally impossible now: no committed file exists to go stale.
+
+**Before that**, a release was prepared as a merge request carrying a regenerated changelog, reviewed as a diff, and tagged automatically when merged — the merge was the approval. All of that machinery existed to police the committed changelog, which is what made retiring the file able to retire the flow.
+
+**Before that**, cutting a release was a single button press that tagged `origin` immediately, with no review of the notes and no enforcement that the changelog had been regenerated. That is what produced v0.2.0, whose committed changelog read `## [Unreleased]` while the tag and the published Release both said 0.2.0.
+
+**Before that**, one manual job read the `VERSION` file, tagged, and mirrored to GitHub in consecutive lines of a single script — so an internal release could not be cut without also publishing publicly, and an older tag could not be published at all.
+
 v0.1.6 was the last release under the develop → main merge flow. Starting with v0.1.7, the project uses trunk-based development on `main`.
-
-Before the three-job revision, one manual `tag-and-release` job read the `VERSION` file, tagged, and mirrored to GitHub in consecutive lines of a single script — so an internal release could not be cut without also publishing publicly, and an older tag could not be published at all.
-
-Before the merge-request flow, cutting a release was a single button press that tagged `origin` immediately, with no review of the notes and no enforcement that `CHANGELOG.md` had been regenerated. That is what produced v0.2.0, whose committed changelog read `## [Unreleased]` while the tag and the published Release both said 0.2.0. The changelog step was documented as *optional*; it is now the merge request.

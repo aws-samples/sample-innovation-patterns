@@ -93,11 +93,9 @@ Framework-level build, version, and release helpers live in `infra/scripts/` —
 | `docker.mk` | ECR authentication (`ecr-login`) and Docker build/tag/push (`docker-build-push`) macros, included by `build.mk` |
 | `version.py` | Reads version from `app-lib/pyproject.toml` + git SHA; produces Docker tags, semver strings |
 | `configure_frontend.py` | Generates `web-client/dist/config.js` with runtime configuration (`window.__CONFIG__`) |
-| `release.mk` | Framework release automation (`release-preview`, `release-prepare`, `release-changelog`, `release-check`) used by GitLab CI and humans |
-| `release-prepare.sh` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request for review. Creates no tag |
-| `release-run.sh` | Cuts the release: asserts, generates notes, creates the annotated tag, pushes it, and creates the release object |
-| `release-check.sh` | Asserts tag hygiene, that the tag matches the version derived from commit history, and that `CHANGELOG.md` matches its generated output — all before any tag is created |
-| `changelog-lib.sh` | Single definition of the changelog floor and generation command, shared by every path that writes or verifies `CHANGELOG.md` |
+| `release.mk` | Framework release automation. Two targets: `release-preview` (creates nothing) and `release` (tags and pushes for real). Both delegate to `release.sh`, so a local run and a CI run cannot disagree |
+| `release.sh` | The whole release act, in order: derive the version, no-op cleanly, guard a major bump behind `CONFIRM_VERSION`, assert tag hygiene and tag absence, generate notes, create the annotated tag, push it, create the Release object. Takes no arguments — the version is derived, not requested. `PREVIEW=1` prints what would happen and creates nothing |
+| `gitlab-release.sh` | Creates the GitLab Release object for an existing tag via the REST API. Idempotent, so it is also the recovery path when a tag pushed but its Release object failed |
 | `archive.sh` | Creates a `.tar.gz` of the repo (respecting `.gitignore`) for offline handoff |
 | `openapi-codegen.mk` | API client generation helper (placeholder) |
 

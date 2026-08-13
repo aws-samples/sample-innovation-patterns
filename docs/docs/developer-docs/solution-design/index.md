@@ -53,7 +53,7 @@ Each solution's landing page (`solution-design/<solution>/index.md`) carries a *
 Design and requirements documents often hold customer-specific or pre-decision material. Choose placement deliberately:
 
 - **Public** (this section, `developer-docs/solution-design/`) — shipped to the public GitHub release. Appropriate for a generic or open solution.
-- **Internal** (`developer-docs/internal/`) — committed to the source repository but filtered out of the public GitHub release by `infra/scripts/github-push.sh`. Appropriate for customer-specific solution content.
+- **Internal** (`developer-docs/internal/`) — committed to the source repository but filtered out of the public GitHub release by `internal/release/publish-github.sh`. Appropriate for customer-specific solution content.
 
 When a solution's design documents contain anything a customer would not want published, place that solution's directory under `developer-docs/internal/` instead of here.
 

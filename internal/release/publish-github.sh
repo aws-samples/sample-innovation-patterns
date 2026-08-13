@@ -41,6 +41,26 @@ for arg in "$@"; do
   esac
 done
 
+# AN UNSET CONFIRM_TAG *IS* THE DRY RUN.
+#
+# Publishing force-pushes a public repository that accepts pull requests, so the
+# confirmation stays. Only the dry-run TRIGGER changes: the separate plan job
+# existed solely to pass --dry-run, and a missing confirmation already expressed
+# the same intent.
+#
+# The two conditions compose in the safe direction — either alone yields a dry
+# run, and only a matching CONFIRM_TAG with no --dry-run publishes. The explicit
+# flag is retained rather than removed as redundant, so a dry run can still be
+# requested locally when CONFIRM_TAG is already exported.
+#
+# The CONFIRM_TAG != TAG mismatch check further down is NOT replaced by this. It
+# now guards a narrower case — a confirmation naming the WRONG tag, usually a
+# stale value from a previous run whose derived tag has since moved — which is
+# exactly the case worth catching.
+if [ -z "${CONFIRM_TAG:-}" ]; then
+  DRY_RUN=true
+fi
+
 GITHUB_REMOTE="github"
 GITHUB_REPO="git@github.com:aws-samples/sample-innovation-patterns.git"
 ORIGIN_REMOTE="origin"
@@ -398,8 +418,15 @@ if [ "$DRY_RUN" = true ]; then
   done
   echo "--- end filtered paths ---"
   echo
-  echo "dry-run: nothing was pushed. To publish:"
-  echo "  run the publish:github job with CONFIRM_TAG=$TAG"
+  echo "dry-run: nothing was pushed."
+  echo "  Everything above is what a publish would do. To actually publish,"
+  echo "  re-run the 'github:release' job with the confirmation below."
+  echo
+  # A bare, greppable, copy-pasteable line, matching the shape release.sh uses
+  # for CONFIRM_VERSION so the two confirmations read the same way. They stay
+  # DISTINCT variables: conflating them would let a release confirmation
+  # authorise a publish.
+  echo "hint: re-run with CONFIRM_TAG=$TAG"
 else
   if [ "${CONFIRM_TAG:-}" != "$TAG" ]; then
     echo "error: publishing to the public mirror requires explicit confirmation" >&2
