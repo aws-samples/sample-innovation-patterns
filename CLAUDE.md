@@ -65,7 +65,7 @@ Markdown (Claude Code skill format): Follow standard conventions
 Every commit message MUST use [Conventional Commits](https://www.conventionalcommits.org/) format. This is not a style preference — the format is the input to two automated outputs:
 
 1. **Version derivation.** The next release version is computed from commit history, not read from a file. A `fix:` commit produces a patch bump, `feat:` a minor bump; a commit that matches no conventional type produces **no bump at all**.
-2. **Published release notes.** The GitHub Release body is generated from these messages. A non-conventional commit appears in **no** changelog section and is invisible to anyone reading the release.
+2. **Published release notes.** The GitHub Release body is generated from these messages. A non-conventional commit appears in **no** release-notes section and is invisible to anyone reading the release.
 
 So a commit written as `Update: modify 7 file(s)` is silently skipped by both — the work ships, but nothing records that it did. Write `fix(app-lib): ...` instead.
 
@@ -81,8 +81,8 @@ So a commit written as `Update: modify 7 file(s)` is silently skipped by both �
 
 ### Types
 
-| Type | When to use | CHANGELOG section |
-|------|-------------|-------------------|
+| Type | When to use | Release notes section |
+|------|-------------|-----------------------|
 | `feat` | New feature or capability | Added |
 | `fix` | Bug fix | Fixed |
 | `docs` | Documentation only | Documentation |
@@ -109,7 +109,11 @@ Use a scope when the change is clearly limited to one area:
 
 - Description: imperative mood, lowercase start, no trailing period, max 72 characters
 - Body: wrap at 72 characters, explain WHY not WHAT
-- Breaking changes: append `!` after type/scope — `feat(app-lib)!: change response format`
+- Breaking changes: append `!` after type/scope — `feat(app-lib)!: change response format`.
+  While the project is pre-1.0 this derives a **minor** bump (`0.x+1`), not `1.0.0`; once the
+  major reaches 1 it derives the next major. Either way a release that raises the major is
+  refused unless `CONFIRM_VERSION` names the exact derived version, so 1.0.0 cannot be reached
+  by accident
 - Multi-scope changes: omit scope — `feat: add passenger job queue`
 
 ### Examples
@@ -126,16 +130,16 @@ build(infra): consolidate backend tier template parameters
 
 ### Release Commits
 
-The release commit subject is:
+**There is no release commit.** Cutting a release creates an annotated tag and a forge Release object and writes nothing to the repository, so nothing in commit history marks a release and no commit subject is reserved.
+
+To find releases, read the tags:
+
+```bash
+git tag --list                              # every released version
+git tag -l --format='%(contents)' v0.2.1    # that version's release notes
 ```
-chore(release): v0.2.0
-```
 
-This subject is a **contract, not a convention**. The automatic release job detects that a release was merged by matching `chore(release): ` in the commits since the newest tag — so a release commit with any other subject is not detected, and merging it produces no tag.
-
-`infra/scripts/release-prepare.sh` writes this commit, so it is not normally typed by hand. The same string is used as the merge request title, because a squashed merge takes its commit subject from the title. Renaming a release merge request therefore breaks detection.
-
-`^chore` is skipped by `cliff.toml`, so the release commit contributes no changelog entry — the release ceremony stays invisible in the notes it produces.
+Release notes are generated from commit history at release time and stored on the tag annotation and the Release object. There is no committed changelog, which is why the format above is the only record of what a release contains — a commit that matches no conventional type is invisible, with no artifact in which anyone would notice.
 
 <!-- MANUAL ADDITIONS START -->
 

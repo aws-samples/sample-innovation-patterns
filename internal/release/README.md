@@ -1,18 +1,17 @@
 # Internal Release
 
-Assets supporting IPA's release process. The process has **three parts**, and understanding the split is most of understanding the release path.
+Assets supporting IPA's release process. The process has **two stages**, and understanding the split is most of understanding the release path.
 
-| Part | Where | Jobs | Effect |
-|------|-------|------|--------|
-| 1 — prepare for review | GitLab | `release:prepare` | Regenerates `CHANGELOG.md` on a `release/vX.Y.Z` branch and opens a merge request. **Creates no tag.** |
-| 2 — internal release | GitLab | `release:auto` (automatic on merge); `release` (break-glass) | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
-| 3 — public publish | GitLab → GitHub | `publish:github:plan`, `publish:github` | Publishes a **chosen** tag to the public mirror with cumulative notes. |
+| Stage | Where | Jobs | Effect |
+|-------|-------|------|--------|
+| 1 — internal release | GitLab | `gitlab:release:preview` (creates nothing), `gitlab:release` | Derives a version, tags `origin`, creates a GitLab Release. **Publishes nothing publicly.** |
+| 2 — public publish | GitLab → GitHub | `github:release` | Publishes a **chosen** tag to the public mirror with cumulative notes. Its first run, with no `CONFIRM_TAG`, is a dry run. |
 
-Part 2 is triggered by a human merging part 1's merge request — the merge is the approval, and no button is pressed. A major version is reached with `BUMP=major` on either part-1 or part-2's job, gated on `CONFIRM_VERSION`; there are no separately named major jobs. There is no preview job either — `make -f infra/scripts/release.mk release-preview` covers it locally.
+Both are manual. Release notes live on the annotated tag and the forge Release object — there is no committed changelog, so there is no release branch, no release merge request, and no marker commit.
 
-Parts 1 and 2 are documented in the [releasing runbook](../../docs/docs/developer-docs/internal/operations/runbooks/releasing.md). This file documents part 3.
+Stage 1 is documented in the [releasing runbook](../../docs/docs/developer-docs/internal/operations/runbooks/releasing.md). This file documents stage 2.
 
-Part 3 cannot be chained off part 2. A tag pushed by CI triggers no pipeline, so such a chain would silently never fire — the failure mode is "push a tag; nothing happens, no error anywhere." That is why publication is a separate manual act rather than a convenience that was never wired up.
+Stage 2 cannot be chained off stage 1. A tag pushed by CI triggers no pipeline, so such a chain would silently never fire — the failure mode is "push a tag; nothing happens, no error anywhere." That is why publication is a separate manual act rather than a convenience that was never wired up.
 
 ## What publishing actually withholds
 
@@ -39,17 +38,22 @@ The notes window is `FLOOR..TAG`, **exclusive of the floor**, which is exactly "
 
 ## Usage
 
+**An unset `CONFIRM_TAG` is the dry run.** It prints `TAG`, `FLOOR`, the full notes body, and the filtered-path report, publishes nothing, and ends with the exact value to re-run with. Publishing requires `CONFIRM_TAG` to equal the tag being published.
+
 ```bash
-# Preview: prints TAG, FLOOR, the full notes body, the filtered-path report,
-# and the CONFIRM_TAG value to supply. Publishes nothing.
+# Dry run — this is what happens with no CONFIRM_TAG set.
+internal/release/publish-github.sh
+
+# Same, stated explicitly. The flag still works, and it WINS over a
+# CONFIRM_TAG that happens to be exported in your shell.
 internal/release/publish-github.sh --dry-run
 
 # Publish a specific tag — including an older one.
-TAG=v0.4.0 internal/release/publish-github.sh --dry-run
+TAG=v0.4.0 internal/release/publish-github.sh
 CONFIRM_TAG=v0.4.0 TAG=v0.4.0 internal/release/publish-github.sh
 ```
 
-In CI, run `publish:github:plan` first and read the `CONFIRM_TAG` value out of its output. Publishing an older tag retags nothing internally — the internal tag already exists and is correct; only the public side is being brought forward.
+In CI, run `github:release` once and read the `CONFIRM_TAG` value out of its output, then re-run with it. Publishing an older tag retags nothing internally — the internal tag already exists and is correct; only the public side is being brought forward.
 
 ## Hazards
 
@@ -67,7 +71,7 @@ The publish path builds the tag object with `git mktag`, which stores the body b
 
 **A worktree does not fix this.** Worktrees isolate the index, HEAD, and checkout — they share `refs/tags` with the main repository, so `git tag -f` inside one still moves the operator's tag. The publish path therefore writes **no local ref at all**: it builds the annotated tag object with `git mktag` and pushes it by SHA.
 
-`release-check.sh` asserts local tags agree with `origin` on every release, so a recurrence is caught rather than discovered.
+`release.sh` asserts local tags agree with `origin` on every release, so a recurrence is caught rather than discovered.
 
 ### `--force-with-lease` is not a divergence guard
 
@@ -91,10 +95,9 @@ The assertion compares **content**, and excludes deliberate removals (the intern
 
 | File | Role |
 |------|------|
-| `publish-github.sh` | The single implementation: floor resolution, cumulative notes, verbatim tag object, filtered tree, divergence assertion, `--dry-run` |
-| `../../infra/scripts/github-push.sh` | Deprecated wrapper delegating here, so exactly one implementation exists |
-| `../../infra/scripts/release-check.sh` | Tag hygiene + derived-version assertions (stage 1) |
-| `../../infra/scripts/gitlab-release.sh` | Creates the GitLab Release object for a tag (stage 1) |
+| `publish-github.sh` | The single implementation: floor resolution, cumulative notes, verbatim tag object, filtered tree, divergence assertion, dry run |
+| `../../infra/scripts/release.sh` | The whole internal release act: derive, assert, notes, tag, push, Release object (stage 1) |
+| `../../infra/scripts/gitlab-release.sh` | Creates the GitLab Release object for a tag; idempotent (stage 1) |
 | `../../.github/workflows/release.yml` | Reads the tag annotation and creates the GitHub Release |
 
 ## Known limitation: tag pushes do not trigger the customer pipeline

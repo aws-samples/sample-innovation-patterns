@@ -85,7 +85,7 @@ Update the status table in `index.md` to match — it is the at-a-glance view of
 Decide where the solution's documents live based on their content:
 
 - **Public** — leave the solution directory under `developer-docs/solution-design/`. It ships in the public GitHub release. Appropriate for a generic or open solution.
-- **Internal** — move the solution directory to `developer-docs/internal/`. It is committed to the source repository but filtered out of the public release by `infra/scripts/github-push.sh`. Appropriate for customer-specific solution content.
+- **Internal** — move the solution directory to `developer-docs/internal/`. It is committed to the source repository but filtered out of the public release by `internal/release/publish-github.sh`. Appropriate for customer-specific solution content.
 
 :::warning
 Design and requirements documents often hold customer-specific or pre-decision material. When in doubt, place the solution's directory under `developer-docs/internal/`.
