@@ -109,11 +109,8 @@ Use a scope when the change is clearly limited to one area:
 
 - Description: imperative mood, lowercase start, no trailing period, max 72 characters
 - Body: wrap at 72 characters, explain WHY not WHAT
-- Breaking changes: append `!` after type/scope — `feat(app-lib)!: change response format`.
-  While the project is pre-1.0 this derives a **minor** bump (`0.x+1`), not `1.0.0`; once the
-  major reaches 1 it derives the next major. Either way a release that raises the major is
-  refused unless `CONFIRM_VERSION` names the exact derived version, so 1.0.0 cannot be reached
-  by accident
+- Breaking changes: append `!` after type/scope — but only for the **public interface**. See
+  [Versioning](#versioning-what-each-type-derives) below, which is the authoritative rule
 - Multi-scope changes: omit scope — `feat: add passenger job queue`
 
 ### Examples
@@ -127,6 +124,63 @@ refactor(app-lib): extract AbstractDataService from passenger service
 chore: bump FastAPI to 0.115.12
 build(infra): consolidate backend tier template parameters
 ```
+
+### Versioning: what each type derives
+
+The type you choose **is** the version bump. Measured against this repository's `cliff.toml`:
+
+| Subject | From `v0.2.1` derives | Bump |
+|---|---|---|
+| `feat:` | `v0.3.0` | minor |
+| `fix:` `docs:` `refactor:` `perf:` `ci:` `build:` `revert:` | `v0.2.2` | patch |
+| `style:` `test:` `chore:` `Update:` | `v0.2.1` | **none** |
+| any bumping type with `!` | `v0.3.0` | minor pre-1.0, **major** from 1.0 on |
+
+Three consequences that are easy to get wrong:
+
+- **`chore!:` derives nothing.** `chore` is `skip = true`, so the `!` is swallowed — no bump *and*
+  no release-notes entry. A breaking change filed as `chore!:` is completely invisible. Never put
+  `!` on a skipped type; pick a type that bumps.
+- **A `BREAKING CHANGE:` footer bumps on its own**, with no `!` in the subject. The two are
+  independent triggers, so a commit carrying only the footer still bumps. Use both or neither.
+- **Pre-1.0, `!` turns a patch into a minor.** `refactor!:` derives `v0.3.0` where `refactor:`
+  derives `v0.2.2`. From 1.0 onward the same `!` derives a *major*, and such a release is refused
+  unless `CONFIRM_VERSION` names the exact derived version — so 1.0.0 cannot be reached by accident.
+
+### What counts as breaking: public vs internal interface
+
+SemVer's contract covers the **public interface** — what a consumer of IPA touches. Reserve `!`
+for changes to that surface. Changing how *this repository* is maintained is not a breaking change,
+however large the diff.
+
+**Public interface — `!` applies when you break it:**
+
+- **Skill contracts** — `.claude/skills/ipa-*`: skill names, their arguments and prompts, and the
+  files they generate
+- **CloudFormation templates** — `infra/cfn/**`: parameter names, outputs, and resource logical IDs
+  (a rename forces stack replacement or breaks cross-stack wiring)
+- **Generated artifacts** — `scripts/*.mk` target names, `INSTALL-RUNBOOK.md`,
+  `SECURITY-DISPOSITION.md`, and the `.env` keys they read. These must work **without IPA**, so a
+  renamed target breaks a customer even though nothing in this repo consumes it
+- **`internal/release/templates/`** — the portable release standard, copied into customer projects.
+  Its name is misleading: it is public interface despite living under `internal/`
+- **`app-lib/` HTTP surface** — route paths, request and response shapes
+- **`web-client/`** — runtime config contract (`window.__CONFIG__`) and auth flow
+
+**Internal — `!` does not apply, however sweeping the change:**
+
+- `.gitlab-ci.yml`, `.github/workflows/**`, `infra/scripts/**` — the framework's own build and
+  release tooling
+- `internal/**` *except* `templates/`
+- `docs/docs/developer-docs/internal/**`, `CLAUDE.md`, `openspec/`, `.context/`, `.ash/`
+- The release procedure itself, and anything only a maintainer of this repo performs
+
+**Worked example.** Retiring the committed changelog rewrote the entire release path — eight CI
+jobs to three, five scripts to one, ~1,660 lines deleted. It was committed as `refactor(ipa):`
+with **no** `!`, deriving a patch, because no skill, template, generated artifact, or deployed
+behaviour changed. It was first written as `refactor(ipa)!:`, which derived `v0.3.0` and overstated
+the change; the `!` and its footer were removed. When unsure, ask: *would a consumer who never
+releases this project notice?* If no, no `!`.
 
 ### Release Commits
 

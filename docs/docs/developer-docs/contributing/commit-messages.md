@@ -82,7 +82,43 @@ results instead of a flat array. Clients must handle the new
 
 Both the `!` suffix and the `BREAKING CHANGE:` footer are recognized. Use `!` for the subject line; use the footer to describe the migration path.
 
-**What `!` derives depends on the current major version.** While the project is pre-1.0, a `feat!:` commit derives `0.x+1` rather than `1.0.0` — so `!` produces a **minor** bump, not a major one. Once the major version reaches 1, a breaking change derives the next major as usual. Either way, a release that raises the major version is refused unless it is explicitly confirmed with a `CONFIRM_VERSION` value naming the exact version — so reaching `1.0.0` cannot happen by accident.
+**They are independent triggers.** A commit carrying only the footer, with no `!` in the subject, still derives a breaking bump. Use both or neither — omitting the `!` does not soften a footer.
+
+**What `!` derives depends on the current major version.** While the project is pre-1.0, a `feat!:` commit derives `0.x+1` rather than `1.0.0` — so `!` produces a **minor** bump, not a major one. Once the major version reaches 1, a breaking change derives the next major as usual. Either way, a release that raises the major version is refused unless it is explicitly confirmed with a value naming the exact version, so reaching `1.0.0` cannot happen by accident.
+
+:::warning Never put `!` on a skipped type
+`chore!:` derives **nothing** — no version bump and no release-notes entry. `chore`, `style`, and `test` are configured to be skipped, and the `!` is swallowed with them, so a breaking change filed that way is completely invisible. Choose a type that bumps.
+:::
+
+## Versioning: what each type derives
+
+The type you choose **is** the version bump:
+
+| Subject | From `v0.2.1` derives | Bump |
+|---|---|---|
+| `feat:` | `v0.3.0` | minor |
+| `fix:` `docs:` `refactor:` `perf:` `ci:` `build:` `revert:` | `v0.2.2` | patch |
+| `style:` `test:` `chore:` `Update:` | `v0.2.1` | **none** |
+| any bumping type with `!` | `v0.3.0` | minor pre-1.0, **major** from 1.0 on |
+
+Note that pre-1.0 the `!` turns a patch into a minor: `refactor!:` derives `v0.3.0` where `refactor:` derives `v0.2.2`.
+
+## What counts as breaking
+
+SemVer's contract covers the **public interface** — what a consumer of this project touches. Reserve `!` for changes to that surface. Changing how the project is *maintained* is not a breaking change, however large the diff.
+
+**Public interface — `!` applies when you break it:**
+
+- **Skill contracts** — skill names, their arguments and prompts, and the files they generate
+- **CloudFormation templates** — parameter names, outputs, and resource logical IDs, since a rename forces stack replacement or breaks cross-stack wiring
+- **Generated artifacts** — `scripts/*.mk` target names, `INSTALL-RUNBOOK.md`, `SECURITY-DISPOSITION.md`, and the `.env` keys they read. These are designed to work **without** the framework, so a renamed target breaks a downstream project even though nothing upstream consumes it
+- **The portable release standard** copied into downstream projects
+- **The backend HTTP surface** — route paths, request and response shapes
+- **The web client** — runtime config contract and auth flow
+
+**Internal — `!` does not apply, however sweeping the change:** CI configuration, the framework's own build and release tooling, maintainer documentation, and the release procedure itself.
+
+When unsure, ask: *would a consumer who never releases this project notice?* If no, no `!`.
 
 ## Release Commits
 
