@@ -103,6 +103,28 @@ The type you choose **is** the version bump:
 
 Note that pre-1.0 the `!` turns a patch into a minor: `refactor!:` derives `v0.3.0` where `refactor:` derives `v0.2.2`.
 
+:::warning A non-conventional subject still moves the version
+There are two different failure modes, and only one is inert. `chore:`, `style:`, `test:`, and `Update:` are explicitly skipped — no bump, no entry. But a subject matching **no** type at all (a bare `wip`, a plain `Add pagination`, a `Merge branch …`, a `Revert "…"`) **still derives a patch bump** while contributing no entry. It moves the version with nothing to show for it.
+:::
+
+## Merge strategy
+
+**Squash-merge, and write the merge-request title as a conventional commit.** The squash commit's subject is taken from the MR title, so that title alone determines the version bump and the release-notes entry for the entire branch.
+
+Measured, from `v0.2.1`, for a branch carrying `feat` + `fix` + `chore` + `wip`:
+
+| Strategy | Derives | Notes entries | Commits added |
+|---|---|---|---|
+| Squash, title `feat(...)` | `v0.3.0` | 1 | 1 |
+| Squash, title `fix(...)` | `v0.2.2` | 1 | 1 |
+| Squash, non-conventional title | `v0.2.2` | **0** | 1 |
+| Merge commit (`--no-ff`) | `v0.3.0` | 2 | 5 (incl. merge) |
+| Rebase / fast-forward | `v0.3.0` | 2 | 4 |
+
+Squashing concentrates the requirement into one reviewed string per merge request rather than every commit, and it keeps `wip`-style subjects off the trunk where they would bump the patch version silently. It also avoids the merge commit, whose `Merge branch …` subject matches no type and so derives a patch bump of its own.
+
+**The cost is under-bumping.** A branch containing a `feat` merged under a `fix:` title derives a patch and the feature never appears in the notes. Check the title against the *largest* change in the branch: it must carry the highest bump the branch earns, and a `!` only counts if it is on the title.
+
 ## What counts as breaking
 
 SemVer's contract covers the **public interface** — what a consumer of this project touches. Reserve `!` for changes to that surface. Changing how the project is *maintained* is not a breaking change, however large the diff.
