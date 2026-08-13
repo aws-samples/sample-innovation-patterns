@@ -357,4 +357,16 @@ sequenceDiagram
 
 **Before that**, one manual job read the `VERSION` file, tagged, and mirrored to GitHub in consecutive lines of a single script — so an internal release could not be cut without also publishing publicly, and an older tag could not be published at all.
 
+### Reading the retired changelog
+
+The deleted `CHANGELOG.md` is recoverable from git history. Read it from the commit **before** the deletion:
+
+```bash
+git show "$(git log --diff-filter=D --format=%H -1 -- CHANGELOG.md)^:CHANGELOG.md"
+```
+
+:::warning Not from the v0.2.0 tag
+`git show v0.2.0:CHANGELOG.md` looks like the obvious command and returns the **wrong** file — 175 lines still headed `## [Unreleased]`, because that tag *is* the v0.2.0 staleness incident described above. The complete 647-line file exists only at the tip before deletion.
+:::
+
 v0.1.6 was the last release under the develop → main merge flow. Starting with v0.1.7, the project uses trunk-based development on `main`.

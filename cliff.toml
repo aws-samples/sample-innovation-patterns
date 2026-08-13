@@ -4,8 +4,15 @@
 # a template that is stripped from every output is a template nobody reads.
 #
 # The frozen v0.1.0-v0.1.4 history that used to live in `footer` is recoverable
-# from git history (`git show v0.2.0:CHANGELOG.md`). It was never present in
-# published notes, for the same `--strip all` reason.
+# from git history. Read it from the commit BEFORE the deletion, not from a tag:
+#
+#   git show "$(git log --diff-filter=D --format=%H -1 -- CHANGELOG.md)^:CHANGELOG.md"
+#
+# `git show v0.2.0:CHANGELOG.md` looks like the obvious command and returns the
+# WRONG thing — 175 lines still headed "## [Unreleased]", because that tag is
+# itself the v0.2.0 staleness incident. The complete 647-line file is at the tip
+# before deletion. It was never present in published notes, for the same
+# `--strip all` reason.
 [changelog]
 body = """
 {% if version -%}
