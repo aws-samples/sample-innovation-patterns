@@ -64,10 +64,15 @@ Markdown (Claude Code skill format): Follow standard conventions
 
 Every commit message MUST use [Conventional Commits](https://www.conventionalcommits.org/) format. This is not a style preference — the format is the input to two automated outputs:
 
-1. **Version derivation.** The next release version is computed from commit history, not read from a file. A `fix:` commit produces a patch bump, `feat:` a minor bump; a commit that matches no conventional type produces **no bump at all**.
-2. **Published release notes.** The GitHub Release body is generated from these messages. A non-conventional commit appears in **no** release-notes section and is invisible to anyone reading the release.
+1. **Version derivation.** The next release version is computed from commit history, not read from a file. A `fix:` commit produces a patch bump, `feat:` a minor bump.
+2. **Published release notes.** The GitHub Release body is generated from these messages. A commit that matches no conventional type appears in **no** release-notes section and is invisible to anyone reading the release.
 
-So a commit written as `Update: modify 7 file(s)` is silently skipped by both — the work ships, but nothing records that it did. Write `fix(app-lib): ...` instead.
+A non-conventional commit is worse than merely ignored, and the two failure modes are different:
+
+- **Explicitly skipped** — `chore:`, `style:`, `test:`, and `Update:` produce **no bump and no entry**. Genuinely inert.
+- **Unmatched** — a bare `wip`, a plain `Add pagination`, a `Merge branch ...`, or a `Revert "..."` subject matches no parser, so it **still derives a patch bump** while contributing **no entry**. It moves the version with nothing to show for it.
+
+So `Update: modify 7 file(s)` is silently skipped by both — the work ships and nothing records it. `Add pagination` is worse: it bumps the patch version and still records nothing. Write `fix(app-lib): ...` instead.
 
 ### Format
 
@@ -181,6 +186,48 @@ with **no** `!`, deriving a patch, because no skill, template, generated artifac
 behaviour changed. It was first written as `refactor(ipa)!:`, which derived `v0.3.0` and overstated
 the change; the `!` and its footer were removed. When unsure, ask: *would a consumer who never
 releases this project notice?* If no, no `!`.
+
+### Merge strategy: squash, and the MR title is the contract
+
+**Squash-merge every merge request, and make the MR title a conventional commit.** GitLab defaults
+a squash commit's subject to the MR title, so the title becomes the one string that determines both
+the version bump and the release-notes entry for that whole branch.
+
+Measured, from `v0.2.1`, for a branch carrying `feat` + `fix` + `chore` + `wip`:
+
+| Strategy | Derives | Notes entries | Commits added to `main` |
+|---|---|---|---|
+| Squash, title `feat(app-lib): …` | `v0.3.0` | 1 | 1 |
+| Squash, title `fix(app-lib): …` | `v0.2.2` | 1 | 1 |
+| Squash, title non-conventional | `v0.2.2` | **0** | 1 |
+| Merge commit (`--no-ff`) | `v0.3.0` | 2 | 5 (incl. the merge) |
+| Rebase / fast-forward | `v0.3.0` | 2 | 4 |
+
+Why squash, given this project derives its version from history:
+
+- **It puts the discipline in one reviewed place.** Conventional-commit adherence across individual
+  commits has measured 27%, 17%, and 33%. A squash needs *one* correct string per merge request,
+  visible in review, instead of correctness on every commit.
+- **`wip` and `chore:` commits stop leaking into the version.** Under merge or rebase they land on
+  `main`, and an unmatched subject like `wip` derives a patch bump while contributing no entry.
+- **No merge commit.** A `Merge branch …` subject matches no parser, so it **derives a patch bump on
+  its own**. Under `--no-ff` that means every merge nudges the patch version with nothing to show
+  for it — and a `chore:`-only branch merged that way derives a version whose notes are a bare
+  heading. `release.sh` refuses that, but not creating it is better than being refused.
+- **The squash body is harmless.** GitLab's default body lists the individual subjects; because
+  `split_commits = false`, they render as prose under the bullet and create no extra entries and no
+  extra bump. Verified.
+
+The cost, and it is real: **a squash can under-bump.** A branch containing a `feat` merged under a
+`fix:` title derives a patch, and the feature is invisible in the notes. So when reviewing an MR
+title, check it against the *largest* change in the branch, not the most recent one — the title must
+carry the highest bump the branch earns. `!` likewise has to be on the title to count.
+
+Two habits that follow:
+
+- Set the MR title deliberately; it is release metadata, not a label.
+- Direct pushes to `main` bypass all of this, so an unconventional direct commit bumps the patch
+  version silently. Prefer a merge request for anything you want recorded.
 
 ### Release Commits
 

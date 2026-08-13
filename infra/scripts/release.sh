@@ -237,13 +237,43 @@ echo "Releasing $TAG (current: $LATEST)"
 
 git-cliff --unreleased --tag "$TAG" --strip all > /tmp/release-notes.md
 
-# Asserted rather than trusted: git-cliff exits 0 when the range resolves to
-# nothing that cliff.toml groups, emitting output with no version heading.
+# TWO assertions, because the heading alone is not evidence of content.
+#
+# The heading check protects the public contract: .github/workflows/release.yml
+# reads this annotation and requires a '## [' heading.
 if ! grep -q '^## \[' /tmp/release-notes.md; then
   echo "error: generated notes for $TAG contain no version heading" >&2
   echo "hint: .github/workflows/release.yml requires a '## [' heading in the tag" >&2
   echo "      annotation. Refusing to create a tag that would break the public" >&2
   echo "      release path. Nothing was created." >&2
+  exit 1
+fi
+
+# The content check catches a CONTENTLESS release, which the heading check cannot
+# see: `--tag` always stamps the heading, so notes with a heading and no entries
+# pass it. That state is reachable, and not exotic --
+#
+#   a commit matching NO parser at all (a bare "wip", a plain "Add thing", or a
+#   "Merge branch ..." commit) derives a PATCH but is grouped into nothing, so it
+#   contributes a version bump and zero entries. Verified: a chore-only branch
+#   merged with --no-ff derives 0.2.2 whose notes are one heading and nothing
+#   else.
+#
+# Only parsers with `skip = true` (^chore, ^style, ^test, ^Update:) suppress the
+# bump; everything unmatched still bumps. So refuse rather than publish a release
+# that describes nothing.
+if ! grep -q '^- ' /tmp/release-notes.md; then
+  echo "error: generated notes for $TAG contain a heading but no entries" >&2
+  echo "" >&2
+  cat /tmp/release-notes.md >&2
+  echo "" >&2
+  echo "hint: every commit in this window is either skipped (chore:, style:," >&2
+  echo "      test:, Update:) or matches no conventional type at all. An" >&2
+  echo "      unmatched commit — a bare 'wip', a plain 'Add thing', or a merge" >&2
+  echo "      commit — still derives a patch bump but is grouped into nothing," >&2
+  echo "      which is how a version can be derivable with nothing to say." >&2
+  echo "hint: reword the commits conventionally, or leave the release uncut." >&2
+  echo "      Nothing was created." >&2
   exit 1
 fi
 
