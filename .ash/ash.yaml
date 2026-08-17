@@ -25,11 +25,22 @@ global_settings:
     # claiming every one of those findings is "pure duplication" of what grype reports
     # against the real lockfiles. That is not true, and the claim should not be relied on
     # to widen this ignore. grype reports NOTHING against web-client/package-lock.json for
-    # hono, @hono/node-server, undici, ip-address, brace-expansion, fast-uri, js-yaml or
-    # body-parser, while `npm audit` reports eight advisory groups (five High) across them,
-    # all inside the shadcn dev-CLI subtree. The ignore is still correct on its own terms —
-    # an untracked tree installed by a different component is not this project's to scan —
-    # but that subtree is currently covered by NO scanner in CI. Tracked separately.
+    # hono, @hono/node-server, undici, ip-address, brace-expansion, fast-uri or js-yaml.
+    #
+    # What DOES cover them is GitLab Dependency Scanning (Gemnasium), which runs alongside
+    # this ASH job and reported all of them against web-client/package-lock.json in
+    # pipeline #2140128. So the gap is narrower than first written: the packages are
+    # scanned, just not by grype. All of them have since been upgraded to patched
+    # versions, verified by querying OSV for every one of the 2405 package@version pairs
+    # across the three lockfiles.
+    #
+    # Two consequences worth remembering:
+    #   - grype's DB coverage is not a superset of Gemnasium's. Do not treat a clean grype
+    #     run as proof a lockfile is clean.
+    #   - The suppressions in this file do NOT suppress Gemnasium findings. They are two
+    #     separate reports, and a Dependency Scanning finding is dismissed in the GitLab
+    #     vulnerability report, not here. The image-size and uuid entries below therefore
+    #     silence the ASH/grype copy only; the Gemnasium copy still shows "Needs triage".
     #
     # These patterns are globs, and a bare directory prefix ('node_modules/') does not
     # match the files beneath it — which is why the previous entry had no effect while the
