@@ -14,17 +14,33 @@ global_settings:
     # pytest.ini is not infrastructure-as-code — KICS misparses it as a config file
     - path: 'app-lib/pytest.ini'
       reason: 'Not IaC — pytest configuration file; KICS cannot parse INI format and emits false errors'
-    # node_modules/ contains stale or transitive packages not tracked by lockfiles at root
-    - path: 'node_modules/'
-      reason: 'Stale/transitive node_modules at repo root — actual deps are tracked via app-specific lockfiles (docs/pnpm-lock.yaml, web-client/package-lock.json)'
+    # node_modules/ at the repo root is not this project's dependency tree. There is no
+    # root package.json and no root lockfile, and nothing at root is tracked by git — the
+    # tree is installed into the checkout during the pipeline by another component's own
+    # toolchain (its contents are @typescript-eslint, @ts-morph/common, hono,
+    # @hono/node-server, undici, react-router, postcss). npm-audit resolves that tree and
+    # reported 49 findings on 2026-08-17, every one of which grype already reports against
+    # the real lockfiles (docs/pnpm-lock.yaml, web-client/package-lock.json) — so the group
+    # is pure duplication.
+    #
+    # These patterns are globs, and a bare directory prefix ('node_modules/') does not
+    # match the files beneath it — which is why the previous entry had no effect while the
+    # exact-path entries above and below it work. Both forms are listed because the root
+    # tree and any nested tree must both be excluded.
+    - path: 'node_modules/**'
+      reason: 'Not this project''s dependency tree — installed into the checkout root by another pipeline component; no root package.json or lockfile exists and nothing at root is tracked by git. Real deps are scanned via docs/pnpm-lock.yaml and web-client/package-lock.json, which grype covers.'
+    - path: '**/node_modules/**'
+      reason: 'Installed dependency trees are build output, not first-party source. Vulnerabilities in real dependencies are reported against the lockfiles (docs/pnpm-lock.yaml, web-client/package-lock.json, app-lib/uv.lock); scanning the unpacked tree only duplicates them.'
     # app-lib/build/ is a git-ignored Lambda build artifact (vendored third-party
     # packages copied into deployment_package/). It is not source, not tracked by
     # git, and never present in a clean CI checkout — a local `brazil-build`/package
     # step populates it. Scanning it floods results with findings in vendored deps'
     # own test files (docstring_parser, referencing, cffi, jinja2, ...). Same
     # rationale as node_modules/: artifact directory, not first-party source.
-    - path: 'app-lib/build/'
-      reason: 'Git-ignored Lambda build artifact (vendored third-party packages in deployment_package/); not first-party source and absent from clean CI checkouts. Real dependencies are scanned via app-lib/uv.lock. Mirrors the node_modules/ ignore rationale.'
+    # Written as a glob for the same reason as node_modules/** above: a bare directory
+    # prefix does not match the files beneath it.
+    - path: 'app-lib/build/**'
+      reason: 'Git-ignored Lambda build artifact (vendored third-party packages in deployment_package/); not first-party source and absent from clean CI checkouts. Real dependencies are scanned via app-lib/uv.lock. Mirrors the node_modules/** ignore rationale.'
   suppressions:
     # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause
     - rule_id: 'B101'
