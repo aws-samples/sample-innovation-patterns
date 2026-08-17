@@ -57,6 +57,30 @@ global_settings:
     # (Removed 2026-08-17: the B101 utils/tests/*, B603 utils/*, B404 utils/* and
     # GHSA-5239-wwwm-4pmq-pygments utils/uv.lock entries. There is no utils/ directory
     # in this repository, so none of those paths could match a finding.)
+    #
+    # internal/integration-tests: maintainer-only harness that drives the real IPA
+    # lifecycle against a live AWS sandbox. Not shipped — internal/ is excluded from
+    # the public GitHub mirror (internal/release/publish-github.sh). Measured with
+    # bandit against the first-party modules: B101 only, and zero findings at MEDIUM
+    # or above. B404/B603/B607 are additionally suppressed by path because ASH runs
+    # its own bandit configuration, which need not honour the inline `# nosec`
+    # markers the source already carries.
+    #
+    # Written as `/**` rather than `/*` for the reason the node_modules ignore above
+    # records: a bare prefix does not match files beneath it, and `/*` would stop
+    # matching the day the harness grows a subdirectory.
+    - rule_id: 'B101'
+      path: 'internal/integration-tests/**'
+      reason: 'assert statements are expected in pytest test files, and workspace.py asserts its preconditions deliberately so a caller that skips the tests cannot build a subtly wrong temp project'
+    - rule_id: 'B404'
+      path: 'internal/integration-tests/**'
+      reason: 'subprocess import is required to invoke git, docker, npm, uv, make and the AWS CLI — the harness exercises the generated Makefiles as a customer would, so it must shell out to the same tools'
+    - rule_id: 'B603'
+      path: 'internal/integration-tests/**'
+      reason: 'every subprocess call passes an argv list with shell=False, so no shell quoting applies and paths containing spaces pass through intact; the argv lists are constant literals with no interpolated user input'
+    - rule_id: 'B607'
+      path: 'internal/integration-tests/**'
+      reason: 'git, docker, npm, uv, make and aws are resolved via PATH rather than absolute paths — hard-coding a Homebrew prefix would break the harness on any machine but one, and exploiting a partial path requires write access to the maintainer PATH, a broader compromise than this harness'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
       path: 'infra/cfn/cognito/cognito.yml'
