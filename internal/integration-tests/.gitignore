@@ -1,0 +1,9 @@
+# Per-run artifacts. Never committed.
+#
+# The transcript can carry verbatim agent output and account identifiers, and the
+# standing-resource pointer names live billable infrastructure — both describe one
+# machine's one run, so committing either would publish state that is already stale.
+# Findings that must outlive a run go in DECISIONS.md by hand.
+transcript-*.jsonl
+standing-resources-*.md
+junit-integration.xml
