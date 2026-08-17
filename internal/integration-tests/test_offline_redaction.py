@@ -139,3 +139,44 @@ def test_every_gate_marker_is_lowercase():
     """The scanner lowercases the haystack, so an upper-case marker never matches."""
     for gate, marker in driver.BILLABLE_GATE_MARKERS.items():
         assert marker == marker.lower(), f"{gate} marker is not lowercase: {marker!r}"
+
+
+# --------------------------------------------------------------------------- #
+# The offline tier must not depend on the optional SDK extra
+# --------------------------------------------------------------------------- #
+
+
+def test_driver_imports_without_the_agent_sdk():
+    """``driver`` must import on a machine that has not installed the extra.
+
+    ``conftest.py`` imports ``driver``, so a module-level SDK import means pytest
+    cannot even COLLECT the offline tests — which defeats the whole point of putting
+    the SDK behind an extra. Caught by running the suite on a fresh checkout, where it
+    failed with ``ModuleNotFoundError``.
+
+    This test passes either way; what it pins is that the SDK-dependent names are
+    accessed lazily, so removing the guard reintroduces a collection error rather than
+    a test failure.
+    """
+    assert hasattr(driver, "SDK_AVAILABLE")
+    assert isinstance(driver.SDK_AVAILABLE, bool)
+    # The pure-Python surface the offline tier uses is present regardless.
+    assert driver.BILLABLE_GATE_MARKERS
+    assert driver.Transcript is not None
+    assert driver.COMPOSE_PROMPT and driver.FULL_PROMPT
+    assert driver.STOP_AFTER_COMPOSE and driver.FULL_LIFECYCLE
+
+
+def test_building_options_without_the_sdk_fails_actionably(monkeypatch, tmp_path):
+    """A missing extra must name the fix, not raise a bare NameError."""
+    monkeypatch.setattr(driver, "SDK_AVAILABLE", False)
+    monkeypatch.setattr(driver, "SDK_IMPORT_ERROR", "No module named 'claude_agent_sdk'")
+
+    import answers
+    import pytest as _pytest
+
+    resolver = answers.AnswerResolver(namespace="itaaa0", profile="p")
+    transcript = driver.Transcript(path=tmp_path / "t.jsonl")
+
+    with _pytest.raises(RuntimeError, match="uv sync --all-extras"):
+        driver.build_options(tmp_path, resolver, transcript)

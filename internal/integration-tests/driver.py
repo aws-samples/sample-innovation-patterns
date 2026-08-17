@@ -43,14 +43,44 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import (
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    HookMatcher,
-    PermissionResultAllow,
-)
-
 from answers import AnswerResolver
+
+# The SDK is an OPTIONAL extra (`uv sync --all-extras`), so it is imported lazily.
+#
+# A module-level import here would make `import driver` fail on a machine without the
+# extra -- and `conftest.py` imports this module, so pytest could not even COLLECT the
+# offline tests. That would defeat the whole point of putting the SDK behind an extra:
+# the offline tier is meant to run anywhere, on any checkout, with no credentials and
+# no agent. Verified by running the suite on a fresh checkout, where it failed.
+#
+# Everything in this module that the offline tier touches -- Transcript, the redaction
+# filter, scan_for_gates, BILLABLE_GATE_MARKERS, the prompts -- is pure Python and
+# stays importable. Only building a session needs the SDK, and that is the billable
+# path, which `conftest.py` already gates on the `claude_agent_sdk_importable` probe.
+try:  # pragma: no cover - exercised by presence/absence of the extra
+    from claude_agent_sdk import (
+        ClaudeAgentOptions,
+        ClaudeSDKClient,
+        HookMatcher,
+        PermissionResultAllow,
+    )
+
+    SDK_AVAILABLE = True
+    SDK_IMPORT_ERROR = ""
+except ImportError as _exc:  # pragma: no cover
+    ClaudeAgentOptions = ClaudeSDKClient = HookMatcher = PermissionResultAllow = None  # type: ignore[assignment,misc]
+    SDK_AVAILABLE = False
+    SDK_IMPORT_ERROR = str(_exc)
+
+
+def _require_sdk() -> None:
+    """Fail with an actionable message rather than a NameError."""
+    if not SDK_AVAILABLE:
+        raise RuntimeError(
+            f"claude_agent_sdk is not installed ({SDK_IMPORT_ERROR}). It is an "
+            "optional extra so the offline tier runs without it. Install with: "
+            "uv sync --all-extras"
+        )
 
 REGION = os.environ.get("IPA_IT_REGION", "us-east-1")
 MODEL = os.environ.get(
@@ -244,8 +274,9 @@ def build_options(
     scope: str = STOP_AFTER_COMPOSE,
     max_budget_usd: float | None = None,
     max_turns: int | None = None,
-) -> ClaudeAgentOptions:
+) -> "ClaudeAgentOptions":
     """Assemble the SDK options. See the module docstring for the five traps."""
+    _require_sdk()
 
     def _answer(questions: list[dict[str, Any]], via: str) -> dict[str, str]:
         """Resolve one batch and record which channel delivered it.
@@ -330,7 +361,7 @@ def build_options(
     )
 
 
-def full_lifecycle_options(*args: Any, **kwargs: Any) -> ClaudeAgentOptions:
+def full_lifecycle_options(*args: Any, **kwargs: Any) -> "ClaudeAgentOptions":
     """Phase 4's substitution: the wider scope AND the raised ceilings together.
 
     Both change as one. The compose ceilings are sized for a run that stops early, so
@@ -385,7 +416,7 @@ async def drive(
     project: Path,
     resolver: AnswerResolver,
     transcript: Transcript,
-    options: ClaudeAgentOptions | None = None,
+    options: "ClaudeAgentOptions | None" = None,
 ) -> RunResult:
     """Drive one session to completion with ONE long-lived client.
 
