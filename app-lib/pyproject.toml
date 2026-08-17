@@ -81,6 +81,9 @@ constraint-dependencies = [
     # pymdown-extensions arrives via mkdocs-material and mkdocstrings (docs tooling
     # only). mkdocs-material requires >=10.2, so the 11.x line satisfies it.
     "pymdown-extensions>=11.0.1",  # GHSA-gm37-52c6-37mw, GHSA-9xwg-3r6f-jcx2
+    # click arrives via uvicorn and mkdocs. Command injection in click.edit(); neither
+    # this library nor either parent calls it, but the floor is free.
+    "click>=8.3.3",  # CVE-2026-7246 / GHSA-47fr-3ffg-hgmw / PYSEC-2026-2132
 ]
 
 [dependency-groups]
