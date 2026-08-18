@@ -60,6 +60,34 @@ global_settings:
     # prefix does not match the files beneath it.
     - path: 'app-lib/build/**'
       reason: 'Git-ignored Lambda build artifact (vendored third-party packages in deployment_package/); not first-party source and absent from clean CI checkouts. Real dependencies are scanned via app-lib/uv.lock. Mirrors the node_modules/** ignore rationale.'
+    # internal/ is maintainer-only tooling and is NOT shipped: publish-github.sh
+    # excludes the whole directory from the public GitHub mirror. Nothing under it
+    # is deployed by CI either — internal/infra/ holds two CloudFormation stacks a
+    # maintainer deploys BY HAND, per account, and internal/integration-tests/ is a
+    # pytest harness that drives the IPA lifecycle against a live sandbox.
+    #
+    # Ignored wholesale rather than rule-by-rule because the per-rule route had
+    # already been tried and does not converge: the `suppressions:` block below
+    # carries ten entries for internal/ paths (B101/B404/B603/B607, CKV_AWS_18,
+    # CKV_AWS_158, CFN_NAG_W28/W32/W35/W84, AwsSolutions-S1), each one added after a
+    # scanner surfaced it, and each new scanner or template line adds more. This
+    # entry replaces that growth; those entries are now inert and kept only as a
+    # record of the reasoning (see the note at the head of the block).
+    #
+    # What this ignore GIVES UP, stated so it is not rediscovered later:
+    #   - internal/release/templates/ is PUBLIC INTERFACE despite living under
+    #     internal/ — cliff.toml and release.mk are copied into customer projects.
+    #     It is markdown/TOML/Make, so no scanner in this configuration reads it
+    #     today, but a future .py or .sh added there would go unscanned.
+    #   - internal/release/publish-github.sh loses shell coverage (0 findings as of
+    #     2026-08-18).
+    # Narrow this to 'internal/infra/**' + 'internal/integration-tests/**' if either
+    # of those becomes a concern.
+    #
+    # Written as a glob for the reason node_modules/** above records: a bare
+    # directory prefix does not match the files beneath it.
+    - path: 'internal/**'
+      reason: 'Maintainer-only tooling, excluded from the public GitHub mirror by internal/release/publish-github.sh and deployed by hand rather than by CI. internal/infra/ stacks (integration-test pipeline, GitLab credential-vendor role) and internal/integration-tests/ exist to run this repository''s own tests; they are not part of the IPA surface a customer receives or deploys, so their posture findings are not customer risk. Replaces ten per-rule suppressions for the same paths.'
   suppressions:
     # ------------------------------------------------------------------------
     # READ THIS BEFORE ADDING A BANDIT ENTRY BELOW (measured 2026-08-18)
@@ -94,6 +122,13 @@ global_settings:
     # (Removed 2026-08-17: the B101 utils/tests/*, B603 utils/*, B404 utils/* and
     # GHSA-5239-wwwm-4pmq-pygments utils/uv.lock entries. There is no utils/ directory
     # in this repository, so none of those paths could match a finding.)
+    #
+    # SUPERSEDED 2026-08-18: every internal/ entry from here to the CFN_NAG_W28 entry
+    # on credential-vendor.yml is now INERT — the `internal/**` ignore_paths entry
+    # above excludes these files before a scanner reaches them. They are kept as the
+    # record of what was measured and why, since a future narrowing of that ignore
+    # (to internal/infra/** + internal/integration-tests/**) revives them unchanged.
+    # Do not add new internal/ entries here; widen or narrow the ignore instead.
     #
     # internal/integration-tests: maintainer-only harness that drives the real IPA
     # lifecycle against a live AWS sandbox. Not shipped — internal/ is excluded from
