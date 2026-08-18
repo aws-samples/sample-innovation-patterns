@@ -11,7 +11,7 @@ with it. Every figure here is **measured**, never predicted.
 |---|---|
 | **Account** | `450282238889` |
 | **Caller** | `arn:aws:sts::450282238889:assumed-role/Admin/vincilb-Isengard` |
-| **Profile** | `peterpyu+code-evaluation-Admin` |
+| **Credentials** | The **default chain** — no profile is named in source. See Phase 6, D6.2. (Runs through 2026-08-17 recorded below used a named `IPA_IT_PROFILE`, since retired.) |
 | **Region** | `us-east-1` |
 | **Account type** | Isengard evaluation sandbox (`code-evaluation`), not production |
 
@@ -498,3 +498,200 @@ interface and each fix needs its own bumping commit type):
    unattended agent picking the recommendation deploys a permissions boundary and a
    47-service policy where two roles would satisfy every gate. Not a defect; a question
    about the default.
+
+## Phase 6 — Scenario restructure and the default credential chain (2026-08-18)
+
+Split the flat harness into a shared `harness/` package plus one folder per scenario, and
+moved every AWS call onto botocore's default credential chain. **No billable run was
+performed in this phase**, and no pipeline run was started.
+
+### D6.1 — A shared package, not per-folder copies plus a loader
+
+The comparable LaunchBridge harness solves the same problem differently:
+`tests/integration/iac_deploy/_compose_modules.py:1-31` exists only because both its
+scenario folders define `workspace.py` and `answers.py`, so a bare `import workspace`
+resolves by `sys.path` ordering — that is, by pytest collection order, **silently**. Its
+own docstring names extracting a shared package as the better fix, declined there only
+because it would refactor a folder that already passed.
+
+IPA was being restructured anyway, so it took the better fix and never needs the
+workaround. Consequences recorded because they are what a reader will otherwise
+rediscover:
+
+- Scenarios import `harness.*`. No `sys.path` insertion, no explicit-path loader.
+- Shared fixtures load as a **pytest plugin** (`-p harness.fixtures`) rather than being
+  copied into each scenario's `conftest.py`. Copying is fewer concepts and is what
+  LaunchBridge did; it was rejected because the shared fixtures contain the preservation
+  rule — the logic deciding whether to delete a temp project holding `.env` and
+  `scripts/*.mk`, the only documented means of teardown. Two copies of a rule that decides
+  whether to destroy the means of teardown will drift, and the drift nobody notices is the
+  one that deletes more. A plugin is also the only home from which pytest collects the
+  `pytest_runtest_makereport` hook.
+- `--import-mode=importlib` is set in every scenario's `pytest.ini`. It prevents nothing
+  today — `test_compose.py` and `test_deploy.py` have distinct names — and is set now
+  because the failure it prevents is **silent shadowing** rather than an error.
+
+### D6.2 — Credentials from the default chain; the hardcoded profile deleted
+
+`preflight.py` previously built every session as
+`boto3.Session(profile_name=PROFILE, region_name=REGION)` where `PROFILE` defaulted to one
+maintainer's SSO profile — which made the suite report a false negative for every other
+operator and for CI, since a CodeBuild container has no named profile at all.
+
+- `harness/aws.py` is now the single definition. `session()` pins `region_name` and passes
+  **no** `profile_name`.
+- The `profile` parameter is gone from `standing.live_stacks`, `sweep.list_it_stacks`,
+  `reaper.{purge_versions,empty_bucket,empty_ecr,reap}` and `cognito_auth.mint_token`,
+  along with every `--profile` argv element. `sweep._resolve_profile` and
+  `preflight.PROFILE` are deleted. `IPA_IT_PROFILE` is retired.
+- `cli_region_args()` was kept despite wrapping two list elements, as the grep-able marker
+  that an argv site was **reviewed** during the removal. An inline `["--region", REGION]`
+  is indistinguishable from a site that was missed.
+- The region stays pinned, and the reason is unchanged: this shell exports
+  `AWS_REGION=us-west-2`, and an inherited region would probe an account that is clean
+  only because nothing was ever there — a false pass indistinguishable from a real one.
+  `preflight._session`'s docstring argued *against* ambient credentials on those grounds;
+  it was rewritten rather than left, because a docstring contradicting its own code is
+  worse than none, being believed.
+- The credential probe changed subject: `probe_aws_profile_resolvable` →
+  `probe_credentials_resolvable`, whose detail reports
+  `session().get_credentials().method`. Reporting only *that* credentials resolved would
+  hide the failure worth catching — a CI build answering from a stray long-lived
+  environment key instead of its task role has resolved credentials successfully and is
+  still misconfigured.
+- **`AWS_PROFILE` keeps a value; the harness stops authenticating with it.** These are
+  separable, and conflating them is what made the problem look unsolvable.
+  `harness.aws.profile_for_env()` is the only reader and supplies just the value written
+  into the driven project's `.env`. It **raises** when unset rather than falling back to
+  `"default"`: that fallback is accepted by `/ipa-init`, written into `.env`, and then
+  fails much later inside a generated Makefile with an error naming a missing profile
+  rather than the configuration step that should have supplied one.
+
+### D6.3 — The pointer's `profile:` line became `credentials:`
+
+`standing.render_pointer` rendered `- profile: {profile}` into the standing-resource
+pointer, and `write_report` / `report_everywhere` threaded that parameter. Once teardown
+takes no profile, a `profile:` line in a human-facing teardown aid is misleading — the
+value available to put there is a credential resolution method, not a profile name. The
+parameter and the rendered label are both now `credentials`. Not named in the plan;
+recorded here as a consequence of dropping the parameter from `live_stacks`.
+
+### D6.4 — Two path anchors had to move with their modules
+
+`workspace.REPO_ROOT` and `preflight.REPO_ROOT` were both
+`Path(__file__).resolve().parents[2]`. Moving those modules down one level into `harness/`
+makes that resolve to `internal/`, not the repository root. Both are now `parents[3]`.
+
+Neither fails loudly. `workspace` would have copied the wrong tree into the temp project,
+and `preflight` would have resolved the Cognito template to
+`internal/infra/cfn/cognito/cognito.yml` — a path that does not exist — so the blocking
+check would have failed on a missing file rather than on anything about the account.
+`standing.HERE` was re-anchored deliberately for the same reason and is covered in the
+plan; these two were not, and were found by auditing every `__file__` in the package.
+
+### F6 (finding) — the deploy tier was uncollectable, not merely unrun
+
+`test_deploy.py:59` requested a `deploy_run` fixture **defined nowhere in the tree**.
+Measured against the pre-change tree:
+
+```
+$ uv run --directory internal/integration-tests python -m pytest \
+    -m "integration or teardown" --setup-plan | grep -c "fixture 'deploy_run' not found"
+8
+```
+
+The distinction carries information and is the point of recording it: **an assertion suite
+that was never collectable is not one that was never run — it is one nothing could have
+run.** Phase 4 of this document described the deploy tier as "built; run BLOCKED", which
+was true of the *drive* and not of the *suite*.
+
+It stayed invisible because the routine free target deselects those markers, so the only
+command anyone runs regularly never touched them. That is why `--setup-plan` — which walks
+the whole fixture graph without executing any fixture, for free — became an acceptance
+criterion rather than a nicety. After this phase the same command reports **0** errors and
+the scenario collects 27 tests.
+
+Two things followed from writing the fixture, both decisions:
+
+- **Session scope, not module.** At module scope the fixture drives twice, once per test
+  module: double the spend, double the standing infrastructure, and the teardown would
+  then remove the *second* deployment while the assertions verified the *first* —
+  reporting a successful verify-then-remove while the verified deployment stays up and
+  billing. That is the failure the verify-before-remove ordering exists to prevent,
+  reintroduced through fixture scope instead of through invocation count.
+- **`FULL_MAX_BUDGET_USD` is a second variable.** `driver.py` hardcoded
+  `kwargs.setdefault("max_budget_usd", 15.0)`, so `IPA_IT_MAX_BUDGET_USD` — documented as
+  the spend ceiling — could not reach the only path able to spend $15. It is now
+  `IPA_IT_FULL_MAX_BUDGET_USD`, kept **separate** because the ceilings differ threefold
+  and each scenario sets its own inline: one shared variable set for compose would cap a
+  deploy run at $5 and stop it partway through a deployment, which is indistinguishable
+  from a wedge and leaves partial infrastructure standing. `max_turns` deliberately stays
+  a literal — a turn ceiling is a runaway-loop backstop, and making it configurable
+  invites raising it to get past a wedge.
+
+### F7 (finding) — `AWS_PROFILE` is contradicted across five shipped skills
+
+This is in **public interface** and it blocks a documented customer path, not merely this
+harness.
+
+| Source | Says |
+|---|---|
+| `ipa-init/SKILL.md:21,126` | **Optional** — "omit to use default credential chain"; Skip omits the line from `.env` |
+| `ipa-compose/VALIDATION.md:21` | **Required** — "STOP immediately… do NOT generate any artifacts" |
+| `ipa-prepare/SKILL.md:91` | **Required** — "Missing `AWS_PROFILE`. Run `/ipa-init`." |
+| `ipa-security/SKILL.md:73` | **Required** — "STOP" |
+| `ipa-destroy/SKILL.md:74` | **Required** |
+| `ipa-compose/MAKEFILE_TEMPLATES.md:787` | Generated Makefiles are built for it being **empty**: "The `$(if …)` conditional ensures CI/CD compatibility when `AWS_PROFILE` is empty" |
+
+So IPA's *generated artifacts* already support the default credential chain while IPA's
+*skills* refuse to run without a profile. **Consequence for a customer: someone following
+`/ipa-init`'s documented "omit to use default credential chain" path cannot then run
+`/ipa-compose` at all.**
+
+**Not fixed here.** This phase works around it with a credential-less shim profile in
+CodeBuild. The fix is four small edits making the key optional in the four validation
+tables, and it belongs in its own change with a `fix:` type, because `.claude/skills/**`
+is public interface.
+
+### Two properties are INFERRED, not measured
+
+Recorded as inferred rather than asserted, and confirmed only by the first CodeBuild run —
+which no phase of this work starts:
+
+1. A `boto3.Session` with no explicit profile resolves the **container role** while
+   `AWS_PROFILE=ipa-it` is exported.
+2. The AWS CLI given `--profile ipa-it` for a **credential-less** profile falls through to
+   container credentials.
+
+Both follow from botocore dropping only `env_provider` — the chain link that reads
+`AWS_ACCESS_KEY_ID` from the environment — when a profile is configured, while retaining
+`container_provider`, the link that reads the ECS task role. That is an inference from the
+documented resolution order, not an observation from inside CodeBuild. The install phase's
+credential check is positioned so that if the inference is wrong, the build fails there —
+for free — rather than mid-drive after spending.
+
+### Corrections to earlier phases of this document
+
+- **The free suite has 99 tests.** Measured: `99 passed in 4.49s`. Earlier sections of
+  this document say 100 and 97; both were approximate. Nothing was dropped in the move.
+- **The five free test modules lost their `test_offline_` prefix**
+  (`test_answers.py`, `test_artifacts.py`, `test_reaper.py`, `test_redaction.py`,
+  `test_workspace.py`). The prefix distinguished free from billable when both sat in one
+  directory; `harness/tests/` now does that. Earlier cites in this document to
+  `test_offline_*.py` refer to these files.
+- **Every module path in Phases 1–5 above moved into `harness/`.** A cite to
+  `preflight.py:161` means `harness/preflight.py`.
+- **The documented pytest invocation was wrong.** Recipes must use
+  `uv run python -m pytest`, not `uv run pytest`: only `-m` places the working directory
+  on `sys.path`, which is the mechanism that makes `harness` importable without a build
+  backend. With the bare console script every module fails with
+  `ModuleNotFoundError: No module named 'harness'`. Measured, not assumed.
+- **The "Where this leaves the feature" table above predates this phase.** The deploy
+  tier's "built, run blocked" now reads "collects and sets up; drive blocked on F3", and
+  the flat tier names map onto the two scenario folders.
+- **Phase 1's probe table still names a maintainer's profile, and that is deliberate.**
+  Its `aws_profile_resolvable` row is a **verbatim** record of a run on 2026-08-17, under
+  a column header that says verbatim. Rewriting it to match the current design would
+  falsify a dated observation, so it stands as history. The `## Target` table at the top of
+  this document *was* updated, because that one describes the current target rather than a
+  past run. The probe itself no longer exists under that name — see D6.2.

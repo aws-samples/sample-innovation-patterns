@@ -38,11 +38,43 @@ and a log group. Every **execution** costs:
   ceiling. The agent-driven run's wall clock is not measured end to end, which is why
   that ceiling exists — a stalled run otherwise burns the whole budget on the most
   expensive compute available, waiting for nothing.
-- Model spend: up to **$15** on the full-lifecycle path. Note that the `MaxBudgetUsd`
-  parameter caps only the *compose* drive; `driver.py:371` sets the full-lifecycle
-  ceiling with `kwargs.setdefault`, which an environment variable does not reach.
-- Everything the test itself deploys — seven stacks including CloudFront, ECR, two
-  Lambdas, SQS, DynamoDB and S3 — until it is torn down.
+- Model spend, **which scenario you selected decides how much**. See below.
+- Everything the test itself deploys — for the `deploy` scenario, seven stacks including
+  CloudFront, ECR, two Lambdas, SQS, DynamoDB and S3 — until it is torn down. The
+  `compose` scenario deploys one stack of two IAM roles: free, but real.
+
+### Which scenario runs, and what it costs
+
+The `Scenario` parameter selects it, constrained to the scenarios that exist:
+
+| `Scenario` | Drives | Model spend | Deploys |
+|---|---|---|---|
+| `compose` *(default)* | `/ipa-init`, `/ipa-compose` | **$0.94 — measured** | 1 free-but-real IAM stack |
+| `deploy` | the full lifecycle | **unmeasured**, ceiling $15 | 7 billable stacks |
+
+**The default is `compose`, and that is a spend decision rather than a convenience.**
+Deploying a pipeline and pressing Start is the first thing anyone does with it, so
+whatever the default is gets spent — about $1 here instead of about $15.
+
+`deploy`'s cost is **unmeasured, not estimated**: the run has never completed, so no figure
+is given rather than a predicted one.
+
+Each scenario has its own ceiling, and they are separate on purpose:
+
+| Parameter | Bounds | Default |
+|---|---|---|
+| `MaxBudgetUsd` → `IPA_IT_MAX_BUDGET_USD` | the `compose` drive | `5` |
+| `FullMaxBudgetUsd` → `IPA_IT_FULL_MAX_BUDGET_USD` | the `deploy` drive | `15` |
+
+One shared value would be wrong in both directions: sized for `compose`, it caps a deploy
+run at $5 and stops it partway through a deployment — indistinguishable from a wedge, and
+leaving partial infrastructure standing. `FullMaxBudgetUsd` was previously unreachable,
+because `driver.py` hardcoded the full-lifecycle default inside `full_lifecycle_options`.
+
+A mistyped scenario is rejected when this stack's **configuration is applied**
+(`AllowedValues`), not deferred to a Makefile error inside a build after LARGE compute has
+already been provisioned. The umbrella `Makefile` has its own guard for the same mistake
+made by hand; neither covers the other's path.
 
 `post_build` tears down **unconditionally**, so a failed build still cleans up. A build
 killed outside its own lifecycle (timeout, `stop-build`) can still leave stacks standing;
@@ -83,22 +115,35 @@ The archive excludes git-ignored files, which is what keeps `.env` and the gener
 first-run path, whose prompts the harness can intercept. Only `scripts/test.mk` appears,
 because it is tracked — the same exception `workspace.GATING_MAKEFILES` exists to handle.
 
-### The harness requires a named AWS profile, and CodeBuild has none
+### The harness names no profile; the GENERATED artifacts do
 
-`preflight.py:161` constructs `boto3.Session(profile_name=...)` unconditionally, and
-`sweep.py:137` exits 2 when neither `IPA_IT_PROFILE` nor `AWS_PROFILE` is set. There is
-no ambient-credentials path through the harness.
+**The harness authenticates from the default credential chain.** Every AWS call it makes
+resolves credentials without naming a profile — see `harness/aws.py`, the single
+definition — so inside a build they come from the container's own role. There is nothing
+to work around on that side any more.
 
-The buildspec solves this without touching the harness:
+What still needs a profile *name* is the **driven project**. The agent writes
+`AWS_PROFILE` into its `.env` (four shipped skills stop when that key is absent), and the
+generated Makefiles then pass `--profile ipa-it` to the AWS CLI. So the buildspec creates
+a profile that exists and carries nothing but a region:
 
 ```bash
 aws configure set region "$IPA_IT_REGION" --profile ipa-it
 ```
 
-A profile section that defines **no credentials** still resolves them. botocore drops
-only `env_provider` when a profile is named explicitly and keeps `container_provider`,
-which reads CodeBuild's own credentials. The profile must *exist*, though — `--profile
-<missing>` is a hard failure, not a fall-through — which is what that one line creates.
+A profile section that defines **no credentials** still resolves them. botocore drops only
+`env_provider` when a profile is named explicitly and keeps `container_provider`, which
+reads CodeBuild's own credentials. The profile must *exist*, though — `--profile <missing>`
+is a hard CLI failure, not a fall-through — which is what that one line creates, and why
+creating none at all would break every generated invocation.
+
+The build environment therefore sets `AWS_PROFILE=ipa-it` (it was `IPA_IT_PROFILE`, a
+variable the harness no longer reads at all).
+
+**Both of those fall-throughs are inferred from the documented provider order, not
+measured** — no run has yet been started from inside CodeBuild. `DECISIONS.md` labels them
+as inferred. The install phase's credential check is positioned so that if the inference is
+wrong, the build fails there, for free, rather than mid-drive after spending.
 
 ## What the buildspec does, and why
 
@@ -106,13 +151,19 @@ which reads CodeBuild's own credentials. The profile must *exist*, though — `-
   Agent SDK is behind an optional extra so the offline tier collects without it. A plain
   `uv run` syncs only the default dependencies and would *remove* `claude-agent-sdk`,
   so the extra has to be named every time.
-- **`PYTEST='uv run --all-extras pytest'` passed to `make test-ci`.** A command-line
-  variable overrides the Makefile's `:=` assignment, so the harness needs no edit to run
-  here.
+- **`PYTEST='uv run --all-extras python -m pytest'` passed to `make test-ci`.** A
+  command-line variable overrides the Makefile's own assignment, so the harness needs no
+  edit to run here. It must keep `python -m pytest`: only `-m` places the working directory
+  on `sys.path`, which is what makes the `harness` package importable without a build
+  backend. With a bare `pytest` console script every test module fails with
+  `ModuleNotFoundError: No module named 'harness'`.
+- **`SCENARIO="$IPA_IT_SCENARIO"` passed to `make test-ci`.** Selects which scenario folder
+  runs. A command-line variable propagates to sub-makes through `MAKEFLAGS`, so it reaches
+  the scenario's own Makefile without the umbrella forwarding it.
 - **The bundled `claude` binary is verified, and not npm-installed as a fallback.**
   `_find_cli` prefers the bundle over `PATH` (`subprocess_cli.py:249-252`), so an
   `npm install -g` would be ignored while appearing to fix the problem.
-- **`python -m preflight --probes-only`** prints the nine-row prerequisite table. It
+- **`python -m harness.preflight --probes-only`** prints the nine-row prerequisite table. It
   reports rather than gates; `test-ci`'s own inline `IPA_IT_STRICT_PREFLIGHT=1` is what
   turns an unmet prerequisite into a failure instead of a silent skip — the difference
   between a build that tested nothing and a build that says so. `--probes-only` skips the

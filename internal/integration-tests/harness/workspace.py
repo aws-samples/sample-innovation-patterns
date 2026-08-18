@@ -27,15 +27,21 @@ project:
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess  # nosec B404 - argv lists only, shell=False; see .ash/ash.yaml
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from harness import aws
+
 #: Resolved from this file, never from the caller's cwd.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+#:
+#: ``parents[3]``, not ``parents[2]``: this module moved down one level into
+#: ``harness/``, so the hop count grew by one --
+#: ``harness/`` -> ``integration-tests/`` -> ``internal/`` -> repo root. Getting this
+#: wrong points the temp-project build at ``internal/`` and copies the wrong tree.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 #: Each of these is something a later phase depends on. Their presence is asserted
 #: at build time so a truncated copy fails here rather than inside a build.
@@ -195,6 +201,12 @@ def build_temp(repo: Path = REPO_ROOT, prefix: str = "ipa-it-") -> Source:
     return build(dest, repo)
 
 
-def resolve_aws_profile() -> str | None:
-    """The profile the harness should use, from its own variable or the ambient one."""
-    return os.environ.get("IPA_IT_PROFILE") or os.environ.get("AWS_PROFILE") or None
+#: The profile name the DRIVEN PROJECT needs in its ``.env`` -- never used to build a
+#: session. A re-export rather than a second implementation: one definition lives in
+#: ``harness.aws``, and this name is kept so existing callers keep working.
+#:
+#: It RAISES when ``AWS_PROFILE`` is unset. That is the change from the old behaviour,
+#: which fell back to ``"default"`` and wrote ``AWS_PROFILE=default`` into ``.env`` --
+#: accepted by ``/ipa-init``, then failing much later inside a generated Makefile with
+#: an error naming a missing profile rather than the missing configuration step.
+resolve_aws_profile = aws.profile_for_env

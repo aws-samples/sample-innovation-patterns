@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-import workspace
+from harness import workspace
 
 
 def _git(repo: Path, *args: str) -> None:

@@ -25,6 +25,8 @@ import re
 import secrets
 from dataclasses import dataclass, field
 
+from harness import aws
+
 # --------------------------------------------------------------------------- #
 # Namespace rules — THE single definition. Nothing else may restate these.
 # --------------------------------------------------------------------------- #
@@ -305,18 +307,21 @@ class AnswerResolver:
 
 
 def resolver_from_env(profile: str | None = None) -> AnswerResolver:
-    """Build a resolver, honouring Phase 5's ``IPA_IT_NAMESPACE`` seam.
+    """Build a resolver, honouring the ``IPA_IT_NAMESPACE`` seam.
 
     The injected namespace is passed through ``make_namespace`` inside
     ``AnswerResolver.__init__``, which is what validates it.
+
+    The profile comes from ``AWS_PROFILE`` alone and RAISES when unset. There is
+    deliberately no ``"default"`` fallback: that value is accepted by ``/ipa-init``,
+    written into ``.env``, and then fails much later inside a generated Makefile with
+    an error naming a missing profile rather than the configuration step that should
+    have supplied one. The resolver still needs a real profile STRING because the
+    answer table has a profile question to answer -- what changed is that nothing
+    authenticates with it.
     """
     injected = os.environ.get("IPA_IT_NAMESPACE") or None
-    resolved_profile = (
-        profile
-        or os.environ.get("IPA_IT_PROFILE")
-        or os.environ.get("AWS_PROFILE")
-        or "default"
-    )
+    resolved_profile = profile or aws.profile_for_env()
     return AnswerResolver(
         namespace=injected or make_namespace(), profile=resolved_profile
     )

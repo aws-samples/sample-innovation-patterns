@@ -96,8 +96,9 @@ global_settings:
     # pipeline uploads (`gl-sast-report.json`). The B404/B603/B607 entries on
     # `infra/scripts/version.py` further down were suppressed here and appeared
     # in the report anyway; the same three rules on
-    # `internal/integration-tests/*.py`, which carry inline `# nosec` markers in
-    # the source, did not appear. `ignore_paths:` above does filter the report.
+    # `internal/integration-tests/harness/*.py`, which carry inline `# nosec`
+    # markers in the source, did not appear. `ignore_paths:` above does filter
+    # the report.
     # `suppressions:` appears to annotate ASH's own findings only.
     #
     # So a bandit finding is kept out of the vulnerability report by one of:
@@ -110,7 +111,8 @@ global_settings:
     # Neither route applies to detect-secrets: ASH runs it with
     # `filters_used: []`, and `# pragma: allowlist secret` is implemented as a
     # filter, so the pragma is never consulted. There, the trigger has to be
-    # removed from the source — see internal/integration-tests/test_offline_redaction.py.
+    # removed from the source — see
+    # internal/integration-tests/harness/tests/test_redaction.py.
     # ------------------------------------------------------------------------
     # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause.
     # Superseded by the `assert_used` path skips in bandit.yaml; this glob never matched

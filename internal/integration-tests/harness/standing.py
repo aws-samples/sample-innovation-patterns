@@ -7,8 +7,9 @@ what is still costing money — with a fixture error. It is also what lets
 
     preserve  if  live_stacks(ns) is non-empty  OR  the listing errored
 
-The pointer is written **beside this file**, inside the repository directory, not
-into the temp project — macOS may reclaim ``$TMPDIR``. And it is written to be
+The pointer is written at the **harness root** — one level above this module, beside
+the Makefile — inside the repository directory rather than into the temp project,
+because macOS may reclaim ``$TMPDIR``. And it is written to be
 readable with **no credentials configured**: its whole purpose is to survive a lost
 terminal, so a pointer needing a working credential chain to interpret fails exactly
 when it is needed.
@@ -19,7 +20,14 @@ from __future__ import annotations
 import subprocess  # nosec B404 - argv lists only, shell=False; see .ash/ash.yaml
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+from harness import aws
+
+# ``parents[1]``, NOT ``parent``: this module lives in ``harness/`` but the pointer it
+# writes must land at the HARNESS ROOT. Three things already assert that location and
+# none of them fails loudly if it moves -- ``.gitignore``'s glob stops matching,
+# ``README.md``'s "beside this README" claim becomes false, and the deployed buildspec
+# collects no artifact.
+HERE = Path(__file__).resolve().parents[1]
 
 HEALTHY_STATES = frozenset(
     {"CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE"}
@@ -50,7 +58,7 @@ def parse_env(env_file: Path) -> dict[str, str]:
 
 
 def live_stacks(
-    namespace: str, profile: str, region: str
+    namespace: str, region: str = aws.REGION
 ) -> tuple[list[tuple[str, str]], str]:
     """Every live stack under ``namespace``, as ``(name, status)`` pairs.
 
@@ -64,8 +72,7 @@ def live_stacks(
         proc = subprocess.run(  # nosec B603 B607 - argv list, shell=False
             [
                 "aws", "cloudformation", "list-stacks",
-                "--profile", profile,
-                "--region", region,
+                *aws.cli_region_args(region),
                 "--query",
                 "StackSummaries[?StackStatus != 'DELETE_COMPLETE']"
                 ".[StackName,StackStatus]",
@@ -94,7 +101,7 @@ def render_pointer(
     namespace: str,
     env: str,
     region: str,
-    profile: str,
+    credentials: str,
     stacks: list[tuple[str, str]],
     env_values: dict[str, str] | None = None,
 ) -> str:
@@ -118,7 +125,7 @@ def render_pointer(
         f"- namespace: `{namespace}`",
         f"- environment: `{env}`",
         f"- region: `{region}`",
-        f"- profile: `{profile}`",
+        f"- credentials: `{credentials}`",
         "",
     ]
     if stacks:
@@ -137,13 +144,13 @@ def write_report(
     namespace: str,
     env: str,
     region: str,
-    profile: str,
+    credentials: str,
     stacks: list[tuple[str, str]],
     env_values: dict[str, str] | None = None,
     redact=None,
 ) -> Path:
     """Write the pointer to a file. FILE FIRST -- see ``report_everywhere``."""
-    text = render_pointer(namespace, env, region, profile, stacks, env_values)
+    text = render_pointer(namespace, env, region, credentials, stacks, env_values)
     if redact is not None:
         text = redact(text)
     path = pointer_path(namespace)
@@ -155,7 +162,7 @@ def report_everywhere(
     namespace: str,
     env: str,
     region: str,
-    profile: str,
+    credentials: str,
     stacks: list[tuple[str, str]],
     env_values: dict[str, str] | None = None,
     redact=None,
@@ -170,7 +177,7 @@ def report_everywhere(
     import warnings  # noqa: PLC0415
 
     path = write_report(
-        namespace, env, region, profile, stacks, env_values, redact=redact
+        namespace, env, region, credentials, stacks, env_values, redact=redact
     )
     message = (
         f"{len(stacks)} BILLABLE stack(s) left standing under namespace "

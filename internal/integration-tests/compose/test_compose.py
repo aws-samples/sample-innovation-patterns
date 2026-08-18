@@ -20,8 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-import artifacts
-import standing
+from harness import artifacts, aws, standing
 
 pytestmark = pytest.mark.integration
 
@@ -103,11 +102,18 @@ def test_env_namespace_equals_the_generated_namespace(project, namespace):
     )
 
 
-def test_env_carries_a_real_aws_profile(project, aws_profile):
+def test_env_carries_a_real_aws_profile(project):
     """'Skip' is the RECOMMENDED option for AWS_PROFILE and omits the line entirely,
-    while three downstream skills require it."""
+    while four downstream skills STOP without it.
+
+    Compared against ``aws.profile_for_env()`` -- the value the HARNESS SUPPLIED -- not
+    against anything describing how the harness authenticated. Those are now separate
+    values: the harness resolves credentials from the default chain, so what it could
+    report about itself is a resolution method like ``sso``, which is never a profile
+    name and would never match.
+    """
     values = standing.parse_env(project / ".env")
-    assert values.get("AWS_PROFILE") == aws_profile
+    assert values.get("AWS_PROFILE") == aws.profile_for_env()
 
 
 def test_env_pins_the_region_and_engine(project):
@@ -210,10 +216,10 @@ def test_env_mk_declares_both_sync_targets(project, target):
 # --------------------------------------------------------------------------- #
 
 
-def test_no_unexpected_stacks_exist(namespace, aws_profile):
+def test_no_unexpected_stacks_exist(namespace):
     """Only ``{ns}-{env}-security`` may exist. Route A deploys it -- two named IAM
     roles, free but real -- so this phase is NOT strictly zero-AWS."""
-    stacks, error = standing.live_stacks(namespace, aws_profile, "us-east-1")
+    stacks, error = standing.live_stacks(namespace, aws.REGION)
     assert not error, f"could not list stacks: {error}"
 
     unexpected = [n for n, _ in stacks if not n.endswith("-security")]

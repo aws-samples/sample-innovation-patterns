@@ -28,6 +28,8 @@ import subprocess  # nosec B404 - argv lists only, shell=False; see .ash/ash.yam
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from harness import aws
+
 #: `aws s3 rm --recursive` is the exact command the skill's own recovery guidance
 #: names, and it handles pagination and batching itself.
 _S3_RM_TIMEOUT = 900
@@ -109,8 +111,7 @@ def _run(argv: list[str], timeout: int, cwd: Path | None = None) -> tuple[bool, 
 
 def purge_versions(
     bucket: str,
-    profile: str,
-    region: str,
+    region: str = aws.REGION,
     runner=_run,
 ) -> tuple[bool, str]:
     """Delete every object VERSION and every DELETE MARKER in ``bucket``.
@@ -143,8 +144,7 @@ def purge_versions(
                 "aws", "s3api", "list-object-versions",
                 "--bucket", bucket,
                 "--max-items", str(_S3_VERSION_PAGE_SIZE),
-                "--profile", profile,
-                "--region", region,
+                *aws.cli_region_args(region),
                 "--output", "json",
             ],
             _S3_RM_TIMEOUT,
@@ -180,8 +180,7 @@ def purge_versions(
                 "aws", "s3api", "delete-objects",
                 "--bucket", bucket,
                 "--delete", json.dumps({"Objects": objects, "Quiet": True}),
-                "--profile", profile,
-                "--region", region,
+                *aws.cli_region_args(region),
             ],
             _S3_RM_TIMEOUT,
         )
@@ -195,7 +194,7 @@ def purge_versions(
     )
 
 
-def empty_bucket(bucket: str, profile: str, region: str, runner=_run) -> tuple[bool, str]:
+def empty_bucket(bucket: str, region: str = aws.REGION, runner=_run) -> tuple[bool, str]:
     """Empty a bucket: the fast recursive delete, then the version sweep.
 
     The recursive delete runs first because it is fast and handles the common
@@ -206,25 +205,25 @@ def empty_bucket(bucket: str, profile: str, region: str, runner=_run) -> tuple[b
     rm_ok, rm_detail = runner(
         [
             "aws", "s3", "rm", f"s3://{bucket}", "--recursive",
-            "--profile", profile, "--region", region,
+            *aws.cli_region_args(region),
         ],
         _S3_RM_TIMEOUT,
     )
-    purge_ok, purge_detail = purge_versions(bucket, profile, region, runner=runner)
+    purge_ok, purge_detail = purge_versions(bucket, region, runner=runner)
     # The purge is authoritative: it is the step that determines whether
     # DeleteBucket will succeed.
     detail = f"rm={'ok' if rm_ok else rm_detail or 'failed'}; purge={purge_detail}"
     return purge_ok, detail
 
 
-def empty_ecr(repository: str, profile: str, region: str, runner=_run) -> tuple[bool, str]:
+def empty_ecr(repository: str, region: str = aws.REGION, runner=_run) -> tuple[bool, str]:
     """Delete every image in an ECR repository; DeleteRepository fails otherwise."""
     ok, out = runner(
         [
             "aws", "ecr", "list-images",
             "--repository-name", repository,
             "--query", "imageIds[*]",
-            "--profile", profile, "--region", region,
+            *aws.cli_region_args(region),
             "--output", "json",
         ],
         _ECR_TIMEOUT,
@@ -246,7 +245,7 @@ def empty_ecr(repository: str, profile: str, region: str, runner=_run) -> tuple[
             "aws", "ecr", "batch-delete-image",
             "--repository-name", repository,
             "--image-ids", json.dumps(image_ids),
-            "--profile", profile, "--region", region,
+            *aws.cli_region_args(region),
         ],
         _ECR_TIMEOUT,
     )
@@ -283,8 +282,7 @@ def reap(
     project: Path,
     namespace: str,
     env: str,
-    profile: str,
-    region: str,
+    region: str = aws.REGION,
     log_bucket: str | None = None,
     site_bucket: str | None = None,
     ecr_repository: str | None = None,
@@ -301,11 +299,11 @@ def reap(
     #    name-resolution special case here and IPA does not.
     for label, bucket in (("log bucket", log_bucket), ("site bucket", site_bucket)):
         if bucket:
-            ok, detail = empty_bucket(bucket, profile, region, runner=runner)
+            ok, detail = empty_bucket(bucket, region, runner=runner)
             report.add(f"empty {label} {bucket}", ok, detail)
 
     if ecr_repository:
-        ok, detail = empty_ecr(ecr_repository, profile, region, runner=runner)
+        ok, detail = empty_ecr(ecr_repository, region, runner=runner)
         report.add(f"empty ecr {ecr_repository}", ok, detail)
 
     # 2. The generated aggregates, which own the per-tier ordering and the waits.
@@ -318,7 +316,7 @@ def reap(
     #    CloudFront logs until the frontend stack is torn down, so the pre-pass
     #    above raced against delivery that continued after it.
     if log_bucket:
-        ok, detail = empty_bucket(log_bucket, profile, region, runner=runner)
+        ok, detail = empty_bucket(log_bucket, region, runner=runner)
         report.add(f"re-empty log bucket {log_bucket}", ok, detail)
 
     ok, detail = runner(
@@ -336,7 +334,7 @@ def reap(
         [
             "aws", "cloudformation", "delete-stack",
             "--stack-name", security_stack,
-            "--profile", profile, "--region", region,
+            *aws.cli_region_args(region),
         ],
         _MAKE_TIMEOUT,
     )
@@ -345,7 +343,7 @@ def reap(
             [
                 "aws", "cloudformation", "wait", "stack-delete-complete",
                 "--stack-name", security_stack,
-                "--profile", profile, "--region", region,
+                *aws.cli_region_args(region),
             ],
             _MAKE_TIMEOUT,
         )

@@ -16,9 +16,7 @@ import os
 
 import pytest
 
-import reaper
-import standing
-import sweep
+from harness import aws, reaper, standing, sweep
 
 pytestmark = pytest.mark.teardown
 
@@ -35,15 +33,13 @@ def require_second_opt_in():
         )
 
 
-def test_the_deployment_is_live_before_anything_is_removed(
-    namespace, aws_profile, temp_project
-):
+def test_the_deployment_is_live_before_anything_is_removed(namespace, temp_project):
     """Ordering, not coverage — see the module docstring.
 
     Runs first in file order, so a namespace under which nothing was deployed fails
     here rather than passing as a successful teardown of nothing.
     """
-    stacks, error = standing.live_stacks(namespace, aws_profile, "us-east-1")
+    stacks, error = standing.live_stacks(namespace, aws.REGION)
     assert not error, f"could not verify the deployment: {error}"
     assert stacks, (
         f"nothing is deployed under {namespace!r}, so there is nothing to tear down. "
@@ -53,15 +49,14 @@ def test_the_deployment_is_live_before_anything_is_removed(
     print(f"\nverified live before teardown: {len(stacks)} stack(s) under {namespace}")
 
 
-def test_teardown_removes_this_run(namespace, aws_profile, temp_project):
+def test_teardown_removes_this_run(namespace, temp_project):
     """Run the reaper, which supplies the three steps IPA's skills refuse to take."""
     env_values = standing.parse_env(temp_project.root / ".env")
     report = reaper.reap(
         project=temp_project.root,
         namespace=namespace,
         env="dev",
-        profile=aws_profile,
-        region="us-east-1",
+        region=aws.REGION,
         log_bucket=env_values.get("LOG_BUCKET_NAME"),
         site_bucket=env_values.get("SITE_BUCKET_NAME") or env_values.get("APP_BUCKET_NAME"),
         ecr_repository=env_values.get("ECR_REPOSITORY_NAME"),
@@ -70,13 +65,13 @@ def test_teardown_removes_this_run(namespace, aws_profile, temp_project):
     assert report.ok, f"teardown did not complete cleanly:\n{report.render()}"
 
 
-def test_no_stack_remains_under_this_namespace(namespace, aws_profile):
-    stacks, error = standing.live_stacks(namespace, aws_profile, "us-east-1")
+def test_no_stack_remains_under_this_namespace(namespace):
+    stacks, error = standing.live_stacks(namespace, aws.REGION)
     assert not error, f"could not confirm removal: {error}"
     assert stacks == [], f"stacks still standing under {namespace}: {stacks}"
 
 
-def test_no_other_run_was_removed(namespace, aws_profile):
+def test_no_other_run_was_removed(namespace):
     """Cannot be inferred from the previous assertion.
 
     A teardown that deleted everything in the account satisfies "nothing remains under
@@ -84,7 +79,7 @@ def test_no_other_run_was_removed(namespace, aws_profile):
     scoping from unbounded deletion. This checks the scoping logic directly, against a
     listing that includes another namespace.
     """
-    names, error = sweep.list_it_stacks(aws_profile, "us-east-1")
+    names, error = sweep.list_it_stacks(aws.REGION)
     assert not error, f"could not list stacks: {error}"
 
     grouped = sweep.group_by_namespace(names)

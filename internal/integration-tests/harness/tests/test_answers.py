@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import answers
-from answers import AnswerResolver, UnknownQuestion, make_namespace
+from harness import answers
+from harness.answers import AnswerResolver, UnknownQuestion, make_namespace
 
 NAMESPACE_QUESTION = (
     "Choose a project namespace. All CloudFormation stacks start with "

@@ -23,7 +23,7 @@ import subprocess  # nosec B404 - argv lists only, shell=False; see .ash/ash.yam
 import sys
 from pathlib import Path
 
-import standing
+from harness import aws, standing
 
 #: Teardown order for IPA's tiers. `logs` is deliberately ABSENT -- see below.
 TIER_ORDER = ("frontend", "backend", "queue", "cognito", "ecr", "security")
@@ -112,12 +112,12 @@ def group_by_namespace(stack_names: list[str], env: str = "dev") -> dict[str, li
     return grouped
 
 
-def list_it_stacks(profile: str, region: str, prefix: str = "it") -> tuple[list[str], str]:
+def list_it_stacks(region: str = aws.REGION, prefix: str = "it") -> tuple[list[str], str]:
     """Every live stack whose name starts with the harness's namespace prefix."""
     ok, out = _run(
         [
             "aws", "cloudformation", "list-stacks",
-            "--profile", profile, "--region", region,
+            *aws.cli_region_args(region),
             "--query",
             "StackSummaries[?StackStatus != 'DELETE_COMPLETE'].StackName",
             "--output", "text",
@@ -134,21 +134,8 @@ def list_it_stacks(profile: str, region: str, prefix: str = "it") -> tuple[list[
 # --------------------------------------------------------------------------- #
 
 
-def _resolve_profile() -> str:
-    profile = os.environ.get("IPA_IT_PROFILE") or os.environ.get("AWS_PROFILE")
-    if not profile:
-        print(
-            "No AWS profile configured. Set IPA_IT_PROFILE (or AWS_PROFILE), or "
-            "invoke via `make list-stacks` / `make teardown-namespace`, which "
-            "supply a default.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
-    return profile
-
-
-def cmd_list(profile: str, region: str) -> int:
-    names, error = list_it_stacks(profile, region)
+def cmd_list(region: str = aws.REGION) -> int:
+    names, error = list_it_stacks(region)
     if error:
         print(f"could not list stacks: {error}", file=sys.stderr)
         return 1
@@ -166,7 +153,7 @@ def cmd_list(profile: str, region: str) -> int:
     return 0
 
 
-def cmd_teardown(profile: str, region: str, namespace: str | None) -> int:
+def cmd_teardown(region: str, namespace: str | None) -> int:
     # Opt-in one of two. The other is the `teardown` pytest marker.
     if os.environ.get("IPA_IT_TEARDOWN") != "1":
         print(
@@ -189,7 +176,7 @@ def cmd_teardown(profile: str, region: str, namespace: str | None) -> int:
         )
         return 2
 
-    names, error = list_it_stacks(profile, region)
+    names, error = list_it_stacks(region)
     if error:
         print(f"could not list stacks: {error}", file=sys.stderr)
         return 1
@@ -212,7 +199,7 @@ def cmd_teardown(profile: str, region: str, namespace: str | None) -> int:
                 [
                     "aws", "cloudformation", "delete-stack",
                     "--stack-name", name,
-                    "--profile", profile, "--region", region,
+                    *aws.cli_region_args(region),
                 ]
             )
             if ok:
@@ -220,7 +207,7 @@ def cmd_teardown(profile: str, region: str, namespace: str | None) -> int:
                     [
                         "aws", "cloudformation", "wait", "stack-delete-complete",
                         "--stack-name", name,
-                        "--profile", profile, "--region", region,
+                        *aws.cli_region_args(region),
                     ],
                     timeout=3600,
                 )
@@ -247,13 +234,13 @@ def cmd_teardown(profile: str, region: str, namespace: str | None) -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     command = argv[0] if argv else "list"
-    region = os.environ.get("IPA_IT_REGION", "us-east-1")
+    region = aws.REGION
     namespace = os.environ.get("NAMESPACE") or (argv[1] if len(argv) > 1 else None)
 
     if command == "list":
-        return cmd_list(_resolve_profile(), region)
+        return cmd_list(region)
     if command == "teardown":
-        return cmd_teardown(_resolve_profile(), region, namespace)
+        return cmd_teardown(region, namespace)
     print(f"unknown command {command!r}; expected 'list' or 'teardown'", file=sys.stderr)
     return 2
 

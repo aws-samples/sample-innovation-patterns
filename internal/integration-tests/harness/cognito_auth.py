@@ -20,7 +20,7 @@ import secrets
 import string
 from dataclasses import dataclass
 
-import boto3
+from harness import aws
 
 
 @dataclass(frozen=True)
@@ -70,8 +70,7 @@ def decode_payload(token: str) -> dict:
 def mint_token(
     user_pool_id: str,
     client_id: str,
-    profile: str,
-    region: str,
+    region: str = aws.REGION,
 ) -> Identity:
     """Create a throwaway confirmed user and authenticate it.
 
@@ -79,7 +78,7 @@ def mint_token(
     run's own user pool, so the pool's own deletion removes it with no separate
     cleanup obligation.
     """
-    idp = boto3.Session(profile_name=profile, region_name=region).client("cognito-idp")
+    idp = aws.session(region).client("cognito-idp")
 
     username = f"ipa-it-{secrets.token_hex(4)}@example.invalid"
     password = generate_password()

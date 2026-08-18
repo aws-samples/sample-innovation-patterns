@@ -50,13 +50,20 @@ ARCHIVE ?= /tmp/ipa-integration-test-source.zip
 # failure on a host using an instance role, not a fall-through to ambient
 # credentials, so the default applies only where it is real.
 #
-# NOTE the account this names. The harness's own default is a different one
-# (preflight.py:56 defaults IPA_IT_PROFILE to peterpyu+code-evaluation-Admin,
-# where the manual runs were measured), while this repository's .env names
-# vincilb+ip-dev-Admin. Inside the build there is no profile at all — the
-# buildspec creates a credential-less `ipa-it` profile that resolves the
-# container's own credentials. Decide which account owns this stack before
-# deploying it; that decision is what this line records.
+# NOTE the account this names, because three contexts can disagree and this line
+# is where that decision is recorded.
+#
+# This profile is only for DEPLOYING this stack from a workstation. The harness
+# itself no longer has a profile default of any kind: it authenticates from the
+# default credential chain (harness/aws.py), and the constant that used to hold a
+# maintainer's profile is deleted. Inside the build there is no profile with
+# credentials either — the buildspec creates a credential-less `ipa-it` profile
+# that falls through to the container's own role.
+#
+# So the only remaining question is which account owns this stack. This
+# repository's .env names vincilb+ip-dev-Admin; the manual harness runs recorded
+# in DECISIONS.md were measured against a different, evaluation-sandbox account.
+# Decide before deploying.
 AWS_DEFAULT_PROFILE_NAME := vincilb+ip-dev-Admin
 AWS_PROFILE ?= $(shell aws configure list-profiles 2>/dev/null \
 	| grep -Fxq "$(AWS_DEFAULT_PROFILE_NAME)" \

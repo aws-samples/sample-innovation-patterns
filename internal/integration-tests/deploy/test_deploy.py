@@ -18,12 +18,10 @@ from __future__ import annotations
 import json
 import time
 
-import boto3
 import pytest
 import requests
 
-import cognito_auth
-import standing
+from harness import aws, cognito_auth, standing
 
 pytestmark = pytest.mark.integration
 
@@ -41,8 +39,9 @@ HTTP_TIMEOUT_S = 30
 
 
 @pytest.fixture(scope="module")
-def session(aws_profile):
-    return boto3.Session(profile_name=aws_profile, region_name="us-east-1")
+def session():
+    """Region pinned, credentials from the default chain -- one policy, in harness.aws."""
+    return aws.session()
 
 
 @pytest.fixture(scope="module")
@@ -56,8 +55,8 @@ def _outputs(cfn, stack_name: str) -> dict[str, str]:
 
 
 @pytest.fixture(scope="module")
-def stacks(deploy_run, namespace, aws_profile):
-    found, error = standing.live_stacks(namespace, aws_profile, "us-east-1")
+def stacks(deploy_run, namespace):
+    found, error = standing.live_stacks(namespace, aws.REGION)
     assert not error, f"could not list stacks: {error}"
     return dict(found)
 
@@ -91,7 +90,7 @@ def cognito_outputs(cfn, namespace) -> dict[str, str]:
 
 
 @pytest.fixture(scope="module")
-def identity(cognito_outputs, aws_profile, transcript) -> cognito_auth.Identity:
+def identity(cognito_outputs, transcript) -> cognito_auth.Identity:
     """The one write these assertions make: a throwaway user in the run's own pool.
 
     The pool's own deletion removes it, with no separate cleanup obligation.
@@ -99,8 +98,7 @@ def identity(cognito_outputs, aws_profile, transcript) -> cognito_auth.Identity:
     ident = cognito_auth.mint_token(
         user_pool_id=cognito_outputs["UserPoolId"],
         client_id=cognito_outputs["UserPoolClientId"],
-        profile=aws_profile,
-        region="us-east-1",
+        region=aws.REGION,
     )
     # Register BEFORE anything can write it. The filter is keyed on the live value at
     # the writer, not applied by care at each write site.

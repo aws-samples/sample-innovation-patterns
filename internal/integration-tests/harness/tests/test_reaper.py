@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-import reaper
-import standing
-import sweep
+from harness import reaper
+from harness import standing
+from harness import sweep
 
 # --------------------------------------------------------------------------- #
 # Teardown ordering: nothing may tie with the logs rank
@@ -97,7 +97,7 @@ def test_a_missing_namespace_does_not_select_everything_at_the_deleting_boundary
     deleted: list[str] = []
     monkeypatch.setattr(sweep, "_run", lambda *a, **k: deleted.append(a) or (True, ""))
 
-    rc = sweep.cmd_teardown("p", "us-east-1", namespace=None)
+    rc = sweep.cmd_teardown("us-east-1", namespace=None)
 
     assert rc != 0
     assert deleted == []
@@ -108,7 +108,7 @@ def test_teardown_refuses_without_the_environment_opt_in(monkeypatch):
     deleted: list[str] = []
     monkeypatch.setattr(sweep, "_run", lambda *a, **k: deleted.append(a) or (True, ""))
 
-    rc = sweep.cmd_teardown("p", "us-east-1", namespace="itaaa")
+    rc = sweep.cmd_teardown("us-east-1", namespace="itaaa")
 
     assert rc != 0
     assert deleted == []
@@ -140,7 +140,7 @@ def test_pointer_is_removed_only_for_a_confirmed_deletion(monkeypatch, tmp_path)
     )
     monkeypatch.setattr(sweep, "_run", lambda *a, **k: (True, ""))
 
-    sweep.cmd_teardown("p", "us-east-1", "itaaa")
+    sweep.cmd_teardown("us-east-1", "itaaa")
 
     assert not p.exists()
 
@@ -157,7 +157,7 @@ def test_pointer_survives_a_partial_teardown(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(sweep, "_run", lambda *a, **k: (False, "AccessDenied"))
 
-    rc = sweep.cmd_teardown("p", "us-east-1", "itaaa")
+    rc = sweep.cmd_teardown("us-east-1", "itaaa")
 
     assert rc != 0
     assert p.exists(), "a failed teardown must keep the only record of what stands"
@@ -171,7 +171,7 @@ def test_live_stacks_never_raises_and_reports_its_error(monkeypatch):
         raise OSError("credential chain exploded")
 
     monkeypatch.setattr(standing.subprocess, "run", boom)
-    stacks, error = standing.live_stacks("itaaa", "p", "us-east-1")
+    stacks, error = standing.live_stacks("itaaa", "us-east-1")
 
     assert stacks == []
     assert "credential chain exploded" in error
@@ -180,7 +180,7 @@ def test_live_stacks_never_raises_and_reports_its_error(monkeypatch):
 def test_pointer_text_is_readable_without_credentials(tmp_path, monkeypatch):
     monkeypatch.setattr(standing, "HERE", tmp_path)
     text = standing.render_pointer(
-        "itaaa", "dev", "us-east-1", "p", [("itaaa-dev-frontend", "CREATE_COMPLETE")]
+        "itaaa", "dev", "us-east-1", "sso", [("itaaa-dev-frontend", "CREATE_COMPLETE")]
     )
     assert "itaaa" in text
     assert "make teardown-namespace NAMESPACE=itaaa" in text
@@ -219,7 +219,7 @@ def test_version_purge_drains_both_versions_and_delete_markers():
             return True, pages.pop(0)
         return True, ""
 
-    ok, detail = reaper.purge_versions("b", "p", "us-east-1", runner=runner)
+    ok, detail = reaper.purge_versions("b", "us-east-1", runner=runner)
 
     assert ok
     assert "emptied (2 versions/markers removed)" in detail
@@ -238,7 +238,7 @@ def test_a_failed_version_listing_does_not_report_emptied():
             return False, "AccessDenied"
         return True, ""
 
-    ok, detail = reaper.purge_versions("b", "p", "us-east-1", runner=runner)
+    ok, detail = reaper.purge_versions("b", "us-east-1", runner=runner)
 
     assert ok is False
     assert "emptied" not in detail
@@ -247,7 +247,7 @@ def test_a_failed_version_listing_does_not_report_emptied():
 
 def test_purging_an_already_empty_bucket_is_a_no_op_not_an_error():
     ok, detail = reaper.purge_versions(
-        "b", "p", "us-east-1", runner=lambda *a, **k: (True, json.dumps({}))
+        "b", "us-east-1", runner=lambda *a, **k: (True, json.dumps({}))
     )
     assert ok
     assert "0 versions/markers removed" in detail
@@ -263,7 +263,7 @@ def test_empty_bucket_treats_the_purge_as_authoritative():
             return False, "listing blew up"
         return True, ""  # `s3 rm` "succeeds"
 
-    ok, detail = reaper.empty_bucket("b", "p", "us-east-1", runner=runner)
+    ok, detail = reaper.empty_bucket("b", "us-east-1", runner=runner)
 
     assert ok is False
     assert "rm=ok" in detail
@@ -275,7 +275,7 @@ def test_version_purge_stops_at_the_page_cap_and_reports_rather_than_looping():
             return True, json.dumps({"Versions": [{"Key": "k", "VersionId": "v"}]})
         return True, ""
 
-    ok, detail = reaper.purge_versions("b", "p", "us-east-1", runner=runner)
+    ok, detail = reaper.purge_versions("b", "us-east-1", runner=runner)
 
     assert ok is False
     assert "still not empty" in detail
@@ -305,7 +305,7 @@ def test_reap_refuses_before_deleting_anything(tmp_path: Path):
 
     with pytest.raises(reaper.ReaperRefused):
         reaper.reap(
-            tmp_path, "itaaa", "dev", "p", "us-east-1",
+            tmp_path, "itaaa", "dev", "us-east-1",
             log_bucket="b",
             runner=lambda argv, t, cwd=None: calls.append(argv) or (True, ""),
         )
@@ -326,7 +326,7 @@ def test_reap_empties_the_log_bucket_twice(tmp_path: Path):
         return True, ""
 
     report = reaper.reap(
-        tmp_path, "itaaa", "dev", "p", "us-east-1",
+        tmp_path, "itaaa", "dev", "us-east-1",
         log_bucket="logs-b", runner=runner,
     )
 
@@ -341,7 +341,7 @@ def test_reap_deletes_the_security_stack(tmp_path: Path):
     (tmp_path / "scripts" / "deploy.mk").write_text("deploy:\n\t@true\n")
 
     report = reaper.reap(
-        tmp_path, "itaaa", "dev", "p", "us-east-1",
+        tmp_path, "itaaa", "dev", "us-east-1",
         runner=lambda argv, t, cwd=None: (True, ""),
     )
 

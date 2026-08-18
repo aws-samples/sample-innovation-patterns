@@ -20,9 +20,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import cognito_auth
-import driver
-import standing
+from harness import cognito_auth
+from harness import driver
+from harness import standing
 
 
 # --------------------------------------------------------------------------- #
@@ -81,7 +81,7 @@ def test_the_standing_report_can_be_written_through_the_redaction_filter(tmp_pat
     transcript.register_secret(canary)
 
     text = standing.render_pointer(
-        "itaaa", "dev", "us-east-1", "p", [], {"APP_URL": f"https://x/{canary}"}
+        "itaaa", "dev", "us-east-1", "sso", [], {"APP_URL": f"https://x/{canary}"}
     )
     assert canary not in transcript.redact(text)
 
@@ -183,7 +183,7 @@ def test_building_options_without_the_sdk_fails_actionably(monkeypatch, tmp_path
     monkeypatch.setattr(driver, "SDK_AVAILABLE", False)
     monkeypatch.setattr(driver, "SDK_IMPORT_ERROR", "No module named 'claude_agent_sdk'")
 
-    import answers
+    from harness import answers
     import pytest as _pytest
 
     resolver = answers.AnswerResolver(namespace="itaaa0", profile="p")

@@ -1,109 +1,111 @@
 # IPA integration tests — maintainer-only harness.
 #
+# This is the UMBRELLA. It delegates scenario work to the scenario folders and owns only
+# what belongs to no single scenario.
+#
 # Bare `make` prints help and creates nothing.
 
 # VERBOSE trap, and it is worth stating because the obvious form is wrong:
 #
 #   WRONG: $(if $(VERBOSE),-vv -s,)
 #
-# Make's $(if) branches on NON-EMPTINESS, not truth. `VERBOSE=0` is non-empty, so
-# that form turns verbosity ON when a user asked for it off. `filter-out` against a
-# list of disabling words is what actually tests the value.
+# Make's $(if) branches on NON-EMPTINESS, not truth. `VERBOSE=0` is non-empty, so that
+# form turns verbosity ON when a user asked for it off. `filter-out` against a list of
+# disabling words is what actually tests the value.
 OFF := 0 no false off
 VERBOSE ?= 1
 PYTEST_FLAGS := $(if $(filter-out $(OFF),$(VERBOSE)),-vv -s -rs --log-cli-level=INFO,-q)
 
-# Verbose is the DEFAULT on purpose. On a run whose wall clock is deliberately
-# unmeasured, per-test output is the only way to distinguish progress from a wedge —
-# and a wedged twenty-minute billable run with nothing on screen is not recoverable
-# by re-running it.
-
+# `python -m pytest`, NOT bare `pytest`. `-m` places the working directory on sys.path,
+# which is what makes `harness` importable with no build backend and no `pythonpath`
+# entry. The bare `pytest` console script does NOT, and every module then fails with
+# `ModuleNotFoundError: No module named 'harness'`. Measured, not assumed.
 PYTHON      := uv run python
-PYTEST      := uv run pytest
+PYTEST      := uv run python -m pytest
 NAMESPACE   ?=
 IPA_IT_REGION ?= us-east-1
 export IPA_IT_REGION
 
+# Which scenario `test-ci` runs. Defaults to the CHEAP one, and that default is a SPEND
+# DECISION rather than a convenience: `test-ci` is the name automation reaches for, so an
+# unparameterised invocation costs about $1 here instead of about $15.
+SCENARIO ?= compose
+
 .DEFAULT_GOAL := help
 
-.PHONY: help preflight test-offline test-compose test test-teardown test-ci \
+.PHONY: help preflight test-offline test-compose test-deploy test-ci \
         list-stacks teardown-namespace clean
 
 help:
 	@echo ""
-	@echo "IPA integration tests — maintainer-only. Nothing here runs in CI."
+	@echo "IPA integration tests — maintainer-only. Nothing here runs in CI by itself."
+	@echo ""
+	@echo "  SCENARIOS  (each folder owns its own Makefile, cost and README)"
+	@echo "    compose    /ipa-init + /ipa-compose, stops before /ipa-prepare."
+	@echo "               MEASURED ~\$$0.94. Creates 1 free-but-real IAM stack."
+	@echo "               make test-compose      (or: make -C compose test)"
+	@echo "    deploy     FULL lifecycle. Deploys SEVEN stacks and LEAVES THEM"
+	@echo "               STANDING. Cost UNMEASURED."
+	@echo "               make test-deploy       (or: make -C deploy test)"
 	@echo ""
 	@echo "  FREE"
-	@echo "    make test-offline        Offline suite, no AWS credentials needed  (~1s, \$$0)"
+	@echo "    make test-offline        Shared-module regression suite, no credentials  (~5s, \$$0)"
 	@echo "    make list-stacks         List standing integration-test stacks     (\$$0, read-only)"
 	@echo ""
-	@echo "  COSTS MONEY — read internal/integration-tests/README.md first"
+	@echo "  COSTS MONEY"
 	@echo "    make preflight           Nine probes + Cognito check. Deploys and DELETES"
 	@echo "                             two stacks under namespace 'itprobe'.    (cents)"
-	@echo "    make test-compose        Drives the agent to /ipa-compose only. Model spend,"
-	@echo "                             plus a REAL {ns}-{env}-security stack (2 free IAM"
-	@echo "                             roles).                                   (model spend)"
-	@echo "    make test                FULL LIFECYCLE. Deploys SEVEN stacks and LEAVES THEM"
-	@echo "                             STANDING so you can open the app in a browser."
-	@echo "                             CloudFront + ECR + 2 Lambdas + SQS + DynamoDB + S3."
-	@echo "                             (BILLABLE — see README.md for the measured cost)"
 	@echo ""
 	@echo "  REMOVES BILLABLE RESOURCES"
-	@echo "    make test-teardown       Verify-then-remove this run's stacks. Needs BOTH"
-	@echo "                             the 'teardown' marker and IPA_IT_TEARDOWN=1."
 	@echo "    make teardown-namespace NAMESPACE=<ns>"
 	@echo "                             Remove ONE run's stacks. NAMESPACE is required;"
 	@echo "                             empty is never treated as 'every run'."
 	@echo ""
-	@echo "  CI SEAM — nothing invokes it"
-	@echo "    make test-ci             Full lifecycle THEN teardown, in one pytest run,"
-	@echo "                             with unmet prerequisites failing instead of"
-	@echo "                             skipping. Both teardown opt-ins are set inline on"
-	@echo "                             that one recipe line. (BILLABLE, then frees it)"
+	@echo "  CI SEAM"
+	@echo "    make test-ci             Delegates to \$$(SCENARIO)/Makefile's test-ci."
+	@echo "                             SCENARIO defaults to 'compose' (the cheap one)."
+	@echo "                             make test-ci SCENARIO=deploy   # ~\$$15"
 	@echo ""
 	@echo "  Options"
-	@echo "    VERBOSE=0                Compact output (default is -vv -s)"
-	@echo "    IPA_IT_NAMESPACE=<ns>    Pin the run namespace (validated at source)"
+	@echo "    VERBOSE=0                  Compact output (default is -vv -s)"
+	@echo "    IPA_IT_NAMESPACE=<ns>      Pin the run namespace (validated at source)"
 	@echo "    IPA_IT_STRICT_PREFLIGHT=1  Unmet prerequisites FAIL instead of skipping"
+	@echo ""
+	@echo "  Both scenarios currently FAIL at composition — see DECISIONS.md F3."
 	@echo ""
 
 preflight:
-	$(PYTHON) -m preflight
+	$(PYTHON) -m harness.preflight
 
 test-offline:
-	$(PYTEST) $(PYTEST_FLAGS) -m "not integration and not teardown"
+	$(PYTEST) $(PYTEST_FLAGS) -c harness/tests/pytest.ini harness/tests/
 
 test-compose:
-	$(PYTEST) $(PYTEST_FLAGS) -m integration test_compose.py
+	$(MAKE) -C compose test
 
-test:
-	$(PYTEST) $(PYTEST_FLAGS) -m integration
+test-deploy:
+	$(MAKE) -C deploy test
 
-test-teardown:
-	IPA_IT_TEARDOWN=1 $(PYTEST) $(PYTEST_FLAGS) -m teardown
-
-# CI seam. NOTHING INVOKES THIS. Wiring it would commit the project to paying for a
-# billable run on some trigger, which is a decision beyond this feature's scope.
+# Refuses an unknown scenario BY NAME. Without this guard, `make test-ci SCENARIO=compse`
+# reaches `make -C compse` and fails with "No such file or directory" — an error naming a
+# missing directory rather than a mistyped scenario, which reads as a broken repository.
 #
-# Both teardown opt-ins are set INLINE on this recipe line — never as `export`, never
-# as a file-level variable, never as a pipeline variable. An ambient variable applies
-# to every phase of every build, which is precisely the "persists invisibly" case the
-# two-part opt-in exists to prevent — and declaring it ambiently defeats the mechanism
-# SILENTLY, because the invocation that needs it still works and the failure only
-# appears the day someone runs another target on the same runner.
-#
-# ONE pytest invocation with the teardown marker NOT deselected, so deploy and teardown
-# share a namespace as a property of the session fixture rather than of a hand-off. Two
-# invocations would need the namespace passed out of the first and into the second, and
-# the failure mode is a teardown scoped to a namespace that never existed — which finds
-# nothing, removes nothing, and PASSES, leaving the deployment standing while reporting
-# that it was removed.
+# Tests for the MAKEFILE, not the directory: a directory that exists but holds no Makefile
+# is not a scenario either, and delegating into it produces a different confusing error
+# for the same class of mistake.
 test-ci:
-	IPA_IT_STRICT_PREFLIGHT=1 IPA_IT_TEARDOWN=1 $(PYTEST) $(PYTEST_FLAGS) \
-		-m "integration or teardown" --junitxml=junit-integration.xml
+	@if [ ! -f "$(SCENARIO)/Makefile" ]; then \
+		echo "Unknown scenario '$(SCENARIO)'. Valid scenarios:" >&2; \
+		ls -d */Makefile 2>/dev/null | sed 's|/Makefile||;s|^|  |' >&2; \
+		exit 2; \
+	fi
+	$(MAKE) -C "$(SCENARIO)" test-ci
 
+# list-stacks and teardown-namespace stay on the UMBRELLA, not in a scenario: a namespace
+# sweep finds any run's stacks by prefix and belongs to no single scenario. Putting them in
+# one would mean cleaning up after `deploy` required invoking `compose`.
 list-stacks:
-	$(PYTHON) sweep.py list
+	$(PYTHON) -m harness.sweep list
 
 # NAMESPACE is required. An empty namespace exits non-zero rather than being read as
 # "every run" — that is the unbounded failure mode, which would delete other runs'
@@ -114,7 +116,9 @@ teardown-namespace:
 		echo "Usage: make teardown-namespace NAMESPACE=<namespace>" >&2; \
 		exit 2; \
 	fi
-	IPA_IT_TEARDOWN=1 $(PYTHON) sweep.py teardown $(NAMESPACE)
+	IPA_IT_TEARDOWN=1 $(PYTHON) -m harness.sweep teardown $(NAMESPACE)
 
 clean:
-	rm -rf .pytest_cache __pycache__
+	$(MAKE) -C compose clean
+	$(MAKE) -C deploy clean
+	rm -rf .pytest_cache __pycache__ harness/__pycache__ harness/tests/__pycache__

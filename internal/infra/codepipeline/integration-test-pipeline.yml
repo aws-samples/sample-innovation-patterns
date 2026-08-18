@@ -103,11 +103,40 @@ Parameters:
     Type: String
     Default: '5'
     Description: >-
-      Model-spend ceiling for the COMPOSE drive only. The full-lifecycle drive
-      uses driver.py's own 15.0 default (driver.py:371 calls
-      kwargs.setdefault, which an environment variable does not reach), so
-      raising this does not raise that. Stated precisely because the opposite
-      belief would be discovered by a run that stopped early.
+      Model-spend ceiling for the COMPOSE drive only, surfaced as
+      IPA_IT_MAX_BUDGET_USD. The full-lifecycle drive has its OWN ceiling —
+      FullMaxBudgetUsd below — and raising this one does not raise that one.
+      They are separate on purpose: the two differ threefold, so a single shared
+      value set for compose would cap a deploy run at $5 and stop it partway
+      through a deployment, which is indistinguishable from a wedge and leaves
+      partial infrastructure standing.
+
+  FullMaxBudgetUsd:
+    Type: String
+    Default: '15'
+    Description: >-
+      Model-spend ceiling for the FULL-LIFECYCLE drive, surfaced as
+      IPA_IT_FULL_MAX_BUDGET_USD. Only reached when Scenario is 'deploy'.
+      Previously unreachable: driver.py hardcoded the 15.0 default inside
+      full_lifecycle_options, so the documented spend variable could not bound
+      the only path able to exhaust it.
+
+  Scenario:
+    Type: String
+    Default: 'compose'
+    AllowedValues:
+      - 'compose'
+      - 'deploy'
+    Description: >-
+      Which scenario `make test-ci` runs. 'compose' drives /ipa-init and
+      /ipa-compose and stops, at a MEASURED $0.94; 'deploy' drives the full
+      lifecycle and deploys seven billable stacks at an UNMEASURED cost.
+      Defaults to 'compose' so that deploying this pipeline and pressing Start
+      costs about $1 rather than about $15 — the default is a spend decision,
+      because Start is the first thing anyone does with a new pipeline.
+      AllowedValues is what rejects a mistyped scenario when this stack's
+      configuration is APPLIED, rather than deferring it to a Makefile error
+      inside a build after LARGE compute has already been provisioned.
 
 Resources:
   # ── One bucket, two prefixes ────────────────────────────────────────────────
@@ -261,9 +290,16 @@ Resources:
         EnvironmentVariables:
           - Name: 'IPA_IT_REGION'
             Value: !Ref 'AWS::Region'
-          # A profile name, not credentials. See the install phase for why a
-          # profile that defines no credentials is the right shape here.
-          - Name: 'IPA_IT_PROFILE'
+          # A profile name, not credentials — and NOT how the harness
+          # authenticates. Every AWS call the harness makes names no profile at
+          # all; credentials come from this container's own role.
+          #
+          # This exists for the GENERATED artifacts. The agent writes
+          # AWS_PROFILE into the driven project's .env (four shipped skills STOP
+          # without that key), and the generated Makefiles then pass
+          # `--profile ipa-it` to the AWS CLI. See the install phase for why a
+          # profile that exists carrying no credentials is the right shape.
+          - Name: 'AWS_PROFILE'
             Value: 'ipa-it'
           - Name: 'IPA_IT_DRIVER_MODEL'
             Value: !Ref DriverModelId
@@ -271,12 +307,19 @@ Resources:
             Value: !Ref WorkerModelId
           - Name: 'IPA_IT_MAX_BUDGET_USD'
             Value: !Ref MaxBudgetUsd
+          - Name: 'IPA_IT_FULL_MAX_BUDGET_USD'
+            Value: !Ref FullMaxBudgetUsd
+          - Name: 'IPA_IT_SCENARIO'
+            Value: !Ref Scenario
           - Name: 'CLAUDE_CODE_USE_BEDROCK'
             Value: '1'
           # DELIBERATELY ABSENT: IPA_IT_TEARDOWN and IPA_IT_STRICT_PREFLIGHT.
           #
-          # Both are set INLINE by the `test-ci` and `teardown-namespace` recipes
-          # (internal/integration-tests/Makefile:101,111). Declaring either here
+          # Both are set INLINE by the recipes that need them, and nowhere else:
+          # internal/integration-tests/Makefile:119 (teardown-namespace),
+          # internal/integration-tests/compose/Makefile:71 (test-ci), and
+          # internal/integration-tests/deploy/Makefile:81,94 (test-teardown,
+          # test-ci). Declaring either here
           # would make it ambient across every phase of every build, which is
           # precisely the "persists invisibly" case the two-part teardown opt-in
           # exists to prevent — and it would defeat that mechanism SILENTLY,
@@ -398,17 +441,30 @@ Resources:
                       sys.exit(f"bundled claude binary missing at {binary}")
                   print(f"bundled claude binary present: {binary}")
                   PY
-                # Prove the credential-less named profile resolves this
-                # container's own credentials, before anything depends on it.
+                # Prove the property THE HARNESS ACTUALLY DEPENDS ON: that a
+                # session naming NO profile resolves this container's own
+                # credentials. The previous form built the session from
+                # IPA_IT_PROFILE, which asserted something nothing depends on —
+                # it could pass where the harness fails and fail where the
+                # harness works, which is worse than no check because it is
+                # believed.
+                #
+                # The resolution METHOD is printed because resolving is not
+                # enough on its own: a build answering from a stray long-lived
+                # environment key has resolved credentials successfully and is
+                # still misconfigured. Expect 'container-role' here.
                 - |
                   uv run --all-extras --directory internal/integration-tests python - <<'PY'
                   import os
 
                   import boto3
 
-                  profile = os.environ["IPA_IT_PROFILE"]
-                  identity = boto3.Session(profile_name=profile).client("sts").get_caller_identity()
-                  print(f"profile {profile!r}: account {identity['Account']} as {identity['Arn']}")
+                  session = boto3.Session(region_name=os.environ["IPA_IT_REGION"])
+                  identity = session.client("sts").get_caller_identity()
+                  creds = session.get_credentials()
+                  method = getattr(creds, "method", "unresolved")
+                  print(f"no profile named; resolved by {method!r}")
+                  print(f"account {identity['Account']} as {identity['Arn']}")
                   PY
                 # Every remaining prerequisite, from the harness's own probe
                 # table, printed as its nine-row report. --probes-only skips the
@@ -417,17 +473,25 @@ Resources:
                 # It reports rather than gates; test-ci's own
                 # IPA_IT_STRICT_PREFLIGHT=1 is what turns an unmet prerequisite
                 # into a failure instead of a silent skip.
-                - uv run --all-extras --directory internal/integration-tests python -m preflight --probes-only
+                - uv run --all-extras --directory internal/integration-tests python -m harness.preflight --probes-only
             build:
               commands:
                 - export IPA_IT_NAMESPACE="$(cat /tmp/ipa_it_namespace)"
-                # PYTEST is overridden on the command line so the harness's own
-                # `uv run pytest` gains --all-extras. A command-line variable
-                # beats the Makefile's `:=` assignment, so no edit to the harness
-                # is needed for it to run here.
+                # SCENARIO selects which scenario folder test-ci delegates to.
+                # A command-line variable propagates to sub-makes through
+                # MAKEFLAGS, so it reaches the scenario's own Makefile without
+                # the umbrella forwarding it explicitly.
+                #
+                # PYTEST is overridden so the harness's invocation gains
+                # --all-extras. It MUST keep `python -m pytest`: only `-m`
+                # places the working directory on sys.path, which is what makes
+                # `harness` importable with no build backend. With a bare
+                # `pytest` console script every test module fails with
+                # `ModuleNotFoundError: No module named 'harness'`.
                 - |
                   make -C internal/integration-tests test-ci \
-                    PYTEST='uv run --all-extras pytest'
+                    SCENARIO="$IPA_IT_SCENARIO" \
+                    PYTEST='uv run --all-extras python -m pytest'
             post_build:
               commands:
                 # UNCONDITIONAL. The case that most needs teardown is the one
@@ -453,16 +517,30 @@ Resources:
                   make -C internal/integration-tests list-stacks \
                     PYTHON='uv run --all-extras python' || true
 
+          # A GLOB, because each scenario names its own report
+          # (junit-compose.xml, junit-deploy.xml) so two runs' results stay
+          # distinguishable. One fixed name would collect nothing whenever the
+          # other scenario ran — and a build that collected nothing reports NO
+          # TESTS rather than a failure, which reads as a pass.
+          #
+          # Not built from the Scenario parameter with !Sub: this buildspec is a
+          # plain literal block, deliberately NOT under !Sub, so every $VAR in it
+          # reaches the shell. Introducing !Sub for one filename would require
+          # escaping every existing $ in the block, to gain nothing a glob does
+          # not already do.
           reports:
             integration:
               files:
-                - 'junit-integration.xml'
+                - 'junit-*.xml'
               base-directory: 'internal/integration-tests'
               file-format: 'JUNITXML'
 
           artifacts:
             files:
-              - 'internal/integration-tests/junit-integration.xml'
+              - 'internal/integration-tests/junit-*.xml'
+              # Both land at the HARNESS ROOT, not inside harness/ — standing.HERE
+              # and the transcript fixture are anchored one level above the
+              # package precisely so these two paths stay true after the move.
               - 'internal/integration-tests/transcript-*.jsonl'
               - 'internal/integration-tests/standing-resources-*.md'
             name: 'run-$CODEBUILD_BUILD_NUMBER'

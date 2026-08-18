@@ -43,7 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from answers import AnswerResolver
+from harness.answers import AnswerResolver
 
 # The SDK is an OPTIONAL extra (`uv sync --all-extras`), so it is imported lazily.
 #
@@ -93,6 +93,18 @@ MODEL = os.environ.get(
 #: budget. Phase 4 raises both -- see ``full_lifecycle_options``.
 MAX_BUDGET_USD = float(os.environ.get("IPA_IT_MAX_BUDGET_USD", "5"))
 MAX_TURNS = int(os.environ.get("IPA_IT_MAX_TURNS", "300"))
+
+#: The FULL-LIFECYCLE ceiling, and a SEPARATE variable from ``IPA_IT_MAX_BUDGET_USD`` on
+#: purpose. The two scopes differ roughly threefold, and each scenario sets its own
+#: ceiling inline -- so one shared variable set for the compose scenario would cap a
+#: deploy run at $5 and stop it partway through a deployment. A drive stopped by a
+#: ceiling is indistinguishable from a wedge and leaves partial infrastructure standing,
+#: which is the cheap scenario's configuration causing the expensive scenario's worst
+#: failure.
+#:
+#: Previously a literal ``15.0`` inside ``full_lifecycle_options``, which meant the
+#: documented spend ceiling could not reach the only path able to exhaust it.
+FULL_MAX_BUDGET_USD = float(os.environ.get("IPA_IT_FULL_MAX_BUDGET_USD", "15"))
 
 #: IPA's own prose gates, verified in source. The reference's markers were its own
 #: and do not transfer.
@@ -362,13 +374,22 @@ def build_options(
 
 
 def full_lifecycle_options(*args: Any, **kwargs: Any) -> "ClaudeAgentOptions":
-    """Phase 4's substitution: the wider scope AND the raised ceilings together.
+    """The substitution: the wider scope AND the raised ceilings together.
 
     Both change as one. The compose ceilings are sized for a run that stops early, so
     a full lifecycle reaching them looks identical to a wedge.
+
+    The spend ceiling comes from ``FULL_MAX_BUDGET_USD`` -- its own variable, separate
+    from ``IPA_IT_MAX_BUDGET_USD``. The two differ threefold and each scenario sets its
+    own inline, so a single shared variable set for the compose scenario would cap a
+    deploy run at $5 and stop it mid-deployment.
+
+    ``max_turns`` stays a literal, and the asymmetry is deliberate: a turn ceiling is a
+    runaway-loop backstop, and making it configurable invites raising it to get past a
+    wedge, which is the behaviour it exists to stop.
     """
     kwargs.setdefault("scope", FULL_LIFECYCLE)
-    kwargs.setdefault("max_budget_usd", 15.0)
+    kwargs.setdefault("max_budget_usd", FULL_MAX_BUDGET_USD)
     kwargs.setdefault("max_turns", 600)
     return build_options(*args, **kwargs)
 

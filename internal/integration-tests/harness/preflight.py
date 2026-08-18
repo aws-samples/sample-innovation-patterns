@@ -44,16 +44,19 @@ import subprocess  # nosec B404 - argv lists only, shell=False; see .ash/ash.yam
 import sys
 from pathlib import Path
 
-import boto3
 from botocore.exceptions import BotoCoreError, ClientError
+
+from harness import aws
 
 # --------------------------------------------------------------------------- #
 # Configuration. Every value is overridable from the environment so Phase 5's
 # CI seam has somewhere to attach without editing this file.
+#
+# There is deliberately NO profile constant here. Credentials come from the
+# default chain via ``harness.aws.session`` -- see ``_session`` below.
 # --------------------------------------------------------------------------- #
 
-REGION = os.environ.get("IPA_IT_REGION", "us-east-1")
-PROFILE = os.environ.get("IPA_IT_PROFILE", "peterpyu+code-evaluation-Admin")
+REGION = aws.REGION
 
 PROBE_NAMESPACE = "itprobe"
 PROBE_ENV = "dev"
@@ -76,7 +79,13 @@ DRIVER_MODEL_ID = os.environ.get(
 PROBE_MANAGED_POLICY_ARN = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 
 # Repository root, resolved from this file rather than from the caller's cwd.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+#
+# ``parents[3]``, not ``parents[2]``: this module moved down one level into
+# ``harness/``, so the hop count grew by one -- ``harness/`` ->
+# ``integration-tests/`` -> ``internal/`` -> repo root. At ``parents[2]`` the Cognito
+# template below resolves to ``internal/infra/cfn/...``, which does not exist, and the
+# blocking check fails on a missing file rather than on anything about the account.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 COGNITO_TEMPLATE = REPO_ROOT / "infra" / "cfn" / "cognito" / "cognito.yml"
 
 _IAM_STACK = f"{PROBE_NAMESPACE}-{PROBE_ENV}-security"
@@ -150,15 +159,20 @@ Outputs:
 # --------------------------------------------------------------------------- #
 
 
-def _session() -> boto3.Session:
-    """One explicitly-configured session, passed to every AWS probe.
+def _session():
+    """One session, passed to every AWS probe. Region PINNED, credentials AMBIENT.
 
-    Deliberately not ambient credentials. This shell exports
-    ``AWS_REGION=us-west-2``; an ambient design would silently probe the wrong
-    region and report a clean account that is clean because nothing was ever
-    there.
+    The region is explicit because this shell exports ``AWS_REGION=us-west-2``, and an
+    inherited region would silently probe the wrong account and report it clean --
+    clean because nothing was ever there, which is indistinguishable from a pass.
+
+    The credentials are ambient BY DESIGN, which is the opposite of what this docstring
+    used to argue. The default chain reads the environment or an SSO cache on a
+    workstation and the ECS container role inside CodeBuild, so one code path serves
+    both and no maintainer's profile name appears in source. The region argument was
+    never the reason to name a profile; only the region needed pinning.
     """
-    return boto3.Session(profile_name=PROFILE, region_name=REGION)
+    return aws.session(REGION)
 
 
 def _run(argv: list[str], timeout: int = 30) -> tuple[bool, str]:
@@ -284,15 +298,23 @@ def _domain_prefix(account_id: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def probe_aws_profile_resolvable() -> tuple[bool, str]:
-    """The named profile exists in the resolved config and yields credentials."""
+def probe_credentials_resolvable() -> tuple[bool, str]:
+    """The default credential chain yields credentials, and WHICH LINK answered.
+
+    Reporting only that credentials resolved would hide the interesting failure. The
+    two environments this harness runs in resolve by different links -- ``env`` or
+    ``sso`` on a workstation, ``container-role`` in CodeBuild -- and the case worth
+    catching is resolving via the wrong one: a CI build answering from a long-lived
+    environment key instead of its task role has resolved credentials successfully and
+    is still misconfigured. Naming the link is what makes that visible in the row.
+    """
     try:
         creds = _session().get_credentials()
     except Exception as exc:  # noqa: BLE001
-        return False, f"profile {PROFILE!r}: {_aws_error(exc)}"
+        return False, f"credential chain: {_aws_error(exc)}"
     if creds is None:
-        return False, f"profile {PROFILE!r} resolved but yielded no credentials"
-    return True, f"profile {PROFILE!r} resolvable in {REGION}"
+        return False, "credential chain yielded no credentials"
+    return True, f"resolved by {creds.method!r} in {REGION}"
 
 
 def probe_sts_caller_identity() -> tuple[bool, str]:
@@ -609,7 +631,7 @@ def probe_cognito_token() -> tuple[bool, str]:
 # to skip a test. It is run explicitly by ``main()`` and is reachable through
 # ``run_probe`` by name.
 PROBES: tuple[tuple[str, object], ...] = (
-    ("aws_profile_resolvable", probe_aws_profile_resolvable),
+    ("credentials_resolvable", probe_credentials_resolvable),
     ("sts_caller_identity", probe_sts_caller_identity),
     ("claude_agent_sdk_importable", probe_claude_agent_sdk_importable),
     ("npm_present", probe_npm_present),
@@ -641,7 +663,7 @@ def main(include_blocking: bool = True) -> int:
     environment repair into several -- and nothing is saved by stopping, because
     the expensive probes are last.
     """
-    print(f"IPA integration-test preflight -- profile={PROFILE} region={REGION}\n")
+    print(f"IPA integration-test preflight -- region={REGION}\n")
     results: list[tuple[str, bool, str]] = []
 
     for name, fn in PROBES:
