@@ -236,7 +236,7 @@ confirmation yourself and keep going.
   so you must supply `{namespace}` through the question's free-text ("Other") path.
   This value is how the test finds and removes what it created; a different namespace
   strands billable infrastructure under a name nothing looks for.
-- **`AWS_PROFILE` MUST be `{profile}`.** Do NOT select "Skip", which is the
+- **`AWS_PROFILE` MUST be `{profile}`.** Do NOT choose "Skip", which is the
   recommended option: it omits `AWS_PROFILE` from `.env` entirely, and three
   downstream skills require it.
 - `AWS_REGION` = `{REGION}`, `APP_ENV` = `dev`, `APP_IAC` = `cloudformation`.

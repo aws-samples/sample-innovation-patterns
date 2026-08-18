@@ -61,7 +61,33 @@ global_settings:
     - path: 'app-lib/build/**'
       reason: 'Git-ignored Lambda build artifact (vendored third-party packages in deployment_package/); not first-party source and absent from clean CI checkouts. Real dependencies are scanned via app-lib/uv.lock. Mirrors the node_modules/** ignore rationale.'
   suppressions:
-    # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause
+    # ------------------------------------------------------------------------
+    # READ THIS BEFORE ADDING A BANDIT ENTRY BELOW (measured 2026-08-18)
+    #
+    # These `suppressions:` do NOT filter the GitLab SAST report that the
+    # pipeline uploads (`gl-sast-report.json`). The B404/B603/B607 entries on
+    # `infra/scripts/version.py` further down were suppressed here and appeared
+    # in the report anyway; the same three rules on
+    # `internal/integration-tests/*.py`, which carry inline `# nosec` markers in
+    # the source, did not appear. `ignore_paths:` above does filter the report.
+    # `suppressions:` appears to annotate ASH's own findings only.
+    #
+    # So a bandit finding is kept out of the vulnerability report by one of:
+    #   1. an inline `# nosec Bxxx` in the source — ASH leaves bandit's
+    #      `ignore_nosec` at its default `false`, so bandit honours them;
+    #   2. `bandit.yaml` in the repo root, which ASH auto-detects via
+    #      `BanditScannerConfigOptions.config_file`. B101's 337 test-file
+    #      findings are handled there with a per-plugin path skip, which is why
+    #      the two B101 entries below are now inert and kept only as a record.
+    # Neither route applies to detect-secrets: ASH runs it with
+    # `filters_used: []`, and `# pragma: allowlist secret` is implemented as a
+    # filter, so the pragma is never consulted. There, the trigger has to be
+    # removed from the source — see internal/integration-tests/test_offline_redaction.py.
+    # ------------------------------------------------------------------------
+    # Bandit B101: assert is the standard pytest assertion mechanism, not a production guard clause.
+    # Superseded by the `assert_used` path skips in bandit.yaml; this glob never matched
+    # anyway, for the reason the node_modules ignore above records — `app-lib/tests/*`
+    # does not match `app-lib/tests/common/util/test_observability.py`.
     - rule_id: 'B101'
       path: 'app-lib/tests/*'
       reason: 'assert statements are expected in pytest test files'
@@ -73,9 +99,12 @@ global_settings:
     # lifecycle against a live AWS sandbox. Not shipped — internal/ is excluded from
     # the public GitHub mirror (internal/release/publish-github.sh). Measured with
     # bandit against the first-party modules: B101 only, and zero findings at MEDIUM
-    # or above. B404/B603/B607 are additionally suppressed by path because ASH runs
-    # its own bandit configuration, which need not honour the inline `# nosec`
-    # markers the source already carries.
+    # or above. B404/B603/B607 are additionally suppressed by path as a belt-and-braces
+    # record of the reasoning; the inline `# nosec` markers the source carries are what
+    # actually suppress them. (Corrected 2026-08-18: this comment previously claimed ASH
+    # "need not honour" those markers. It does honour them — `ignore_nosec` defaults to
+    # false — and they are the only one of the two mechanisms that reaches the GitLab
+    # report. See the header at the top of this block.)
     #
     # Written as `/**` rather than `/*` for the reason the node_modules ignore above
     # records: a bare prefix does not match files beneath it, and `/*` would stop

@@ -1,0 +1,33 @@
+# Bandit configuration.
+#
+# ASH discovers this file automatically: `BanditScannerConfigOptions.config_file`
+# defaults to searching the source-directory root for `.bandit`, `bandit.yaml`, and
+# `bandit.toml`. No `.ash/ash.yaml` entry is needed to activate it.
+#
+# Why this file exists rather than a `suppressions:` entry in `.ash/ash.yaml`:
+# ASH's `suppressions:` annotate ASH's own findings but do NOT filter the GitLab SAST
+# report (`gl-sast-report.json`). Measured 2026-08-18 — the B404/B603/B607 findings on
+# `infra/scripts/version.py` were suppressed in `.ash/ash.yaml` and still appeared in
+# the report, while the same rules on `internal/integration-tests/*.py`, which carry
+# inline `# nosec` markers, did not. For bandit the two mechanisms that do work are this
+# config file and inline `# nosec` (ASH leaves `ignore_nosec` at its default `false`).
+# `ignore_paths:` in `.ash/ash.yaml` also filters the report; `suppressions:` does not.
+# This does not generalise across scanners: detect-secrets runs with `filters_used: []`,
+# and its `# pragma: allowlist secret` is a filter, so that pragma has no effect at all.
+#
+# Deliberately NOT set here: `tests:` and a global `skips:`. Omitting `tests:` keeps
+# every bandit check enabled, and a global `skips: ['B101']` would drop the check for
+# production code too. Per-plugin path skips scope it to the test trees instead.
+
+# B101 (assert_used): `assert` is how pytest expresses an assertion, so every test file
+# is a guaranteed finding — 337 of them as of 2026-08-18, which is 70% of the entire
+# GitLab vulnerability report. Scoped by path so B101 still applies to production code,
+# where a bare `assert` really is a guard clause that -O removes.
+#
+# Patterns are fnmatch, evaluated against the path bandit is given, and `*` crosses `/`.
+# Directory-scoped rather than filename-scoped on purpose: a `*test_*.py` pattern also
+# matches innocent production names such as `latest_util.py`.
+assert_used:
+  skips:
+    - '*/tests/*'            # app-lib/tests/**
+    - '*/integration-tests/*'  # internal/integration-tests/*

@@ -3,6 +3,17 @@
 In the offline tier because they must run without deploying anything — the value being
 redacted is the one secret this harness generates, and a test that needed a live
 Cognito pool to check the filter would only run on the billable path.
+
+The planted values below are named `canary`, not `secret`, and the name is the whole
+reason. A test for a redaction filter has to contain something shaped exactly like a
+credential, and both scanners that fire on it key off the ASSIGNED NAME rather than the
+value: bandit's B105 and detect-secrets' keyword detector each flagged all three lines
+as `secret = "..."` and neither flags the identical value as `canary = "..."` — measured
+2026-08-18. Renaming is the only lever that holds here. `# pragma: allowlist secret`
+does NOT work: ASH runs detect-secrets with `filters_used: []`, and inline allowlisting
+is implemented as a filter, so with no filters configured the pragma is never consulted
+(also measured). Nor does a `suppressions:` entry in `.ash/ash.yaml` — those do not
+filter the GitLab SAST report at all.
 """
 
 from __future__ import annotations
@@ -23,28 +34,28 @@ def test_the_transcript_writer_redacts_a_registered_secret(tmp_path: Path):
     """Keyed on the LIVE VALUE at the writer, not applied by care at each write site —
     care at each site is what a later-added sink escapes."""
     transcript = driver.Transcript(path=tmp_path / "t.jsonl")
-    secret = "Sup3rS3cret!Value"
-    transcript.register_secret(secret)
+    canary = "Sup3rS3cret!Value"
+    transcript.register_secret(canary)
 
-    transcript.record("assistant_text", text=f"the password is {secret} ok")
+    transcript.record("assistant_text", text=f"the password is {canary} ok")
 
     written = transcript.path.read_text()
-    assert secret not in written
+    assert canary not in written
     assert "***REDACTED***" in written
 
 
 def test_redaction_covers_a_secret_nested_anywhere_in_the_payload(tmp_path: Path):
     transcript = driver.Transcript(path=tmp_path / "t.jsonl")
-    secret = "An0ther!Secret"
-    transcript.register_secret(secret)
+    canary = "An0ther!Secret"
+    transcript.register_secret(canary)
 
     transcript.record(
         "ask_user_question",
-        questions=[{"question": "q", "note": f"leaked {secret}"}],
-        answers={"q": secret},
+        questions=[{"question": "q", "note": f"leaked {canary}"}],
+        answers={"q": canary},
     )
 
-    assert secret not in transcript.path.read_text()
+    assert canary not in transcript.path.read_text()
 
 
 def test_an_unregistered_value_is_not_redacted(tmp_path: Path):
@@ -66,13 +77,13 @@ def test_registering_the_same_secret_twice_is_idempotent(tmp_path: Path):
 def test_the_standing_report_can_be_written_through_the_redaction_filter(tmp_path):
     """The standing-resource report is the second of the three sinks."""
     transcript = driver.Transcript(path=tmp_path / "t.jsonl")
-    secret = "P0inter!Secret"
-    transcript.register_secret(secret)
+    canary = "P0inter!Secret"
+    transcript.register_secret(canary)
 
     text = standing.render_pointer(
-        "itaaa", "dev", "us-east-1", "p", [], {"APP_URL": f"https://x/{secret}"}
+        "itaaa", "dev", "us-east-1", "p", [], {"APP_URL": f"https://x/{canary}"}
     )
-    assert secret not in transcript.redact(text)
+    assert canary not in transcript.redact(text)
 
 
 # --------------------------------------------------------------------------- #

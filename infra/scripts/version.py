@@ -22,7 +22,7 @@ Requires Python 3.12+ (stdlib tomllib). No external dependencies.
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - git only, argv list with shell=False; see .ash/ash.yaml
 import sys
 try:
     import tomllib
@@ -66,7 +66,7 @@ def get_sha() -> str:
     if cb_sha:
         return cb_sha[:7]
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607 - argv list, shell=False, no user input
             ["git", "rev-parse", "--short=7", "HEAD"],
             capture_output=True,
             text=True,
