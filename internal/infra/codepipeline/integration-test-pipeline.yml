@@ -1,0 +1,537 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Runs internal/integration-tests on CodeBuild instead of a maintainer's laptop,
+  started on demand. Deployed by hand, per account. Internal maintainer artifact
+  — not shipped to customers. See README.md beside this file.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY POSTURE, stated here as well as in README.md because a reader of this
+# file may never open that one: CodeBuildRole carries AdministratorAccess. The
+# run it executes deploys and then deletes arbitrary infrastructure — Lambda,
+# API Gateway, CloudFront, Cognito, ECR, IAM roles with explicit names — so
+# enumerating actions chases a moving target through billable runs.
+#
+# Consequently s3:PutObject on the source key and
+# codepipeline:StartPipelineExecution are the ENTIRE control on executing
+# arbitrary code as an administrator in this account. ../credential-vendor/
+# grants exactly those two things and nothing else, which is the reason it is
+# not itself an administrator.
+#
+# Unlike the reference implementation's account, internal/** here is NOT exempt
+# from ASH — `.ash/ash.yaml` suppresses findings against `internal/infra/**`
+# path by path, each with a reason. So this template IS scanned, and a new
+# finding will fail the security job rather than pass silently.
+# ─────────────────────────────────────────────────────────────────────────────
+
+Parameters:
+  SourceObjectKey:
+    Type: String
+    Default: 'source/source.zip'
+    Description: >-
+      Key the trigger uploads the archive to. The pipeline's source action
+      watches exactly this key and nothing else.
+
+  ArtifactRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: >-
+      Days a run's collected output is kept. Bounded on purpose: a run's
+      transcript and standing-resource report name account-specific values, so
+      this output is not indefinitely-retainable material. 30 days is long enough
+      to triage a failed run.
+
+  SourceVersionRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: >-
+      Days a superseded archive version is kept. Versioning is mandatory (the S3
+      source action requires it), so without an expiry the bucket accumulates
+      every archive ever uploaded — and each one carries the whole repository.
+
+  BuildTimeoutMinutes:
+    Type: Number
+    Default: 120
+    MinValue: 5
+    MaxValue: 480
+    Description: >-
+      Hard ceiling on one run. The agent-driven test's wall clock is unmeasured
+      end to end, and a run that stalls burns this whole budget on LARGE compute
+      — the most expensive way available to wait for nothing. Lower it once one
+      passing run has been measured.
+
+  BuildImage:
+    Type: String
+    Default: 'aws/codebuild/standard:8.0'
+    Description: >-
+      8.0, NOT 7.0, and this is the one parameter most likely to need changing.
+      The runtime pairing below is the constraint: this repository uses Node 22
+      (.gitlab-ci.yml:51 and infra/cfn/codepipeline/codepipeline.yml), and Node 22
+      is not available in standard:7.0. If the install phase fails on an unknown
+      runtime version, this and the buildspec runtime-versions block must move
+      together.
+
+  ComputeType:
+    Type: String
+    Default: 'BUILD_GENERAL1_LARGE'
+    AllowedValues:
+      - 'BUILD_GENERAL1_SMALL'
+      - 'BUILD_GENERAL1_MEDIUM'
+      - 'BUILD_GENERAL1_LARGE'
+    Description: >-
+      LARGE by default. The run builds container images and a frontend bundle;
+      smaller compute makes an unmeasured wall clock longer against a fixed
+      timeout, which converts a slow run into a failed one.
+
+  DriverModelId:
+    Type: String
+    Default: 'us.anthropic.claude-sonnet-4-20250514-v1:0'
+    Description: >-
+      Model the driver session itself runs on, via Bedrock. Must match a model
+      this account has invoke access to in this region — preflight probes it
+      before the run rather than discovering it mid-drive.
+
+  WorkerModelId:
+    Type: String
+    Default: 'anthropic.claude-3-haiku-20240307-v1:0'
+    Description: 'Model the deployed queue worker invokes.'
+
+  MaxBudgetUsd:
+    Type: String
+    Default: '5'
+    Description: >-
+      Model-spend ceiling for the COMPOSE drive only. The full-lifecycle drive
+      uses driver.py's own 15.0 default (driver.py:371 calls
+      kwargs.setdefault, which an environment variable does not reach), so
+      raising this does not raise that. Stated precisely because the opposite
+      belief would be discovered by a run that stopped early.
+
+Resources:
+  # ── One bucket, two prefixes ────────────────────────────────────────────────
+  # source/ holds the archive; artifacts/ holds pipeline artifacts and collected
+  # run output. One bucket means one policy and one lifecycle configuration to
+  # reason about, rather than two of each that can drift apart.
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    Properties:
+      # REQUIRED, not a preference: CodePipeline's S3 source action refuses a
+      # bucket without versioning. This is also what makes empty_bucket.py
+      # necessary — `aws s3 rm --recursive` leaves every noncurrent version and
+      # delete marker behind, and delete-stack then fails on a bucket the
+      # operator believes is empty.
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: 'ExpireSupersededArchives'
+            Status: Enabled
+            Prefix: 'source/'
+            NoncurrentVersionExpirationInDays: !Ref SourceVersionRetentionDays
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: 'ExpireRunArtifacts'
+            Status: Enabled
+            Prefix: 'artifacts/'
+            ExpirationInDays: !Ref ArtifactRetentionDays
+            NoncurrentVersionExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  SourceBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SourceBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: 'DenyInsecureTransport'
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt SourceBucket.Arn
+              - !Sub '${SourceBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  # ── The pipeline's own role: deliberately narrow ────────────────────────────
+  # It orchestrates and nothing else. Keeping it narrow is what confines the broad
+  # grant below to exactly one role. RoleName is omitted so only CAPABILITY_IAM is
+  # needed to deploy this stack.
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: 'Orchestrates the integration-test pipeline. Starts builds; reads and writes this stack bucket.'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'codepipeline.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'orchestrate'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: 'SourceAndArtifacts'
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:PutObject'
+                  - 's3:GetBucketVersioning'
+                Resource:
+                  - !GetAtt SourceBucket.Arn
+                  - !Sub '${SourceBucket.Arn}/*'
+              # The wildcard is on the PROJECT NAME, not the account: a second
+              # test project belonging to this stack can be added later with no
+              # role change, and nothing outside this stack's name is reachable.
+              - Sid: 'StartThisStacksBuilds'
+                Effect: Allow
+                Action:
+                  - 'codebuild:StartBuild'
+                  - 'codebuild:BatchGetBuilds'
+                Resource: !Sub 'arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${AWS::StackName}-*'
+
+  # ── The build role: broad, by decision ──────────────────────────────────────
+  # AdministratorAccess. The run deploys the seven-stack IPA lifecycle and then
+  # deletes it, including IAM roles with explicit names under
+  # CAPABILITY_NAMED_IAM, so an enumerated policy would be discovered to be
+  # incomplete by a billable run failing halfway through.
+  #
+  # There is NO permissions boundary and NO session cap. Do not read the narrow
+  # PipelineRole above as evidence that this one is also constrained.
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: 'Runs the integration test. Holds AdministratorAccess because the test deploys and deletes arbitrary infrastructure.'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'codebuild.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess'
+
+  BuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${AWS::StackName}-lifecycle'
+      RetentionInDays: 30
+
+  LifecycleTestProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      # Derived from the stack name, so it stays stable and readable without
+      # needing CAPABILITY_NAMED_IAM anywhere. ../credential-vendor/ scopes its
+      # read permissions to '${PipelineName}-*', which depends on this shape.
+      Name: !Sub '${AWS::StackName}-lifecycle'
+      Description: 'Runs internal/integration-tests test-ci against real AWS infrastructure.'
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      TimeoutInMinutes: !Ref BuildTimeoutMinutes
+      # A run that cannot start is abandoned rather than queued indefinitely.
+      QueuedTimeoutInMinutes: 30
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Image: !Ref BuildImage
+        Type: 'LINUX_CONTAINER'
+        ComputeType: !Ref ComputeType
+        # The run really does `docker build` and push to ECR, so a daemon is
+        # required for the run to SUCCEED rather than merely to pass preflight.
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: 'IPA_IT_REGION'
+            Value: !Ref 'AWS::Region'
+          # A profile name, not credentials. See the install phase for why a
+          # profile that defines no credentials is the right shape here.
+          - Name: 'IPA_IT_PROFILE'
+            Value: 'ipa-it'
+          - Name: 'IPA_IT_DRIVER_MODEL'
+            Value: !Ref DriverModelId
+          - Name: 'IPA_IT_WORKER_MODEL'
+            Value: !Ref WorkerModelId
+          - Name: 'IPA_IT_MAX_BUDGET_USD'
+            Value: !Ref MaxBudgetUsd
+          - Name: 'CLAUDE_CODE_USE_BEDROCK'
+            Value: '1'
+          # DELIBERATELY ABSENT: IPA_IT_TEARDOWN and IPA_IT_STRICT_PREFLIGHT.
+          #
+          # Both are set INLINE by the `test-ci` and `teardown-namespace` recipes
+          # (internal/integration-tests/Makefile:101,111). Declaring either here
+          # would make it ambient across every phase of every build, which is
+          # precisely the "persists invisibly" case the two-part teardown opt-in
+          # exists to prevent — and it would defeat that mechanism SILENTLY,
+          # because the invocation that needs it still works.
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref BuildLogGroup
+      Source:
+        Type: CODEPIPELINE
+        # A PLAIN LITERAL BLOCK, deliberately NOT under !Sub. Every parameter
+        # arrives through EnvironmentVariables above instead, so no ${...} in a
+        # shell command can be mistaken for a CloudFormation substitution — the
+        # failure mode that deploys cleanly and then runs a mangled command.
+        BuildSpec: |
+          version: 0.2
+
+          phases:
+            install:
+              # If this pairing fails with "Unknown runtime version", it must move
+              # together with the BuildImage parameter. uv downloads its own
+              # Python when the image's does not satisfy >=3.12, so the python
+              # pin here is belt and uv is braces; the nodejs pin is not
+              # recoverable that way.
+              #
+              # QUOTED. Unquoted, these are YAML NUMBERS, and `python: 3.10`
+              # would parse as the float 3.1 — a version that does not exist,
+              # reported as an unknown runtime with a number nobody typed. 3.12
+              # happens to survive unquoted; the next edit might not.
+              runtime-versions:
+                python: "3.12"
+                nodejs: "22"
+              commands:
+                # A profile section defining NO credentials still resolves them.
+                # botocore drops only env_provider when a profile is named
+                # explicitly and KEEPS container_provider, which reads
+                # CodeBuild's own credentials. That is what lets the harness keep
+                # requiring a NAMED profile (preflight.py:161 constructs
+                # boto3.Session(profile_name=...) unconditionally) with zero
+                # changes. The profile must EXIST, though — `--profile <missing>`
+                # is a hard failure, not a fall-through.
+                - aws configure set region "$IPA_IT_REGION" --profile ipa-it
+                - pip install --no-cache-dir uv
+                # The archive MUST carry .git. workspace.py copies the working
+                # tree via `git ls-files` and reads HEAD and the dirty flag
+                # (workspace.py:91-101) with check=True, so a .git-less archive
+                # fails inside a fixture with a CalledProcessError rather than
+                # here with a cause. archive.py builds it correctly; this is the
+                # assertion that catches an archive built any other way.
+                - |
+                  if [ ! -d .git ]; then
+                    echo "FATAL: this archive has no .git directory."
+                    echo "  workspace.py copies the working tree with 'git ls-files' and"
+                    echo "  records HEAD, so the harness cannot run without it."
+                    echo "  Build the archive with internal/infra/codepipeline/archive.py."
+                    exit 1
+                  fi
+                - git rev-parse HEAD
+                # Name what is being tested, and say so when it is not a commit
+                # anyone else has. A dirty archive is legitimate — it is how a
+                # maintainer tests an uncommitted skill edit remotely — but a
+                # green run against a tree nobody has is worse than a red one,
+                # because it is believed.
+                - |
+                  if [ -n "$(git status --porcelain)" ]; then
+                    echo "WARNING: built from a DIRTY working tree — the commit above does"
+                    echo "         not fully describe what is running."
+                    git status --porcelain | head -40
+                  fi
+                # ServerVersion is a SERVER-only field. `docker info` exits 0 with
+                # the daemon down, so probing the exit code reports a working
+                # daemon that is not there and the failure resurfaces twenty
+                # minutes later inside a container build.
+                - |
+                  if ! docker info --format '{{.ServerVersion}}' >/dev/null 2>&1; then
+                    echo "Starting dockerd..."
+                    nohup dockerd --host=unix:///var/run/docker.sock >/tmp/dockerd.log 2>&1 &
+                    timeout 60 sh -c 'until docker info --format "{{.ServerVersion}}" >/dev/null 2>&1; do sleep 1; done'
+                  fi
+                - |
+                  docker info --format '{{.ServerVersion}}'
+                # A FILE, not an exported variable. Buildspec phases do not share
+                # shell state, and post_build must know the namespace even when
+                # the build phase died early — which is the case that most needs
+                # tearing down.
+                #
+                # 'it' + 10 hex characters is 12, which is exactly
+                # answers.NS_MAX_LEN and matches answers.make_namespace's own
+                # shape. A longer namespace is rejected at the source.
+                - printf 'it%s' "$(openssl rand -hex 5)" > /tmp/ipa_it_namespace
+                # A BLOCK, for a one-liner, because the message contains ": ".
+                # An unquoted command carrying colon-space is a YAML mapping, not
+                # a string, and CodeBuild rejects the whole buildspec with
+                # YAML_FILE_ERROR "Expected Commands[n] to be of string type".
+                # Neither this template's own validation nor ASH sees inside a
+                # block scalar, so the failure only appears in DOWNLOAD_SOURCE.
+                - |
+                  echo "Run namespace: $(cat /tmp/ipa_it_namespace)"
+                # Install the harness WITH its optional extra. `uv run` on its own
+                # syncs only the default dependencies and would REMOVE
+                # claude-agent-sdk, so every later invocation passes
+                # --all-extras too. Doing it here as well means a broken
+                # environment fails in install, in seconds, rather than after the
+                # first fixture has already deployed something.
+                - uv sync --all-extras --directory internal/integration-tests
+                # The bundled agent binary. Do NOT `npm install` the Claude CLI
+                # as a fallback: _find_cli prefers the bundle over PATH
+                # (subprocess_cli.py:249-252), so an npm install would be
+                # ignored while appearing to fix the problem.
+                - |
+                  uv run --all-extras --directory internal/integration-tests python - <<'PY'
+                  import pathlib
+                  import sys
+
+                  import claude_agent_sdk
+
+                  binary = pathlib.Path(claude_agent_sdk.__file__).parent / "_bundled" / "claude"
+                  if not binary.is_file():
+                      sys.exit(f"bundled claude binary missing at {binary}")
+                  print(f"bundled claude binary present: {binary}")
+                  PY
+                # Prove the credential-less named profile resolves this
+                # container's own credentials, before anything depends on it.
+                - |
+                  uv run --all-extras --directory internal/integration-tests python - <<'PY'
+                  import os
+
+                  import boto3
+
+                  profile = os.environ["IPA_IT_PROFILE"]
+                  identity = boto3.Session(profile_name=profile).client("sts").get_caller_identity()
+                  print(f"profile {profile!r}: account {identity['Account']} as {identity['Arn']}")
+                  PY
+                # Every remaining prerequisite, from the harness's own probe
+                # table, printed as its nine-row report. --probes-only skips the
+                # Cognito blocking check, which deploys a user pool: the run
+                # itself deploys one, so paying for a second here buys nothing.
+                # It reports rather than gates; test-ci's own
+                # IPA_IT_STRICT_PREFLIGHT=1 is what turns an unmet prerequisite
+                # into a failure instead of a silent skip.
+                - uv run --all-extras --directory internal/integration-tests python -m preflight --probes-only
+            build:
+              commands:
+                - export IPA_IT_NAMESPACE="$(cat /tmp/ipa_it_namespace)"
+                # PYTEST is overridden on the command line so the harness's own
+                # `uv run pytest` gains --all-extras. A command-line variable
+                # beats the Makefile's `:=` assignment, so no edit to the harness
+                # is needed for it to run here.
+                - |
+                  make -C internal/integration-tests test-ci \
+                    PYTEST='uv run --all-extras pytest'
+            post_build:
+              commands:
+                # UNCONDITIONAL. The case that most needs teardown is the one
+                # where the build phase FAILED, so this must not be guarded on
+                # CODEBUILD_BUILD_SUCCEEDING. test-ci already tears down inside
+                # its own pytest session; this is what covers the session dying
+                # before it got there.
+                #
+                # Scoped to this run's namespace, so a maintainer's standing
+                # local deployment in the same account is untouched.
+                - export IPA_IT_NAMESPACE="$(cat /tmp/ipa_it_namespace)"
+                - |
+                  echo "Tearing down namespace: $IPA_IT_NAMESPACE"
+                - |
+                  make -C internal/integration-tests teardown-namespace \
+                    NAMESPACE="$IPA_IT_NAMESPACE" \
+                    PYTHON='uv run --all-extras python' \
+                    || echo 'TEARDOWN REPORTED FAILURES — run "make -C internal/integration-tests list-stacks" before the next run.'
+                # Always print what is left, pass or fail. A run that tore
+                # everything down and a run that left seven billable stacks
+                # standing are otherwise indistinguishable from the log.
+                - |
+                  make -C internal/integration-tests list-stacks \
+                    PYTHON='uv run --all-extras python' || true
+
+          reports:
+            integration:
+              files:
+                - 'junit-integration.xml'
+              base-directory: 'internal/integration-tests'
+              file-format: 'JUNITXML'
+
+          artifacts:
+            files:
+              - 'internal/integration-tests/junit-integration.xml'
+              - 'internal/integration-tests/transcript-*.jsonl'
+              - 'internal/integration-tests/standing-resources-*.md'
+            name: 'run-$CODEBUILD_BUILD_NUMBER'
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub '${AWS::StackName}'
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref SourceBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Archive
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: S3
+                Version: '1'
+              Configuration:
+                S3Bucket: !Ref SourceBucket
+                S3ObjectKey: !Ref SourceObjectKey
+                # FALSE, and this is the point: uploading an archive must start
+                # NOTHING. A billable run happens only when someone asks for one.
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+        - Name: Test
+          Actions:
+            # RunOrder 1 so a second test project can be added beside this one
+            # and run in parallel, needing no change to PipelineRole.
+            - Name: LifecycleTest
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref LifecycleTestProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: LifecycleTestOutput
+              RunOrder: 1
+
+Outputs:
+  SourceBucketName:
+    Description: 'Bucket the trigger uploads the source archive to.'
+    Value: !Ref SourceBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-SourceBucketName'
+
+  SourceObjectKey:
+    Description: 'Key the trigger uploads the source archive to.'
+    Value: !Ref SourceObjectKey
+    Export:
+      Name: !Sub '${AWS::StackName}-SourceObjectKey'
+
+  PipelineName:
+    Description: 'Pipeline to start. Uploading an archive does not start it.'
+    Value: !Ref Pipeline
+    Export:
+      Name: !Sub '${AWS::StackName}-PipelineName'
+
+  CodeBuildProjectName:
+    Description: 'Build project whose logs and reports carry the run result.'
+    Value: !Ref LifecycleTestProject
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildProjectName'

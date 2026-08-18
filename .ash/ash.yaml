@@ -92,6 +92,58 @@ global_settings:
     - rule_id: 'B607'
       path: 'internal/integration-tests/**'
       reason: 'git, docker, npm, uv, make and aws are resolved via PATH rather than absolute paths — hard-coding a Homebrew prefix would break the harness on any machine but one, and exploiting a partial path requires write access to the maintainer PATH, a broader compromise than this harness'
+    #
+    # internal/infra: the CodePipeline stack that runs the harness on CodeBuild, and
+    # the IAM role GitLab CI assumes to start it. Deployed BY HAND, per account, by a
+    # maintainer — no CI job deploys either, and neither is shipped to a customer.
+    #
+    # Every rule below was MEASURED against these two files rather than anticipated:
+    # checkov 3.x reported CKV_AWS_18 and CKV_AWS_158 and nothing else (26 passed, 2
+    # failed on the pipeline; 9 passed, 0 failed on the credential vendor), and
+    # cfn_nag reported W32/W84/W35 on the pipeline and W28 on the credential vendor,
+    # with ZERO failures on both. cfn-lint 4.x is clean on both. KICS was not run
+    # locally, so it may add rule names of its own on the first CI run.
+    #
+    # `/**` for the bandit paths, `/*`-free explicit file paths for the template
+    # rules — the same distinction the block above records.
+    - rule_id: 'B404'
+      path: 'internal/infra/**'
+      reason: 'archive.py and empty_bucket.py import subprocess to invoke git and the AWS CLI. Both are deliberately stdlib-only so the stack lifecycle runs under a bare python3: importing boto3 instead would make teardown fail with an ImportError at the moment an operator is trying to delete infrastructure'
+    - rule_id: 'B603'
+      path: 'internal/infra/**'
+      reason: 'every subprocess call passes a constant argv list with shell=False, so no shell quoting applies; the only interpolated values are a stack name, region and profile supplied by the maintainer running the command'
+    - rule_id: 'B607'
+      path: 'internal/infra/**'
+      reason: 'git and aws are resolved via PATH rather than absolute paths, because their install locations differ across macOS, CloudDesktop and CodeBuild; exploiting a partial path requires write access to the maintainer PATH, a broader compromise than this tooling'
+    # S3 access logging on the pipeline's source/artifact bucket. Same condition and
+    # same rationale as the existing infra/cfn/codepipeline/codepipeline.yml trio
+    # below (AwsSolutions-S1 + CKV_AWS_18 + CFN_NAG_W35), which is why all three are
+    # listed: each scanner emits its own id for this one property.
+    - rule_id: 'CKV_AWS_18'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'Maintainer-only pipeline source bucket; access to it is already the security boundary this stack documents (s3:PutObject on the source key is write access to code that runs as an administrator), and that access is granted to exactly one narrow IAM role and audited via CloudTrail S3 data events rather than via an access-log bucket this stack would also have to own'
+    - rule_id: 'CFN_NAG_W35'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'Maintainer-only pipeline source bucket; matches the CKV_AWS_18 suppression above and the existing infra/cfn/codepipeline/codepipeline.yml suppression'
+    - rule_id: 'AwsSolutions-S1'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'Maintainer-only pipeline source bucket; matches the CKV_AWS_18 and CFN_NAG_W35 suppressions above. Listed for parity with the existing infra/cfn/codepipeline/codepipeline.yml entries, which pair all three for this same property'
+    # CloudWatch Log Group KMS — same rationale as the existing backend.yml and
+    # queue.yml suppressions for this pair of rule ids.
+    - rule_id: 'CKV_AWS_158'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'Build log group uses CloudWatch default encryption, matching the existing infra/cfn/backend.yml and queue.yml suppressions. The logs carry the harness output a maintainer reads to triage a run; a customer-managed key would add a key to own and rotate for a log group that is deleted with the stack'
+    - rule_id: 'CFN_NAG_W84'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'Build log group uses CloudWatch default encryption; matches the CKV_AWS_158 suppression above and the existing infra/cfn/backend.yml suppression'
+    # CodeBuild EncryptionKey — cfn_nag W32, reported only by cfn_nag.
+    - rule_id: 'CFN_NAG_W32'
+      path: 'internal/infra/codepipeline/integration-test-pipeline.yml'
+      reason: 'CodeBuild artifacts use the default S3 service key. The artifacts are a JUnit report, a run transcript and a standing-resource report, all of which are also written to the same bucket this stack owns and expire on a 30-day lifecycle rule; a customer-managed key would add a key to own for material that is deliberately short-lived'
+    # Explicit RoleName — cfn_nag W28. Not a finding to fix: the name is the interface.
+    - rule_id: 'CFN_NAG_W28'
+      path: 'internal/infra/credential-vendor/credential-vendor.yml'
+      reason: 'The explicit RoleName is REQUIRED, not incidental: the role ARN is stored as the AWS_CREDS_TARGET_ROLE GitLab CI/CD variable, so a generated name that changed on a replacing update would silently break credential vending. Accepting no-replacement updates is the intended trade'
     # GenerateSecret is a standard CloudFormation property name, not an actual secret value
     - rule_id: 'SECRET-SECRET-KEYWORD'
       path: 'infra/cfn/cognito/cognito.yml'
