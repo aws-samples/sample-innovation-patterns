@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from harness import driver
+from harness import driver, lifecycle
 from harness.fixtures import _unmet
 
 
@@ -26,13 +26,23 @@ def compose_run(temp_project, resolver, transcript):
     options = driver.build_options(temp_project.root, resolver, transcript)
     result = asyncio.run(
         driver.drive(
-            driver.COMPOSE_PROMPT, temp_project.root, resolver, transcript, options
+            driver.COMPOSE_PROMPT,
+            temp_project.root,
+            resolver,
+            transcript,
+            options,
+            # What "finished" means lives in harness.lifecycle: the artifacts on disk,
+            # never the run's own report. ``subtype='success'`` is what the SDK says
+            # about a turn that ended, and compose has twice ended its turn at Step 1.5
+            # -- after delegating to /ipa-security -- with every artifact ungenerated.
+            is_complete=lambda _r: lifecycle.compose_state(temp_project.root),
         )
     )
     # Printed because a drive of this length has no other progress output, and a wedged
     # run with a blank screen is indistinguishable from a slow one.
     print(
         f"\ncompose drive: cost=${result.cost_usd} turns={result.turns} "
-        f"wall={result.wall_clock_s:.0f}s channels={sorted(result.channels_used)}"
+        f"wall={result.wall_clock_s:.0f}s channels={sorted(result.channels_used)} "
+        f"nudges={result.nudges}"
     )
     return result

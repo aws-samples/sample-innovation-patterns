@@ -71,7 +71,10 @@ help:
 	@echo "    IPA_IT_NAMESPACE=<ns>      Pin the run namespace (validated at source)"
 	@echo "    IPA_IT_STRICT_PREFLIGHT=1  Unmet prerequisites FAIL instead of skipping"
 	@echo ""
-	@echo "  Both scenarios currently FAIL at composition — see DECISIONS.md F3."
+	@echo "    IPA_IT_MAX_NUDGES=0        Do not push a drive that ends its turn early"
+	@echo ""
+	@echo "  Both scenarios last FAILED at composition (DECISIONS.md F3/F8). The cause is"
+	@echo "  fixed in the skills; neither has been re-run, so neither is green yet."
 	@echo ""
 
 preflight:

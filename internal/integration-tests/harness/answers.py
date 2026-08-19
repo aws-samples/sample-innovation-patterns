@@ -2,12 +2,21 @@
 
 Two behaviours here are load-bearing, and both are about failing loudly:
 
-*   **``resolve()`` RAISES on an unknown question.** ``/ipa-init`` batches five
-    questions into one ``AskUserQuestion`` call (``SKILL.md:111``). Answering four
-    and guessing the fifth writes an ``.env`` that is wrong in one field and still
-    passes the init gate — so the run continues and fails later, somewhere that
-    does not mention the field. Raising converts that into an immediate, named
-    failure.
+*   **``resolve()`` RAISES on an unknown question.** ``/ipa-init`` batches its five
+    questions into two ``AskUserQuestion`` calls, four then one (``SKILL.md:111``).
+    Answering three and guessing the fourth writes an ``.env`` that is wrong in one
+    field and still passes the init gate — so the run continues and fails later,
+    somewhere that does not mention the field. Raising converts that into an
+    immediate, named failure.
+
+    The four-then-one split is the tool's limit, not a preference, and it is why
+    this table is keyed per question rather than per batch: ``resolve()`` is called
+    once per call, and neither call is "the init batch". Until 2026-08-18 the skill
+    asked all five at once with a one-option namespace question, which
+    ``AskUserQuestion`` rejects outright — so the hook never fired, this whole table
+    went unused, and the agent wrote ``.env`` from the appended system prompt
+    instead. Nothing in the compose scenario's assertions distinguished that from a
+    working answer path except ``test_the_answer_channel_is_recorded``.
 *   **``make_namespace()`` asserts at the point of generation.** An invalid
     namespace is otherwise accepted by everything until a deployment rejects it,
     many minutes later, with a Cognito domain-prefix error that never mentions the
@@ -119,6 +128,11 @@ class Answer:
 
 #: Nine entries, keyed by EXACT question text as the skills state it.
 #:
+#: The five ``/ipa-init`` entries arrive across TWO calls (four questions, then one),
+#: so the resolver sees two batches. Nothing here depends on which batch a question
+#: came in — deliberately, because the split is the tool's 4-per-call limit and
+#: regrouping the questions must not require touching this table.
+#:
 #: Questions 6 and 7 are held separately on purpose. /ipa-compose asks "How should
 #: IPA configure security infrastructure?" offering "Managed Policy ARN";
 #: /ipa-security asks "How should IPA configure IAM execution roles?" offering
@@ -126,7 +140,7 @@ class Answer:
 #: prose edit aligning them must not collapse them into one entry — one skill
 #: would then silently receive the other's answer.
 ANSWERS: dict[str, Answer] = {
-    # --- /ipa-init, all five in ONE AskUserQuestion call (SKILL.md:111) --------
+    # --- /ipa-init, five questions across TWO calls: 1-4, then 5 (SKILL.md:111) -
     "Which AWS CLI profile should IPA use?": Answer(
         value=_PROFILE,
         free_text=True,
@@ -153,13 +167,16 @@ ANSWERS: dict[str, Answer] = {
     ): Answer(
         value=_NAMESPACE,
         free_text=True,
-        options=("app",),
+        options=("app", "sandbox"),
         note=(
             "The ONLY discriminator between 'the harness answered' and 'the agent "
-            "used skill defaults'. Offers exactly one option, 'app (Recommended)', "
-            "so the value must go through the built-in Other path — and the "
-            "driver ALSO states it in the appended system prompt, because a "
-            "single channel for the one value that proves interception is thin."
+            "used skill defaults'. Neither offered option is ever the answer -- the "
+            "run namespace goes through the built-in Other path -- and the driver "
+            "ALSO states it in the appended system prompt, because a single channel "
+            "for the one value that proves interception is thin. "
+            "'sandbox' is the second option because a one-option question is "
+            "REJECTED by AskUserQuestion, which is how this question silently "
+            "disabled the whole answer path until 2026-08-18."
         ),
     ),
     "Which environment?": Answer(

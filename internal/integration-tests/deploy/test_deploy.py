@@ -25,8 +25,12 @@ from harness import aws, cognito_auth, standing
 
 pytestmark = pytest.mark.integration
 
-HEALTHY = {"CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE"}
-EXPECTED_TIERS = ("logs", "ecr", "cognito", "security", "queue", "backend", "frontend")
+# Both from ``harness.standing``, never restated here. ``deploy/conftest.py``'s
+# completion gate reads the same tuple, and a second copy would let the gate that
+# decides "the lifecycle finished" disagree with the assertions that check what it
+# produced -- silently, in both directions.
+HEALTHY = standing.HEALTHY_STATES
+EXPECTED_TIERS = standing.EXPECTED_TIERS
 
 JOB_POLL_TIMEOUT_S = 120
 JOB_POLL_INTERVAL_S = 5
@@ -133,6 +137,35 @@ def _get_with_transient_retries(url: str, **kwargs) -> requests.Response:
             continue
         return response
     raise AssertionError(f"no usable response from {url} after 6 attempts: {last}")
+
+
+# --------------------------------------------------------------------------- #
+# How the run got here
+# --------------------------------------------------------------------------- #
+
+
+def test_the_answer_channel_is_recorded(deploy_run):
+    """Which path delivered each question batch.
+
+    Deliberately NOT part of ``conftest.py``'s completion gate. A deployment can be
+    entirely correct while the harness's resolver was never consulted -- that is
+    exactly what happened on 2026-08-18, when ``/ipa-init``'s five-question call was
+    rejected by ``AskUserQuestion``'s input validation and the agent filled ``.env``
+    in from the appended system prompt instead. Failing the gate on it would throw
+    away a completed billable deployment over a fact about the harness; failing one
+    assertion reports it and keeps the rest of the run's evidence.
+
+    An empty set therefore means: the pinned answers in ``harness.answers`` did not
+    apply to this run, and anything they encode -- the namespace excepted, which the
+    system prompt also pins -- reflects the skills' own defaults.
+    """
+    assert deploy_run.channels_used, (
+        "no question batch was recorded as answered, so the resolver never fired. "
+        "Check the transcript for an AskUserQuestion InputValidationError: a call "
+        "with more than 4 questions, or any question offering fewer than 2 options, "
+        "is rejected before the hook can answer it."
+    )
+    assert deploy_run.channels_used <= {"pre_tool_use_hook", "can_use_tool"}
 
 
 # --------------------------------------------------------------------------- #

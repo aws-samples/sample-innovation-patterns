@@ -54,16 +54,24 @@ make -C .. teardown-namespace NAMESPACE=<ns>   # by namespace, from the harness 
 The namespace is printed by the run and recorded in `standing-resources-<ns>.md` at the
 harness root, which is readable with no credentials configured.
 
-## Status: fails at composition
+## Status: F3's cause is fixed; this scenario has not been re-run
 
-This scenario does not currently reach its deployment assertions. `/ipa-compose`
-generates none of its eight artifacts, because nothing returns control from
-`/ipa-security` at `ipa-compose/SKILL.md:130` — recorded as `DECISIONS.md` F3.
+Both of this scenario's runs stopped at composition (`DECISIONS.md` F3 and F8): the agent
+delegated to `/ipa-security`, deployed the security stack, and ended its turn with none of
+`/ipa-compose`'s eight artifacts generated. The skills now state the continuation
+obligation explicitly at every delegation boundary, and the drive nudges a bounded number
+of times when the lifecycle is unfinished.
 
-So the deployment assertions below are **written and collectable, but unexercised**.
-Fixing F3 is a prerequisite to measuring this scenario's cost, and it is not this
-scenario's job: `.claude/skills/**` is public interface and needs its own change with a
-bumping commit type.
+**Nothing here has been re-run since, so this scenario's cost and its deployment
+assertions remain UNMEASURED** — not green. Two things changed that a re-run will show
+immediately:
+
+- A truncated lifecycle now fails **once**, in `deploy_run`, naming which artifacts or
+  stacks are missing — rather than twenty-one `describe_stacks` failures for stacks
+  nothing created.
+- `nudges=` in the drive's printed line is the count of times a skill ended its turn
+  early. **Zero is the only good value**; anything above it is a skill defect that
+  survived the fix.
 
 ## What it asserts
 

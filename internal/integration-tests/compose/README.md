@@ -9,20 +9,22 @@ make test        # the drive
 make -C ../ teardown-namespace NAMESPACE=<ns>   # remove what it left standing
 ```
 
-## Status: RED
+## Status: was RED on F3; the cause is fixed and this has not been re-run
 
-This scenario currently fails, for a cause **outside itself**:
-`/ipa-compose` generates none of its eight artifacts, because nothing returns control
-from `/ipa-security` at `ipa-compose/SKILL.md:130`. Recorded as `DECISIONS.md` F3.
+This scenario's last run failed for a cause **outside itself**: `/ipa-compose` generated
+none of its eight artifacts, because nothing brought the agent back from `/ipa-security`
+(`DECISIONS.md` F3). The skills now state the continuation obligation at every delegation
+boundary, and the drive nudges when the artifacts are still absent.
 
-The first assertion to fail is `test_all_eight_artifacts_exist`. **A failure earlier than
-that one is a regression, not the known defect** — in particular, the drive should still
-reach the compose stage, `.env` should still carry the pinned namespace, and the
-credential probe should still resolve. Those three are the pass condition until F3 is
-fixed.
+Two things to read on the next run, in this order:
 
-Fixing F3 is not this scenario's job: `.claude/skills/**` is public interface and needs
-its own change with a bumping commit type.
+1. **`nudges=` in the printed drive line.** Zero means the skills carried themselves
+   through. Above zero means one still ends its turn early and the harness pushed it —
+   the run may pass, and the defect is real.
+2. **`test_the_answer_channel_is_recorded`.** Until 2026-08-18 `/ipa-init` batched five
+   questions with a one-option namespace question, which `AskUserQuestion` rejects
+   outright, so no batch was ever answered and `harness.answers` went unused. That
+   assertion is what notices.
 
 ## Cost: $0.9417 over 377.8 s — measured
 

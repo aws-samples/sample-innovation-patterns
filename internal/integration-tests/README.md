@@ -22,6 +22,7 @@ Shared code in one package, one folder per scenario:
 harness/          the shared package — imported as harness.*
   aws.py          the ONE credential and region policy
   fixtures.py     shared session fixtures, loaded as a pytest plugin
+  lifecycle.py    what "the lifecycle finished" means — disk and AWS, not the agent
   tests/          the free regression suite for the modules above
 compose/          scenario: /ipa-init + /ipa-compose, then stop
 deploy/           scenario: the full lifecycle
@@ -58,15 +59,21 @@ it leaves behind and how to remove it.
 
 | What | Command | Status |
 |---|---|---|
-| Free suite | `make test-offline` | **green** — 99 tests, ~4.5 s, $0, no credentials |
+| Free suite | `make test-offline` | **green** — 114 tests, ~5 s, $0, no credentials |
 | Preflight | `make preflight` | **green** where credentials resolve — 9 probes + 1 blocking check |
-| `compose` scenario | `make test-compose` | **RED** — `DECISIONS.md` F3 |
-| `deploy` scenario | `make test-deploy` | **collects and sets up**; fails at composition for the same cause |
+| `compose` scenario | `make test-compose` | **not re-run** since its cause was fixed |
+| `deploy` scenario | `make test-deploy` | **not re-run** since its cause was fixed |
 
-Both scenarios fail for one cause **outside themselves**: `/ipa-compose` generates none
-of its eight artifacts, because nothing returns control from `/ipa-security`
-(`ipa-compose/SKILL.md:130`). Recorded as `DECISIONS.md` F3. Fixing it is a separate
-change — `.claude/skills/**` is public interface.
+Both scenarios' last runs failed for one cause **outside themselves**: `/ipa-compose`
+generated none of its eight artifacts, because nothing brought the agent back from
+`/ipa-security` (`DECISIONS.md` F3, seen again as F8). That is now fixed in the skills —
+each delegation boundary states that the turn must not end — and the drive nudges a
+bounded number of times when the lifecycle is unfinished, counting each nudge on the
+result.
+
+**Neither scenario has been re-run, so neither is green.** On the next run, read
+`nudges=` in the drive's printed line first: zero means the skills carried themselves
+through, and anything above zero is a skill that still stops early.
 
 The `deploy` scenario was, until recently, **uncollectable** rather than merely unrun: it
 requested a `deploy_run` fixture that nothing defined, so it failed at *setup* with eight

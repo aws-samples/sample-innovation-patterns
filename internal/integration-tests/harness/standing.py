@@ -33,6 +33,23 @@ HEALTHY_STATES = frozenset(
     {"CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE"}
 )
 
+#: The seven stacks a completed IPA deployment leaves standing, in deployment order.
+#: **THE single definition** -- the deploy scenario's completion gate and its
+#: seven-stack assertions both read this one tuple. Two copies could disagree, and the
+#: disagreement is silent in both directions: a gate expecting a stack no test wants
+#: nudges a finished run, and a gate missing one lets a short deployment pass.
+EXPECTED_TIERS = ("logs", "ecr", "cognito", "security", "queue", "backend", "frontend")
+
+#: Tiers whose stacks hold NO billable resource. ``security`` is IAM only -- roles,
+#: policies and a permissions boundary, none of which is charged for.
+#:
+#: Everything else is billable or storage-billable, so the standing-resource report
+#: says BILLABLE about it. The distinction is here because a report that calls one IAM
+#: stack "BILLABLE" and demands teardown teaches a maintainer to discount the warning,
+#: which is precisely the wrong lesson on the day the standing stack is a CloudFront
+#: distribution and two Lambdas.
+FREE_TIERS = frozenset({"security"})
+
 
 def pointer_path(namespace: str) -> Path:
     """Where the pointer for ``namespace`` lives: beside the Makefile."""
@@ -97,6 +114,29 @@ def live_stacks(
     return stacks, ""
 
 
+def absent_tiers(namespace: str, env: str, found) -> list[str]:
+    """Which of ``EXPECTED_TIERS`` has no stack among ``found`` stack names."""
+    names = set(found)
+    return [
+        tier for tier in EXPECTED_TIERS if f"{namespace}-{env}-{tier}" not in names
+    ]
+
+
+def billable(stacks: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """The subset of ``stacks`` holding something that is charged for.
+
+    A stack is judged by its tier suffix, and anything unrecognised counts as
+    BILLABLE. That default is the safe direction: an unknown stack under the run's
+    namespace is more likely a tier this table has not been taught than a second free
+    IAM stack, and the cost of guessing wrong is a warning nobody acts on.
+    """
+    return [
+        (name, status)
+        for name, status in stacks
+        if name.rsplit("-", 1)[-1] not in FREE_TIERS
+    ]
+
+
 def render_pointer(
     namespace: str,
     env: str,
@@ -107,13 +147,25 @@ def render_pointer(
 ) -> str:
     """The pointer's text. Readable with no credentials configured."""
     env_values = env_values or {}
+    charged = billable(stacks)
+    if charged:
+        headline = (
+            "**These resources are BILLABLE and are still deployed.** A passing "
+            "integration-test run leaves them standing on purpose, so a maintainer "
+            "can open the application in a browser and confirm by eye what the "
+            "assertions claim."
+        )
+    else:
+        headline = (
+            "**Nothing standing here is billable** — every stack below is IAM only. "
+            "It is still worth removing, because the namespace must be free for the "
+            "next run and because a half-finished run is what usually leaves exactly "
+            "this: the free stack and nothing else."
+        )
     lines = [
         f"# Standing resources — run namespace `{namespace}`",
         "",
-        "**These resources are BILLABLE and are still deployed.** A passing "
-        "integration-test run leaves them standing on purpose, so a maintainer can "
-        "open the application in a browser and confirm by eye what the assertions "
-        "claim.",
+        headline,
         "",
         "## Remove them",
         "",
@@ -129,8 +181,11 @@ def render_pointer(
         "",
     ]
     if stacks:
+        free = {name for name, _ in stacks} - {name for name, _ in charged}
         lines += ["## Stacks", ""]
-        lines += [f"- `{name}` — {status}" for name, status in stacks]
+        for name, status in stacks:
+            note = " (IAM only, not billable)" if name in free else ""
+            lines.append(f"- `{name}` — {status}{note}")
         lines.append("")
     for key in ("APP_URL", "API_URL", "LOG_BUCKET_NAME", "ECR_REPOSITORY_NAME"):
         if env_values.get(key):
@@ -179,9 +234,18 @@ def report_everywhere(
     path = write_report(
         namespace, env, region, credentials, stacks, env_values, redact=redact
     )
+    charged = billable(stacks)
+    # Counted, not asserted: "3 stack(s), 2 of them billable" is actionable where a
+    # flat "3 BILLABLE stack(s)" over one IAM stack trains the reader to ignore it.
+    scale = (
+        f"{len(stacks)} stack(s) left standing under namespace {namespace!r}, "
+        f"{len(charged)} of them billable"
+        if charged
+        else f"{len(stacks)} stack(s) left standing under namespace {namespace!r}, "
+        "none of them billable (IAM only)"
+    )
     message = (
-        f"{len(stacks)} BILLABLE stack(s) left standing under namespace "
-        f"{namespace!r}. Remove with: make teardown-namespace NAMESPACE={namespace} "
+        f"{scale}. Remove with: make teardown-namespace NAMESPACE={namespace} "
         f"(details: {path})"
     )
     print(f"\n{message}\n")

@@ -483,21 +483,28 @@ implies — it cannot detect a copy in code it does not inspect.
 
 **Three follow-up changes, none of which belong in this feature** (Section 4 of the plan:
 no skill or template defect is fixed here, because `.claude/skills/**` is public
-interface and each fix needs its own bumping commit type):
+interface and each fix needs its own bumping commit type). **Items 1 and 2 were done in
+Phase 7 below**, after F3 recurred on the deploy scenario; item 3 is still open:
 
-1. **`fix(ipa):` `/ipa-compose` must resume after delegating to `/ipa-security`.**
+1. ~~**`fix(ipa):` `/ipa-compose` must resume after delegating to `/ipa-security`.**~~
    F3 — zero of eight artifacts. `ipa-compose/SKILL.md:130` says *"On success … Proceed
    to Step 2"* but nothing returns control and `/ipa-security`'s completion report reads
-   as terminal.
-2. **Harness change: decide what the answer channel actually is.** F1 — `AskUserQuestion`
-   is never invoked when the system prompt pre-supplies the values, so the resolver never
-   fires and answers 6–9 never apply. Either stop pre-supplying so the questions get
-   asked, or accept the prompt as the channel and drop the channel assertion. This is a
-   Phase 3 re-run, not a skill change.
+   as terminal. **Done in Phase 7 (F8)** — every delegation boundary now states that the
+   turn must not end, and the drive nudges when the lifecycle is unfinished.
+2. ~~**Harness change: decide what the answer channel actually is.**~~ F1 —
+   `AskUserQuestion` is never invoked when the system prompt pre-supplies the values, so
+   the resolver never fires and answers 6–9 never apply. Either stop pre-supplying so the
+   questions get asked, or accept the prompt as the channel and drop the channel
+   assertion. **Both options rested on a wrong diagnosis — see F9.** The call *was*
+   invoked and was **rejected** by input validation, because the skill asked five
+   questions in one call with a one-option namespace question. Dropping the channel
+   assertion would have deleted the one check that notices. Fixed in the skill in
+   Phase 7; the assertion stays and is now in both scenarios.
 3. **Consider whether `/ipa-security`'s recommended default should be Route C.** F2 — an
    unattended agent picking the recommendation deploys a permissions boundary and a
    47-service policy where two roles would satisfy every gate. Not a defect; a question
-   about the default.
+   about the default. **Still open**, and the 2026-08-18 run took Route C again — though
+   for the reason in F9, not by preference.
 
 ## Phase 6 — Scenario restructure and the default credential chain (2026-08-18)
 
@@ -695,3 +702,161 @@ for free — rather than mid-drive after spending.
   falsify a dated observation, so it stands as history. The `## Target` table at the top of
   this document *was* updated, because that one describes the current target rather than a
   past run. The probe itself no longer exists under that name — see D6.2.
+
+---
+
+## Phase 7 — First deploy drive (run 2026-08-18)
+
+The deploy scenario ran for the first time. It **reproduced F3 exactly**, on the full
+lifecycle rather than the compose scope, and produced two further findings — one of which
+corrects F1's diagnosis.
+
+### Measured, not predicted
+
+| | |
+|---|---|
+| Namespace | `itab40e6228e` |
+| Account | `369530416671`, profile `vincilb+ip-dev-Admin` — **not** the `450282238889` in this document's `## Target` table |
+| Drive | `$1.5159828`, 49 turns, 363.0 s wall clock |
+| Result | `ResultMessage(subtype='success', stop_reason='end_turn')`, `is_error=False` |
+| Ceiling | **Not** reached — `stopped_by_ceiling=false` against a `$15` ceiling and 600 turns |
+| Stacks created | **one**: `itab40e6228e-dev-security`, `CREATE_COMPLETE` |
+| Artifacts generated | **none** of the eight |
+| pytest | `15 failed, 1 passed, 5 deselected, 6 errors in 373.32s` |
+| Transcript | 1,076 events, `transcript-itab40e6228e.jsonl` |
+
+The single pass was `test_expected_stack_exists_and_is_healthy[security]` — the one
+assertion about the one free stack a truncated run happens to create.
+
+The account mismatch is recorded rather than corrected: the run authenticated through
+`AWS_PROFILE`, and which account the harness should target is a separate decision. Every
+figure above is from that account.
+
+### F8 — the lifecycle ended at the compose→security handoff, again
+
+F3, on the deploy scenario, with the agent's own reasoning visible this time
+(transcript event 1074, verbatim):
+
+> *"Since this is running in mode=init (called from /ipa-compose), I should return
+> control to the compose process with a completion message."*
+
+It printed the completion message and ended its turn. **Printing a report is what it
+took "return control" to mean** — which is the whole defect: a skill is loaded into the
+calling turn, so there is nothing to return to, and the only continuation is the agent
+carrying on. `/ipa-security/SKILL.md:476` said *"return control to compose silently"*
+while Step 8.4 above it specified a report block that reads as terminal, and the agent
+did both.
+
+Sequence, from the transcript: `Skill ipa-init` (70) → `Skill ipa-compose` (334) → four
+stack skills read (472–532) → `Skill ipa-security mode=init path=C` (579) → stack
+deployed → end of turn. `/ipa-prepare` and `/ipa-deploy` never ran, and neither
+`prepare:proceed` nor `deploy:proceed` appears in `gates_seen`.
+
+**What made it expensive to read**: nothing checked that the lifecycle finished, so the
+first thing to notice was `describe_stacks` on a stack nothing had created — twenty-one
+times, in `botocore` tracebacks naming neither `/ipa-compose` nor the turn that ended.
+The compose scenario already had the three gates that would have named it
+(`test_compose.py:51,55,76`); the deploy scenario had none.
+
+### F9 — `/ipa-init`'s `AskUserQuestion` call was REJECTED, which corrects F1
+
+F1 recorded that `AskUserQuestion` was never invoked and attributed it to the appended
+system prompt pre-supplying the values. **That diagnosis was wrong, and the correction
+matters because it changes the fix.** The call *was* invoked (event 201) and was rejected
+before rendering (event 202, verbatim):
+
+```
+InputValidationError:
+  questions[2].options — Too small: expected array to have >=2 items
+  questions          — Too big: expected array to have <=4 items
+```
+
+`AskUserQuestion` accepts at most **4** questions per call and requires at least **2**
+options per question; the built-in "Other" path does not count toward the minimum.
+`/ipa-init/SKILL.md:111` mandated a single call with **five** questions, and its
+`APP_NAMESPACE` question offered exactly one option, `"app" (Recommended)` — so the call
+broke both limits at once and **could never have succeeded on any run, attended or not**.
+The agent then wrote `.env` itself from the pinned values in the appended prompt, which
+is why F1 read as "the prompt was the only channel".
+
+Consequences, which are wider than F1 concluded:
+
+- The whole of `harness/answers.py` has never applied to any run. Answers 6–9 are
+  untested not because the agent preferred its own defaults but because no batch ever
+  reached the hook.
+- F2 (Route C instead of Route A) follows from this rather than from agent preference.
+  The 2026-08-18 run took Route C again.
+- The recommended fix in F1 — *"accept that the prompt is the channel and drop the channel
+  assertion"* — would have deleted the one assertion that notices, and left every real
+  `/ipa-init` user eating a rejected tool call. **Do not do that.**
+
+### F10 — the delegation letters are crossed (found by inspection, not measured)
+
+`/ipa-compose` Step 1.5 offers A) Existing Role ARN, B) Managed Policy ARN,
+C) Innovation Builder Stack, and passed `path={A|B|C}` to `/ipa-security`, whose steps
+are 3a Managed, 3b Existing, 3c Innovation. **Two of the three letters mean different
+things on each side.** `path=A` invites Step 3a and prompts for a managed policy where
+the builder asked to supply their own role ARNs; only `C` happens to line up, which is
+the path both measured runs took, which is why no run has hit this.
+
+Recorded as inspection, not observation: no run has exercised `path=A` or `path=B`.
+
+### The gate scanner's false positive recurred
+
+`compose:overwrite` was recorded again, and again the matching text was
+`/ipa-compose`'s own SKILL.md prose echoed into assistant output when the skill loaded —
+not a question. As in Phase 3: the record is verbatim, so the false positive is visible
+on inspection, but a gate count is still not a gate-crossing count.
+
+### D7.1 — the completion gate fails the FIXTURE, not each assertion
+
+`harness/lifecycle.py` now decides what "finished" means — all eight artifacts present,
+all seven stacks live — and `deploy/conftest.py` asserts it in `deploy_run`. The predicate
+lives in the shared package rather than the scenario because a scenario conftest is
+unreachable from the offline suite, and this is the function that decides whether a
+billable run gets re-queried. One inaccurate `subtype='success'`
+therefore produces one message naming what is missing, instead of twenty-one failures
+naming stacks nothing created.
+
+Failing in the fixture is safe **because `test_teardown.py` depends on `namespace` and
+`temp_project`, never on `deploy_run`** — so the teardown path and the standing-resource
+report both still run. That was checked before choosing fixture-level over a first test.
+
+The predicate reads disk and AWS, never the agent's account of what it did, and
+`harness/standing.py` now holds `EXPECTED_TIERS` as the single definition so the gate and
+the seven-stack assertions cannot disagree.
+
+### D7.2 — the drive nudges, bounded at two, and counts every nudge
+
+`driver.drive` takes an `is_complete` predicate and re-queries the same client when the
+turn ends with the lifecycle unfinished. A ceiling stop is never nudged.
+
+**The nudge is a backstop, not the fix** — the fix is in the skills. Every nudge is
+counted on `RunResult.nudges`, recorded in the transcript, and printed, so a run that only
+completed because it was pushed reports that instead of looking clean. `IPA_IT_MAX_NUDGES=0`
+measures the skills as authored. The cap is 2 deliberately: raising it converts "a skill
+stops early" into "the harness pays repeatedly to push it through", hiding the defect the
+counter exists to report.
+
+### D7.3 — the standing-resource report stopped calling one IAM stack BILLABLE
+
+The 2026-08-18 warning read *"1 BILLABLE stack(s) left standing"* about a stack holding
+four IAM roles, a permissions boundary and a policy — nothing charged for. The report now
+classifies by tier (`security` free; everything else, including anything unrecognised,
+billable) and says how many of the standing stacks are billable. A report that overstates
+teaches a maintainer to discount it, which is the wrong lesson on the day the standing
+stack is a CloudFront distribution and two Lambdas.
+
+### What was changed, and what remains unmeasured
+
+Fixed in this change: `/ipa-init` asks 4+1 with two namespace options (F9);
+`/ipa-security` and `/ipa-compose` state the continuation obligation at every delegation
+boundary, and `/ipa-init` does too for compose's auto-init gate (F8); `path=` is passed by
+name with the letter mapping documented (F10); plus D7.1–D7.3 and fifteen offline
+tests (`harness/tests/test_nudge.py`), taking the free suite from 99 to 114.
+
+**Neither scenario has been re-run.** The skills' behaviour under the new instructions is
+unobserved, this scenario's cost is still unmeasured, and the twenty deployment assertions
+are still unexercised. `nudges=` on the next run is the measurement that matters: zero
+means the skills now carry themselves through, and anything above zero means one still
+stops early and the harness pushed it.

@@ -27,6 +27,14 @@ failure whose symptom names nothing relevant:
    disagree.
 5. **``setting_sources=["project"]``** is required for the temp project's
    ``.claude/skills/ipa-*`` to load at all.
+6. **A finished turn is not a finished lifecycle.** ``ResultMessage(subtype='success',
+   stop_reason='end_turn')`` is what the SDK reports for a drive that stopped a tenth
+   of the way through ``/ipa-compose`` — measured twice at the same boundary, where
+   compose delegates to ``/ipa-security``. Nothing in the result distinguishes that
+   from completion, so ``drive`` takes an ``is_complete`` predicate supplied by the
+   scenario, checks it against disk and AWS, and nudges a bounded number of times.
+   Without it the truncation surfaces twenty-one ``describe_stacks`` failures later,
+   naming a missing stack rather than the turn that ended.
 
 ``permission_mode="acceptEdits"`` is the only mode where the answer path is both
 reachable and un-shadowed: ``dontAsk`` denies ``AskUserQuestion`` without invoking
@@ -38,6 +46,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -105,6 +114,16 @@ MAX_TURNS = int(os.environ.get("IPA_IT_MAX_TURNS", "300"))
 #: Previously a literal ``15.0`` inside ``full_lifecycle_options``, which meant the
 #: documented spend ceiling could not reach the only path able to exhaust it.
 FULL_MAX_BUDGET_USD = float(os.environ.get("IPA_IT_FULL_MAX_BUDGET_USD", "15"))
+
+#: How many times a drive may ask the agent to carry on after it ended its turn with
+#: the lifecycle unfinished. See ``drive``'s ``is_complete``.
+#:
+#: TWO, not more. A nudge is a backstop for a skill that stopped early, and each one
+#: re-enters a session that has already demonstrated it thinks it is done. Raising this
+#: converts "the skill stops early" into "the harness pays repeatedly to push it
+#: through", which hides the defect the counter exists to report. Set to ``0`` to
+#: measure the unnudged behaviour of the skills as authored.
+MAX_NUDGES = int(os.environ.get("IPA_IT_MAX_NUDGES", "2"))
 
 #: IPA's own prose gates, verified in source. The reference's markers were its own
 #: and do not transfer.
@@ -412,6 +431,22 @@ class RunResult:
     final_text: str = ""
     result_payload: dict[str, Any] = field(default_factory=dict)
 
+    #: How many times ``drive`` had to ask the agent to carry on after it ended its
+    #: turn with the lifecycle unfinished. **Zero is the only good value** -- every
+    #: nudge is a skill that stopped where it should have continued, and the whole
+    #: reason this is a counter rather than a boolean is that it must be reportable.
+    nudges: int = 0
+
+    #: What was still missing at the last check, verbatim from ``is_complete``.
+    #: Empty means the drive finished complete.
+    incomplete_reason: str = ""
+
+    #: EVERY ``ResultMessage`` cost, in order. ``cost_usd`` keeps only the last one,
+    #: and a nudged drive produces several -- whether the SDK's figure is cumulative
+    #: or per-query is not measured here, so the list is recorded rather than a sum
+    #: inferred from an assumption about which it is.
+    cost_reports: list[float] = field(default_factory=list)
+
 
 def _record_message(transcript: Transcript, message: Any, result: RunResult) -> None:
     """Record one SDK message, flattening the parts worth asserting on later."""
@@ -438,11 +473,29 @@ async def drive(
     resolver: AnswerResolver,
     transcript: Transcript,
     options: "ClaudeAgentOptions | None" = None,
+    is_complete: "Callable[[RunResult], tuple[bool, str]] | None" = None,
+    max_nudges: int = MAX_NUDGES,
 ) -> RunResult:
     """Drive one session to completion with ONE long-lived client.
 
     See trap 3: a client per lifecycle stage closes its input stream before the
     answer callback can fire, producing a silent hang.
+
+    ``is_complete`` is the CALLER's definition of "the lifecycle finished", returning
+    ``(done, what_is_missing)``. It exists because ``ResultMessage(subtype='success',
+    stop_reason='end_turn')`` is what the SDK reports for a run that stopped a tenth
+    of the way through ``/ipa-compose`` -- an agent ending its turn is
+    indistinguishable, from here, from an agent finishing the work. Measured twice at
+    the same boundary (``/ipa-compose`` Step 1.5 delegating to ``/ipa-security``):
+    both runs reported success having generated no artifacts.
+
+    When the predicate says the work is unfinished the drive NUDGES -- sends a
+    follow-up on the same client -- up to ``max_nudges`` times. This is deliberately
+    a thin backstop and not a fix: each nudge is counted on the result and recorded in
+    the transcript, so a run that only completed because it was nudged reports that
+    fact rather than looking clean. A ceiling stop is never nudged; spending more on a
+    run already stopped for spending is the one case where continuing is certainly
+    wrong.
     """
     options = options or build_options(project, resolver, transcript)
     result = RunResult()
@@ -456,33 +509,60 @@ async def drive(
         model=MODEL,
         max_budget_usd=options.max_budget_usd,
         max_turns=options.max_turns,
+        max_nudges=max_nudges,
         project=str(project),
     )
 
     try:
         async with ClaudeSDKClient(options=options) as client:
-            await client.query(prompt)
-            async for message in client.receive_response():
-                _record_message(transcript, message, result)
-                if type(message).__name__ == "ResultMessage":
-                    result.cost_usd = getattr(message, "total_cost_usd", None)
-                    result.turns = getattr(message, "num_turns", None)
-                    payload = getattr(message, "__dict__", {})
-                    result.result_payload = {
-                        k: v for k, v in payload.items() if not k.startswith("_")
-                    }
-                    subtype = str(getattr(message, "subtype", "") or "")
-                    # Distinguish "a ceiling stopped it" from "the agent finished".
-                    if "max_turns" in subtype or "budget" in subtype:
-                        result.stopped_by_ceiling = True
+            pending = prompt
+            while True:
+                await client.query(pending)
+                async for message in client.receive_response():
+                    _record_message(transcript, message, result)
+                    if type(message).__name__ == "ResultMessage":
+                        result.cost_usd = getattr(message, "total_cost_usd", None)
+                        if result.cost_usd is not None:
+                            result.cost_reports.append(result.cost_usd)
+                        result.turns = getattr(message, "num_turns", None)
+                        payload = getattr(message, "__dict__", {})
+                        result.result_payload = {
+                            k: v for k, v in payload.items() if not k.startswith("_")
+                        }
+                        subtype = str(getattr(message, "subtype", "") or "")
+                        # Distinguish "a ceiling stopped it" from "the agent finished".
+                        if "max_turns" in subtype or "budget" in subtype:
+                            result.stopped_by_ceiling = True
+
+                done, missing = (
+                    (True, "") if is_complete is None else is_complete(result)
+                )
+                result.incomplete_reason = "" if done else missing
+                if done or result.stopped_by_ceiling:
+                    break
+                if result.nudges >= max_nudges:
+                    transcript.record(
+                        "nudge_exhausted", after=result.nudges, missing=missing
+                    )
+                    break
+                result.nudges += 1
+                transcript.record("nudge", attempt=result.nudges, missing=missing)
+                # Printed as well as recorded: on a drive whose only other output is a
+                # blank screen, a nudge is the one thing a watching maintainer can act
+                # on -- it names a skill that stopped early, while the run continues.
+                print(f"\nNUDGE {result.nudges}/{max_nudges}: {missing}")
+                pending = NUDGE_PROMPT.format(missing=missing)
     finally:
         result.wall_clock_s = time.monotonic() - started
         transcript.record(
             "run_end",
             cost_usd=result.cost_usd,
+            cost_reports=result.cost_reports,
             turns=result.turns,
             wall_clock_s=round(result.wall_clock_s, 1),
             stopped_by_ceiling=result.stopped_by_ceiling,
+            nudges=result.nudges,
+            incomplete_reason=result.incomplete_reason,
             gates_seen=sorted(set(result.gates_seen)),
         )
 
@@ -509,4 +589,18 @@ FULL_PROMPT = (
     "Set up this project with IPA and deploy: "
     "Web App with REST API and background queue with Cognito authentication. "
     "Run /ipa-init, then /ipa-compose, then /ipa-prepare, then /ipa-deploy."
+)
+
+#: Sent when a drive ends its turn with the lifecycle unfinished. States WHAT is
+#: missing -- supplied by the scenario's ``is_complete`` -- rather than "continue",
+#: because the agent has just reported success and needs the specific gap, not
+#: encouragement. It deliberately does not name a skill: which step is unfinished is
+#: the agent's to work out from the state on disk, and telling it to re-run a named
+#: skill is how a nudge turns into a second composition over a half-composed project.
+NUDGE_PROMPT = (
+    "You ended your turn but the lifecycle is not finished: {missing}\n\n"
+    "Nothing has gone wrong and nobody is waiting -- this run is unattended. Check "
+    "what is actually on disk and in AWS, work out which step you stopped in the "
+    "middle of, and carry on from there through to the end of the lifecycle you were "
+    "asked for. Do not start over and do not re-run a step that already completed."
 )
