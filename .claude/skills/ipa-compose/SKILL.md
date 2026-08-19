@@ -22,8 +22,8 @@ Before any validation, check if `.env` exists and contains the required IPA vari
 - **If all present**: proceed to Phase 0.
 - **If `.env` missing or any required variable absent**:
   Display: "Project not initialized. Running `/ipa-init` to configure defaults…"
-  Invoke `/ipa-init` (full interactive flow — 4 questions).
-  On success, resume this skill from Phase 0.
+  Invoke `/ipa-init` (full interactive flow — five questions across two batched prompts).
+  On success, continue this skill from Phase 0 **in the same turn**: `/ipa-init` writing `.env` is a step in this composition, not the end of it.
   On `/ipa-init` failure, STOP.
 
 ---
@@ -127,7 +127,11 @@ Check if `APP_BUILDER_ROLE_ARN` is present in `.env`:
   B) **Managed Policy ARN** — "IPA creates roles with my chosen managed policy"
   C) **Innovation Builder Stack (Recommended)** — "Deploy IPA's pre-authored security stack (permissions boundary + 47-service policy + builder/CodeBuild/SageMaker/EC2 roles)"
 
-  Delegate to `/ipa-security` with `mode=init` and `path={A|B|C}`, passing the builder's selection. On success, `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` are written to `.env`. Proceed to Step 2.
+  Delegate to `/ipa-security` with `mode=init` and the selected path **by name**, not by letter: `path=existing-roles` (A), `path=managed-policy` (B), `path=innovation-builder` (C). The letters here are this question's option ordering and do NOT match `/ipa-security`'s step letters (its 3a is Managed and its 3b is Existing), so passing `path=A` invites it to run Step 3a and prompt for a managed policy instead.
+
+  On success, `APP_BUILDER_ROLE_ARN` and `APP_CODEBUILD_ROLE_ARN` are written to `.env`. **Continue to Step 2 in the same turn.**
+
+  > **This is where composition has stopped twice** (measured 2026-08-08 and 2026-08-18), each run leaving a deployed security stack, none of the eight artifacts, and a report that read like success. Delegating to a skill loads its instructions into *this* turn — there is no call that returns, so nothing resumes this skill except you continuing to work through it. After `/ipa-security` has written `.env`, you are roughly one tenth of the way through `/ipa-compose`: Steps 2 through 10 have not run, `scripts/` holds no Makefiles, and the project cannot be deployed. Do not end your turn, do not summarize what security did, and do not wait for the builder. Go straight to Step 2: Stack Discovery.
 
   On `/ipa-security` failure, STOP.
 
@@ -188,6 +192,7 @@ For each stack in the composition that has a `## Compose Config` section with `P
 
 1. Read the Compose Config table.
 2. For each row with a Prompt and a Default, use AskUserQuestion to present the default as the recommended option, with "Other" available for custom input.
+   - **Every question needs at least 2 options, and a call carries at most 4 questions.** "Other" is added by the tool and does not count toward the minimum, so a question offering only the default is rejected with `InputValidationError` and the builder never sees it — the whole batch is lost, not just that question. When a row has only a default to offer, give a second concrete option (a plainly different value, or the default with the suffix a builder would most likely want) rather than shipping a one-option question. Batch the rows 4 at a time.
 3. Validate input against the Validation regex (if specified).
 4. Store the resolved values in a `compose_config` map keyed by `{stack}.{parameter}`.
 5. These values are passed as `--parameter-overrides` in the generated prepare.mk targets.

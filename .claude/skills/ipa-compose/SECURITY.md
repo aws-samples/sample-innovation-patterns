@@ -21,12 +21,14 @@ The centralized S3 log bucket is **not** part of security provisioning. It is a 
 
 ## Delegation
 
-Compose collects the path selection and delegates to `/ipa-security` in `mode=init` with the chosen path. `/ipa-security` owns all IAM provisioning logic:
+Compose collects the path selection and delegates to `/ipa-security` in `mode=init`, passing the chosen path **by name** — `existing-roles` (A), `managed-policy` (B), `innovation-builder` (C). The letters above are this table's ordering and are not `/ipa-security`'s step letters, so the name is what travels. `/ipa-security` owns all IAM provisioning logic:
 
 - Template selection and deployment
 - Stack naming (`{namespace}-{env}-security`)
 - `.env` variable writes (`APP_BUILDER_ROLE_ARN`, `APP_CODEBUILD_ROLE_ARN`)
 - Error handling and recovery
+
+**Delegation does not suspend compose.** `/ipa-security` reports one line in `mode=init` and composition continues at Step 2 in the same turn. This is stated here as well as in both skills because it is where composition has stopped twice, each time leaving a deployed security stack and none of the eight artifacts.
 
 ## Re-Configuration
 

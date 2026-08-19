@@ -18,6 +18,27 @@ Initial security provisioning is triggered automatically on first `/ipa-compose`
 
 > **AWS credential resolution**: All `aws` CLI commands must be prefixed with `source .env 2>/dev/null;` to load credentials into the environment. Do NOT pass `--profile` or `--region` flags explicitly.
 
+## Invocation modes
+
+| Arguments | Caller | Obligation when done |
+|---|---|---|
+| `mode=init path={name}` | `/ipa-compose` Step 1.5 | **Do not end your turn.** Report one line and continue `/ipa-compose` Step 2 in the same turn. |
+| _(none)_ | The builder, directly | Report the full summary and next steps, then stop. |
+
+`mode=init` carries the path the caller already chose, so **skip Step 2 (Path Selection)** and go straight to that path's input step. Everything else in this skill behaves identically in both modes.
+
+**Resolve `path` by name, never by letter:**
+
+| `path=` | Step to run |
+|---|---|
+| `existing-roles` (or legacy `A`) | **Step 3b** — Existing Role ARN Input |
+| `managed-policy` (or legacy `B`) | **Step 3a** — Managed Policy Input |
+| `innovation-builder` (or legacy `C`) | **Step 3c** — Innovation Builder Stack |
+
+The legacy letters come from `/ipa-compose`'s option ordering (A Existing, B Managed, C Innovation), which is **not** this skill's step ordering (3a Managed, 3b Existing, 3c Innovation). Letter-matching `path=A` to "Step 3a" prompts for a managed policy when the builder asked to supply their own role ARNs — two of the three letters are crossed, and the only one that happens to line up is `C`. Match on the name.
+
+**Why the obligation is stated twice** (here and at Step 8.4): a skill is loaded into the calling turn, not called and returned from, so nothing resumes compose except this skill continuing to work. Two measured runs ended at exactly this boundary, each leaving a security stack, no Makefiles, and a success report.
+
 ---
 
 ## Variable Schema
@@ -461,7 +482,17 @@ APP_CODEBUILD_ROLE_ARN={from stack output CodeBuildRoleArn}
 
 ### 8.4 Completion Message
 
-Display: "Security infrastructure deployed. `.env` updated with security variables."
+**The completion message depends on how this skill was invoked, and the `mode=init` case is the one that goes wrong.** There is no "return" from a skill: `/ipa-compose` delegated here by loading these instructions into the same turn, so the only way back to its Step 2 is to keep working in that same turn. A completion report that reads as terminal is treated as terminal — measured twice (2026-08-08, 2026-08-18), and both runs ended here having generated **none** of compose's eight artifacts while reporting success.
+
+**If invoked as part of `/ipa-compose` (`mode=init`)**: emit ONE line and nothing else —
+
+```
+Security configured: {APP_NAMESPACE}-{APP_ENV}-security deployed, .env updated.
+```
+
+Then **continue immediately with `/ipa-compose` Step 2 (Stack Discovery) in this same turn.** Do NOT display the summary block below, do NOT display next steps, do NOT ask the builder anything, and do NOT end your turn — compose is unfinished, and stopping here leaves the project with a security stack, no Makefiles, and no way to deploy.
+
+**If invoked directly**, display: "Security infrastructure deployed. `.env` updated with security variables."
 
 Show a summary of written values:
 ```
@@ -473,8 +504,7 @@ Stack deployed:
   {APP_NAMESPACE}-{APP_ENV}-security (IAM roles)
 ```
 
-If invoked as part of `/ipa-compose` (mode=init), return control to compose silently.
-If invoked directly, display next steps:
+Then display next steps:
 ```
 Next steps:
   • Run `/ipa-compose` to compose infrastructure and generate Makefiles

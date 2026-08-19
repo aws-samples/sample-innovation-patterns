@@ -27,7 +27,7 @@ Interactively configure a project's `.env` file with the IPA-managed variables r
 
 ## What It Does
 
-1. **First-time initialization** — Presents a single batched prompt (5 questions) for all configurable variables with sensible defaults. Validates each input against strict regex patterns. Writes the `.env` file and generates a `.env.example` template (never committed to version control). The `APP_IAC` choice determines whether downstream skills generate CloudFormation or Terraform Makefile targets.
+1. **First-time initialization** — Presents two batched prompts (4 questions, then 1) covering all configurable variables, with sensible defaults. The split is a tool limit, not a preference: `AskUserQuestion` accepts at most 4 questions per call, and a call that exceeds it is rejected before the builder sees anything. Validates each input against strict regex patterns. Writes the `.env` file and generates a `.env.example` template (never committed to version control). The `APP_IAC` choice determines whether downstream skills generate CloudFormation or Terraform Makefile targets.
 
 2. **Re-initialization** — Detects an existing `.env` file and enters selective-update mode. Displays current values and prompts only for variables the user wants to change. Warns before overwriting existing values.
 

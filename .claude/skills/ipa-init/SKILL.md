@@ -89,7 +89,7 @@ You MUST validate every value before writing `.env`. If a value fails validation
 
 ### Validation Behavior
 
-- Validate all prompted values together after the batched prompt returns.
+- Validate all prompted values together after both batched prompts return.
 - If any value fails: display error messages for ALL failing values at once, then re-prompt ONLY the failing value(s). Do NOT re-ask values that passed.
 - Use a simple text prompt (not AskUserQuestion) for re-prompts of failing values.
 - Do NOT write `.env` if any value is invalid.
@@ -108,13 +108,15 @@ Check if `.env` exists at the project root:
 
 ### Step 2: Batched Configuration Prompt
 
-Use a SINGLE `AskUserQuestion` call with all 5 questions. Do NOT ask them one at a time.
+Ask the five values in **two** `AskUserQuestion` calls — questions 1–4 in the first, question 5 in the second. Do NOT ask them one at a time, and do NOT put all five in one call.
 
-Before the prompt, display:
+> **Two hard limits of the tool, and breaking either means the builder is never prompted at all.** `AskUserQuestion` accepts **at most 4 questions per call**, and **every question needs at least 2 options** — the built-in "Other" path is added by the tool and does not count toward that minimum. A call that breaks either limit is rejected with `InputValidationError` before anything renders, so the agent is left to fill `.env` in from whatever context it has. This was measured on 2026-08-18: a single five-question call whose namespace question offered only `"app"` was rejected on both counts at once, and the run continued with values nobody confirmed. Keep four-plus-one, and keep two options on every question.
 
-> **Let's configure your project.** Answer the five questions below. Sensible defaults are pre-selected — accept them all for the fastest setup.
+Before the first prompt, display:
 
-Questions (all in one `AskUserQuestion` call):
+> **Let's configure your project.** Answer the four questions below, then one more. Sensible defaults are pre-selected — accept them all for the fastest setup.
+
+Questions 1–4 (first `AskUserQuestion` call):
 
 1. **AWS_PROFILE** (header: "Profile", multiSelect: false)
    - Question: "Which AWS CLI profile should IPA use?"
@@ -138,7 +140,9 @@ Questions (all in one `AskUserQuestion` call):
    - Question: "Choose a project namespace. All CloudFormation stacks start with `{namespace}-{env}-`. Must be unique per account+environment. (1-12 chars, lowercase letters/digits/hyphens, starts with letter)"
    - Options:
      - **"app" (Recommended)** — "Default namespace — good for single-project accounts"
+     - **"sandbox"** — "Throwaway namespace — good for an account you share with other projects"
    - Other (built-in): builder types a custom namespace
+   - Both options are fixed strings. Do NOT infer a namespace from the directory name or drop the second option to offer only `"app"`: a one-option question is rejected by the tool (see the limits above), and this is the question most builders override.
 
 4. **APP_ENV** (header: "Env", multiSelect: false)
    - Question: "Which environment?"
@@ -147,6 +151,8 @@ Questions (all in one `AskUserQuestion` call):
      - **"stage"** — "Staging environment"
      - **"prod"** — "Production environment"
    - Other (built-in): builder types a custom environment
+
+Question 5 (second `AskUserQuestion` call, sent as soon as the first returns — do not end your turn between the two):
 
 5. **APP_IAC** (header: "IaC Tool", multiSelect: false)
    - Question: "Which infrastructure-as-code tool?"
@@ -157,7 +163,7 @@ Questions (all in one `AskUserQuestion` call):
 
 ### Step 3: Post-Batch Validation and Account Detection
 
-After receiving all 5 answers from the batched prompt:
+After both batched prompts have returned all 5 answers:
 
 1. **Validate all values** per the Validation Rules section. Check every value, then:
    - If ALL values pass: continue to account detection.
@@ -209,7 +215,7 @@ If `AWS_PROFILE` was skipped, show it as:
 ```
 and do NOT write the `AWS_PROFILE=` line to `.env`.
 
-**Immediately write `.env`** in KEY=VALUE format with the header comment block. Do NOT ask "Does this look correct?" — the builder confirmed their choices in the batched prompt.
+**Immediately write `.env`** in KEY=VALUE format with the header comment block. Do NOT ask "Does this look correct?" — the builder confirmed their choices in the batched prompts.
 
 After writing, display: "Configuration written to `.env`. Re-run `/ipa-init` to change any values."
 
@@ -409,7 +415,15 @@ When rewriting `.env`:
 
 ## Step 5: Next Step Guidance
 
-After `.env` is written, display:
+**If `/ipa-compose` invoked this skill through its Phase 0.5 auto-init gate**, display one line —
+
+```
+Initialization complete: .env written.
+```
+
+— and then **continue `/ipa-compose` from its Phase 0 in the same turn.** Do not display the next-step block below and do not end your turn: compose delegated by loading this skill's instructions into its own turn, so nothing resumes it except you carrying on. Writing `.env` is a step in that composition, not the end of a task.
+
+**If the builder invoked this skill directly**, display:
 
 ```
 Initialization complete.
@@ -418,7 +432,7 @@ Next: Run `/ipa-compose` to compose infrastructure and generate Makefiles.
       Security configuration is handled automatically on first compose.
 ```
 
-Do NOT invoke any other skill. The builder runs `/ipa-compose` next.
+Then stop. Do NOT invoke any other skill — the builder runs `/ipa-compose` next.
 
 ---
 
