@@ -9,12 +9,15 @@ make test-teardown   # verify-then-remove this run's stacks
 make test-ci         # deploy THEN tear down, in one run
 ```
 
-## Cost: UNMEASURED
+## Cost: $4.31 / 32 minutes — measured
 
-**Not estimated — unmeasured.** This run has never completed, so no figure is given
-rather than a predicted one. A predicted number is the one a reader trusts without
-verifying, and the reader deciding whether to spend is exactly the reader who cannot
-afford a wrong one.
+Measured once, on 2026-08-19: **`$4.3093221`, 98 turns, 1919.9 s**, completing the whole
+lifecycle with zero nudges (`DECISIONS.md` Phase 8). Plus AWS charges for seven stacks for
+as long as they stand.
+
+**Budget the `$15` ceiling, not the `$4.31`.** One run on one account in one region is a
+data point, not a distribution — a slower path through the same skills spends more, and the
+ceiling is what this scenario is permitted to spend before it is stopped.
 
 The ceiling is `IPA_IT_FULL_MAX_BUDGET_USD`, default 15, set **inline** on this
 scenario's recipe lines.
@@ -62,16 +65,16 @@ delegated to `/ipa-security`, deployed the security stack, and ended its turn wi
 obligation explicitly at every delegation boundary, and the drive nudges a bounded number
 of times when the lifecycle is unfinished.
 
-**Nothing here has been re-run since, so this scenario's cost and its deployment
-assertions remain UNMEASURED** — not green. Two things changed that a re-run will show
-immediately:
+**The re-run on 2026-08-19 measured `nudges=0`** — all eight artifacts, all seven stacks,
+the lifecycle carried by the skills themselves. `nudges=` in the drive's printed line stays
+the number to read first: **zero is the only good value**, and anything above it is a skill
+that still ends its turn early and was pushed through by the harness.
 
-- A truncated lifecycle now fails **once**, in `deploy_run`, naming which artifacts or
-  stacks are missing — rather than twenty-one `describe_stacks` failures for stacks
-  nothing created.
-- `nudges=` in the drive's printed line is the count of times a skill ended its turn
-  early. **Zero is the only good value**; anything above it is a skill defect that
-  survived the fix.
+One assertion failed, in the test rather than in IPA: the queue round trip posted a body
+`JobCreate` never accepted and drew a 422 (F11, fixed). So **the queue traversal is still
+unproven** — the job was never created, nothing was enqueued, and no status transition has
+ever been observed. Every other queue assertion passed, so the infrastructure is verified
+and the trip through it is not.
 
 ## What it asserts
 

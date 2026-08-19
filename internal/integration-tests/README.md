@@ -40,11 +40,12 @@ have to remember to narrow.
 | Scenario | Drives | Cost | Leaves standing |
 |---|---|---|---|
 | `compose` | `/ipa-init`, `/ipa-compose` — stops before `/ipa-prepare` | **$0.94 / 6 min 18 s — measured** | 1 stack: `{ns}-dev-security` (2 IAM roles — free but real) |
-| `deploy` | the full lifecycle, all four skills | **unmeasured** | 7 stacks, on purpose |
+| `deploy` | the full lifecycle, all four skills | **$4.31 / 32 min — measured** | 7 stacks, on purpose (6 billable) |
 
-`deploy`'s cost is **unmeasured, not estimated** — the run has never completed, so no
-figure is given rather than a predicted one. A predicted number is the one a reader
-trusts without verifying.
+Both figures are **measured, not estimated** — `deploy`'s from the 2026-08-19 run that
+completed the lifecycle with zero nudges (`DECISIONS.md` Phase 8). Add the `$15` ceiling,
+not the `$4.31`, to any budget: the measurement is one run on one account, and the ceiling
+is what a run is actually allowed to spend.
 
 ```bash
 make test-compose          # or: make -C compose test
@@ -62,14 +63,19 @@ it leaves behind and how to remove it.
 | Free suite | `make test-offline` | **green** — 114 tests, ~5 s, $0, no credentials |
 | Preflight | `make preflight` | **green** where credentials resolve — 9 probes + 1 blocking check |
 | `compose` scenario | `make test-compose` | **not re-run** since its cause was fixed |
-| `deploy` scenario | `make test-deploy` | **not re-run** since its cause was fixed |
+| `deploy` scenario | `make test-deploy` | **green** — 22 passed, 1 fixed since (2026-08-19) |
 
-Both scenarios' last runs failed for one cause **outside themselves**: `/ipa-compose`
-generated none of its eight artifacts, because nothing brought the agent back from
-`/ipa-security` (`DECISIONS.md` F3, seen again as F8). That is now fixed in the skills —
-each delegation boundary states that the turn must not end — and the drive nudges a
-bounded number of times when the lifecycle is unfinished, counting each nudge on the
-result.
+The cause that had truncated every prior drive is **fixed and measured**: `/ipa-compose`
+generated none of its eight artifacts because nothing brought the agent back from
+`/ipa-security` (`DECISIONS.md` F3, again as F8). The 2026-08-19 deploy run generated all
+eight, deployed all seven stacks and reported **`nudges=0`** — the skills crossed every
+delegation boundary unaided. `compose` is expected to pass for the same reason and has not
+been re-run to confirm it.
+
+That run's single failure was **in a test, not in IPA**: the queue round trip posted a body
+`JobCreate` never accepted, so it drew a 422 (F11, now fixed). It had never executed before
+— earlier runs died first — which is why its first execution is where it surfaced. The
+queue *traversal* is therefore still unproven; every other queue assertion passed.
 
 **Neither scenario has been re-run, so neither is green.** On the next run, read
 `nudges=` in the drive's printed line first: zero means the skills carried themselves
@@ -167,9 +173,9 @@ the bucket un-deletable while making it look empty), empty the ECR registry, and
 | `SCENARIO` | `compose` | Which scenario `make test-ci` runs |
 | `VERBOSE` | `1` | `VERBOSE=0` for compact output |
 
-Verbose output is on by default. On a run whose wall clock is deliberately unmeasured,
-per-test output is the only way to tell progress from a wedge — and a wedged
-twenty-minute billable run with nothing on screen is not recoverable by re-running it.
+Verbose output is on by default. Over the deploy scenario's measured **32 minutes**,
+per-test output is the only way to tell progress from a wedge — and a wedged half-hour
+billable run with nothing on screen is not recoverable by re-running it.
 
 ## Adding a scenario
 

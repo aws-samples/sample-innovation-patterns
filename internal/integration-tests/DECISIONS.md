@@ -860,3 +860,93 @@ unobserved, this scenario's cost is still unmeasured, and the twenty deployment 
 are still unexercised. `nudges=` on the next run is the measurement that matters: zero
 means the skills now carry themselves through, and anything above zero means one still
 stops early and the harness pushed it.
+
+## Phase 8 — The fixes hold; one test was wrong (run 2026-08-19)
+
+Phase 7 closed by naming `nudges=` as the measurement that mattered. **It came back zero.**
+The skills carried the lifecycle from `/ipa-init` to seven deployed stacks without the
+harness pushing them once, and `AskUserQuestion` fired for the first time in the project's
+history — five calls, every one answered by the resolver.
+
+### Measured, not predicted
+
+| | |
+|---|---|
+| Namespace | `it9047b2a99f` |
+| Source | commit `e63b197`, clean tree, 715 files |
+| Driver model | `us.anthropic.claude-sonnet-4-20250514-v1:0` |
+| Drive | `$4.3093221`, 98 turns, 1919.9 s (32.0 min) wall clock |
+| **Nudges** | **0** — `incomplete_reason=""`, so the completion gate passed on its first check |
+| Ceiling | **Not** reached — `stopped_by_ceiling=false` against `$15` and 600 turns |
+| Stacks created | **all seven**, 6 of them billable |
+| Artifacts generated | **all eight** (the gate would not have passed otherwise) |
+| `ask_user_question` | **5** events, all `via=pre_tool_use_hook`, all with `answers` populated |
+| Gates | 5: `compose:overwrite`, `security:deploy`, `prepare:proceed`, `deploy:proceed`, `deploy:build_failed` |
+| pytest | `1 failed, 22 passed, 5 deselected, 1 warning in 1946.63s` |
+| Transcript | 3,381 events, `transcript-it9047b2a99f.jsonl` |
+
+Cost is now measured rather than bounded: **`$4.31`**, against the `$15` ceiling that was
+chosen without data. The drive is 2.8× Phase 7's spend for 2.0× the turns — Phase 7 stopped
+at a tenth of the lifecycle, so its `$1.52` was never a useful estimate of anything.
+
+### What this settles about F8, F9 and F10
+
+All three were fixed by instruction changes alone, and each now has a measurement:
+
+*   **F8** (the turn ended at the compose→security handoff, twice) — `nudges=0` with all
+    eight artifacts and all seven stacks. The handoff was crossed unaided. This is the one
+    that could only ever be proven by a live run, because the failure was the agent's
+    reading of a sentence.
+*   **F9** (`/ipa-init`'s `AskUserQuestion` call was rejected) — five accepted calls,
+    split 4-then-1 exactly as re-authored. The second call carries the single IaC question.
+    Every prior run in this document recorded **zero** such events; `harness/answers.py`
+    had never applied to anything until this run.
+*   **F10** (crossed path letters) — the security question was answered
+    `Managed Policy ARN`, then `ReadOnlyAccess`, and the stack deployed. The path the
+    resolver named is the path that ran.
+
+`deploy:build_failed` and `deploy:proceed` are stamped in the **same second** (15:51:35)
+from the same skill document, which is the gate-scanner false positive already recorded in
+Phase 6: the scanner matches its markers against the loaded `SKILL.md` prose, not against
+output. Seven healthy stacks and 22 passing assertions confirm no build failed. The scanner
+is still worth narrowing, and it is still not lying about anything load-bearing.
+
+### F11 — the queue round-trip test posted a body the API never accepted
+
+The single failure, and it is **in the test, not in IPA**:
+
+```
+POST /api/v1/jobs -> 422: {"detail":[{"type":"missing","loc":["body","input_data"],
+"msg":"Field required","input":{"prompt":"integration test job"}}]}
+```
+
+`test_a_submitted_job_leaves_pending` posted `{"prompt": "integration test job"}`. The
+shipped contract is `JobCreate` — `job_type` (defaulted) and `input_data` (**required**) —
+and no part of `app-lib` has ever read a `prompt` field: the worker reads
+`input_data["ticket"]` (`sqs_handler.py:60`). FastAPI rejected the body at validation, so
+`submit_job` never ran. The same `{job_type, input_data:{ticket}}` shape is stated
+independently in three places — `job_dto.py:10`, `web-client/src/mocks/handlers.ts:84`, and
+`specs/011-passenger-jobs/contracts/jobs-api.md` — and the test agreed with none of them.
+
+The body was written from the *idea* of a job rather than from the DTO, and nothing caught
+it because this assertion had never once executed: Phase 7 died before any stack existed,
+and every earlier phase deselected the marker. **A test that has never run is not a test**,
+and its first execution is where its own defects surface, not the subject's.
+
+Fixed by posting the real contract with `ticket` `113803` (the spec's own example), and the
+assertion message now names `job_dto.py` so the next 422 is read as a contract drift rather
+than an outage. The docstring also now states the expected terminal status on a fresh
+namespace: `FAILED` with `Passenger not found: 113803`, because the passenger table is
+empty until someone loads it. That is not a regression — `process_job` catches every
+exception, records it on the job and returns 200, so the message never reaches the DLQ and
+the DLQ assertion stays green while this one still proves the worker consumed the queue.
+
+### What remains unmeasured
+
+The 422 means **the queue round trip itself is still unproven end to end**: the job was
+never created, so nothing was enqueued, and `test_a_submitted_job_leaves_pending` has yet
+to observe a single status transition. Everything either side of it — the DLQ being empty,
+the event source mapping being enabled, the five queue outputs resolving — passed, so the
+infrastructure is verified and the *traversal* is not. The next deploy run is the first
+that will exercise it, and it is the only assertion in this file whose subject has never
+executed once.

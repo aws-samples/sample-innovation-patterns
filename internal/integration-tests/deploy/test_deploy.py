@@ -352,15 +352,29 @@ def test_a_submitted_job_leaves_pending(api_url, auth_headers):
 
     The terminal status and any recorded error ARE reported. The DLQ assertion is what
     catches a crash-looping worker, which this check alone would pass.
+
+    Expect ``FAILED`` with ``Passenger not found: 113803`` on a namespace whose passenger
+    table was never loaded — the fresh-namespace default. ``process_job`` catches every
+    exception, records it on the job and returns 200, so such a failure is invisible to
+    the DLQ by design; the two checks are not redundant.
     """
+    # The shape is the SHIPPED contract, not a convenient placeholder: ``JobCreate``
+    # (job_dto.py) requires ``input_data`` and has no ``prompt`` field, so a body this
+    # test invents is rejected by FastAPI with 422 before ``submit_job`` runs -- measured
+    # 2026-08-19. ``ticket`` is what the worker reads (sqs_handler.py: input_data
+    # ["ticket"]); whether that passenger is loaded changes the terminal status but not
+    # this test, which asserts only that the status stops being PENDING.
     submit = requests.post(
         f"{api_url}/api/v1/jobs",
         headers={**auth_headers, "Content-Type": "application/json"},
-        json={"prompt": "integration test job"},
+        json={"job_type": "passenger_analysis", "input_data": {"ticket": "113803"}},
         timeout=HTTP_TIMEOUT_S,
     )
     assert submit.status_code == 202, (
-        f"POST /api/v1/jobs -> {submit.status_code}: {submit.text[:400]}"
+        f"POST /api/v1/jobs -> {submit.status_code}: {submit.text[:400]}\n"
+        "A 422 means this test's body no longer matches JobCreate in "
+        "app-lib/src/app_lib/features/jobs/routes/job_dto.py -- fix the body, not the "
+        "DTO, unless the API contract genuinely changed."
     )
     created = submit.json()
     job_id = created.get("job_id") or created.get("id")

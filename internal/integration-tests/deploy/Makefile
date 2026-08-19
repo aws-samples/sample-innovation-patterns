@@ -15,10 +15,10 @@ ROOT := $(abspath $(HERE)..)
 # form turns verbosity ON when a user asked for it off. `filter-out` against a list of
 # disabling words is what actually tests the value.
 #
-# Verbose is the DEFAULT on purpose here especially. On a run whose wall clock is
-# deliberately unmeasured, per-test output is the only way to distinguish progress from a
-# wedge — and a wedged twenty-minute billable run with nothing on screen is not
-# recoverable by re-running it.
+# Verbose is the DEFAULT on purpose here especially. This run measured 32 minutes
+# (2026-08-19), and per-test output is the only way to distinguish progress from a wedge —
+# a wedged half-hour billable run with nothing on screen is not recoverable by re-running
+# it.
 OFF := 0 no false off
 VERBOSE ?= 1
 PYTEST_FLAGS := $(if $(filter-out $(OFF),$(VERBOSE)),-vv -s -rs --log-cli-level=INFO,-q)
