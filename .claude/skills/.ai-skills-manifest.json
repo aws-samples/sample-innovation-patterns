@@ -1,0 +1,184 @@
+{
+  "manifest_version": 1,
+  "ai_skills_version": "0.1.0",
+  "installed_at": "2026-07-31T20:16:29.309963+00:00",
+  "tool": "claude",
+  "families": [
+    "code",
+    "util",
+    "core"
+  ],
+  "scope": "project",
+  "skills": {
+    "ai-architect": {
+      "files": [
+        "ai-architect/SKILL.md",
+        "ai-architect/references/design-guide.md"
+      ],
+      "hashes": {
+        "ai-architect/SKILL.md": "sha256:241ab5d0f4df50fe05cf8add853c9a1cc98a69550a992b5746f6b2f9fcc686a4",
+        "ai-architect/references/design-guide.md": "sha256:3829b8543b93ce53827c003a92bb7fc5da6ebecaf29f54eba5b65b321e765f70"
+      }
+    },
+    "ai-code-as-built": {
+      "files": [
+        "ai-code-as-built/SKILL.md"
+      ],
+      "hashes": {
+        "ai-code-as-built/SKILL.md": "sha256:891f15fcfd92f4b6a9f358f586e7092188279e10c0195b1de0d6336e62185b40"
+      }
+    },
+    "ai-code-docs-dev": {
+      "files": [
+        "ai-code-docs-dev/SKILL.md"
+      ],
+      "hashes": {
+        "ai-code-docs-dev/SKILL.md": "sha256:9173072fa4748f72bc20c601e3442f3c30415451795b4920494b89b339ecf859"
+      }
+    },
+    "ai-code-docs-setup": {
+      "files": [
+        "ai-code-docs-setup/SKILL.md"
+      ],
+      "hashes": {
+        "ai-code-docs-setup/SKILL.md": "sha256:608c42cc65b04079fa890538fc00bd553a4c59fb95f99390dd76bc21c6626149"
+      }
+    },
+    "ai-code-docs-user": {
+      "files": [
+        "ai-code-docs-user/SKILL.md"
+      ],
+      "hashes": {
+        "ai-code-docs-user/SKILL.md": "sha256:308605513dbb23abb0bd8cc8e7baf0cea3a52f124f16597a0b97656ac063dd00"
+      }
+    },
+    "ai-context": {
+      "files": [
+        "ai-context/SKILL.md"
+      ],
+      "hashes": {
+        "ai-context/SKILL.md": "sha256:6da275bcf565ac69870d6d5be387bfb664db657d5b9b19fef0db207dbe559679"
+      }
+    },
+    "ai-create": {
+      "files": [
+        "ai-create/SKILL.md"
+      ],
+      "hashes": {
+        "ai-create/SKILL.md": "sha256:df903a2059efb674271317dd314b25e71f62cbc47f7e69e046339326a556b4f8"
+      }
+    },
+    "ai-draft": {
+      "files": [
+        "ai-draft/SKILL.md"
+      ],
+      "hashes": {
+        "ai-draft/SKILL.md": "sha256:137a9cd18b3bb7ced3bf30700a0283e23c363500e43225d9d0ba3d4f9977c95f"
+      }
+    },
+    "ai-implement": {
+      "files": [
+        "ai-implement/SKILL.md"
+      ],
+      "hashes": {
+        "ai-implement/SKILL.md": "sha256:487cfe9538ce9d3a17e57cfdd59b8d51fd9b4b9e1a89801bd214bdac473bb215"
+      }
+    },
+    "ai-init": {
+      "files": [
+        "ai-init/SKILL.md"
+      ],
+      "hashes": {
+        "ai-init/SKILL.md": "sha256:15fae6f5ce47c22d5536d1d84c15f8c38c070a310f241edf73fca4d279784bcd"
+      }
+    },
+    "ai-outline": {
+      "files": [
+        "ai-outline/SKILL.md"
+      ],
+      "hashes": {
+        "ai-outline/SKILL.md": "sha256:09c06fa310028129a7f61bc7921340b95bdf995f726d14366e127e8179893025"
+      }
+    },
+    "ai-plan": {
+      "files": [
+        "ai-plan/SKILL.md"
+      ],
+      "hashes": {
+        "ai-plan/SKILL.md": "sha256:ecf689594ba7461d63949e1961cd096f2c1b53416c8ef1d0dc76def9767a6c54"
+      }
+    },
+    "ai-research": {
+      "files": [
+        "ai-research/SKILL.md"
+      ],
+      "hashes": {
+        "ai-research/SKILL.md": "sha256:23476fc381126b6d1cfaeb592f27fceeb9530ca3258ad82ddfe48bb29fb6fb77"
+      }
+    },
+    "ai-skills-reference": {
+      "files": [
+        "ai-skills-reference/framework-detection.md",
+        "ai-skills-reference/graphify-integration.md",
+        "ai-skills-reference/manifest-update.md"
+      ],
+      "hashes": {
+        "ai-skills-reference/framework-detection.md": "sha256:e949009d68aea88f0741bac89a6d670eeda5dbc12ee26872615fee061aaf9ef4",
+        "ai-skills-reference/graphify-integration.md": "sha256:85a513f770e8830760ded80159bc0e8ebd275b999e29e0c810c707770e0df73d",
+        "ai-skills-reference/manifest-update.md": "sha256:1f6bcf5f7c5d90b10c9b1c9c90ec4f0d84a39eca98c5a8cbb43b6cbe63f2f969"
+      }
+    },
+    "ai-util-claude-skill": {
+      "files": [
+        "ai-util-claude-skill/SKILL.md"
+      ],
+      "hashes": {
+        "ai-util-claude-skill/SKILL.md": "sha256:545c991e7d922858fd68522c5ccf1c97e9b6d69de4da3084f1af5c246d5a8ff6"
+      }
+    },
+    "ai-util-export-docx": {
+      "files": [
+        "ai-util-export-docx/SKILL.md"
+      ],
+      "hashes": {
+        "ai-util-export-docx/SKILL.md": "sha256:d7b9bafe2508eaff9b192721d07cd80d8e12eb61de1337cd85180f928699e8de"
+      }
+    },
+    "ai-util-export-pdf": {
+      "files": [
+        "ai-util-export-pdf/SKILL.md",
+        "ai-util-export-pdf/render_template.py"
+      ],
+      "hashes": {
+        "ai-util-export-pdf/SKILL.md": "sha256:bcd04b78d12b706299d638466b7c29d760bcf565af43e3c60268e13ff6301ea8",
+        "ai-util-export-pdf/render_template.py": "sha256:bd6dfe4b50db3610fb0726167895336f8b5d1abbc49841137a4f768ee8fc06dc"
+      }
+    },
+    "ai-util-git-worktree": {
+      "files": [
+        "ai-util-git-worktree/SKILL.md",
+        "ai-util-git-worktree/worktree.py"
+      ],
+      "hashes": {
+        "ai-util-git-worktree/SKILL.md": "sha256:b601eead4ebe505f829e02b0ee9a7faec0e88cf3a1b2024312cd018865ebda48",
+        "ai-util-git-worktree/worktree.py": "sha256:d771c7b8abf8845cfd08f1f8c37ef9b12e200f5e7e821b3c9ba889c628157170"
+      }
+    },
+    "ai-util-jupyter": {
+      "files": [
+        "ai-util-jupyter/SKILL.md"
+      ],
+      "hashes": {
+        "ai-util-jupyter/SKILL.md": "sha256:03a8c20752b499aabdd90d8cd5b383f25ae9f520b21aed216f1cff205e51380b"
+      }
+    },
+    "ai-util-kiro-skill": {
+      "files": [
+        "ai-util-kiro-skill/SKILL.md"
+      ],
+      "hashes": {
+        "ai-util-kiro-skill/SKILL.md": "sha256:4349ac6a34aa951f2f0d3c174b893174f8cbfccd2a20f465e7c531711aa4e371"
+      }
+    }
+  }
+}
