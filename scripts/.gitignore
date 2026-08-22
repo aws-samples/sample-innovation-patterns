@@ -1,4 +1,0 @@
-# IPA generated Makefiles & security disposition (solution-specific, not committed)
-*.mk
-SECURITY-DISPOSITION.md
-README.md

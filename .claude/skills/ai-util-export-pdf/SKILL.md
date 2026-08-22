@@ -40,7 +40,7 @@ Expected: a path to a `.md` file (absolute or relative to the working directory)
 For each missing required field from Step 2, use AskUserQuestion to gather the value:
 
 - **title** (only if no frontmatter `title:` AND the document does NOT have exactly one H1): "What is the document title?"
-- **organization**: "What is the organization name?" — the skill ships no default. If an organization name is discoverable from project context (`.context/README.md`, an earlier export's frontmatter, the git remote's owner), offer that as the first option; otherwise ask freeform
+- **organization**: "What is the organization name?" — the skill ships no default. `.context/README.md` carries no organization key (its frontmatter is `output_path` and `docs_path` only), so do not look there. If a previously exported document's frontmatter or the git remote's owner suggests a name, offer it as the first option; otherwise ask freeform
 - **client**: "What is the client name? (e.g., 'Acme Corp')"
 - **classification**: "What is the document classification? (e.g., 'Confidential', 'Internal', 'Public')"
 
