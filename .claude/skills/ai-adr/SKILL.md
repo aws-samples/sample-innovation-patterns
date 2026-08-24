@@ -50,6 +50,8 @@ This fires once per repository. It is the one moment an everyday command creates
 
 **2d. Write the log's own first record**, dated with `date +%F`, titled so it reads as a decision (`Record architecture decisions`). Its Decision is that the project keeps an ADR log in this format; its Context is why; its Consequences record **both accepted downsides** — that dated filenames give no short citable identifier, so number-keyed tooling does not apply, and that `adr new` must not be run because in a dated log it allocates the filename from the calendar year. Status is `Accepted`.
 
+Write it in `adr-format.md` §16's bulleted shape and inside its caps, like every other record, and carry **no ` — *(inferred)*` suffix in it**. A marker here could never be resolved: the record is written `Accepted` in one step, and an `Accepted` record's body is frozen (§7), so the marker would freeze in with it. That is achievable rather than a constraint you have to fight, because every claim in this record traces to this skill's own specification or to a path you can cite — it is the one record whose subject is the skill itself, so there is nothing to ask a user about.
+
 This is the **only** place any skill writes `Accepted` without a separate human act, and the reason is narrow: invoking `/ai-adr` on a repository with no log *is* the decision that record documents, and `adr init` does the same (`adr-format.md` §10). It is not a licence to self-accept anywhere else — every other record starts `Proposed` and moves only on an explicit instruction.
 
 **2e. Offer the agent-context block as a diff, and apply it only after the user confirms.** The target is the root `CLAUDE.md`, created if absent. Fence the block in `<!-- ai-skills:adr-log -->` … `<!-- /ai-skills:adr-log -->`: HTML comments are stripped before the file is injected into context, so the markers make a re-run idempotent at zero context cost — on a later run, replace the fenced content rather than appending a second copy.
@@ -102,6 +104,15 @@ Read each candidate's current status with all four tolerances from `adr-format.m
 
 **Refuse `Accepted → Rejected` and `Rejected → Accepted`.** State that an accepted decision is immutable and that rewriting its status would erase the fact that the team decided it. Offer the two legal alternatives: describe the replacement decision so a superseding record can be written, or deprecate the record if nothing replaces it. **Change no file until the user picks.**
 
+**Refuse `accept` and `decline` while any bullet in the record still carries ` — *(inferred)*`** (`adr-format.md` §8, the third refusal). Say how this one differs, because the two above carry a different message: `Accepted → Rejected` is an illegal move that no input makes legal, while this blocks a *legal* move on unresolved content. Then:
+
+- **List every unresolved bullet, quoting each**, so the user does not have to open the file to find them.
+- **Name `/ai-adr propose <slug>` as the resolving command.** `propose` against a `Proposed` record already offers to revise it in place (5d), which is where a marked claim gets confirmed or dropped.
+- **Say why the marker cannot just be stripped on the way through.** 5b requires the four body sections to stay byte-identical across an accept or a decline, so resolving a claim and transitioning are two separate acts by construction — and accepting with a marker in place freezes an unconfirmed claim into a record that then gates every plan.
+- **Change no file.**
+
+This refusal is scoped to `accept` and `decline`. `deprecate` operates on an already-`Accepted` record, which by this same rule holds no marker, so checking there would be a branch that can never fire.
+
 Never move a record to `Accepted`, `Rejected`, or `Deprecated` without an explicit human instruction.
 
 **5b. Apply a legal transition as a status-line edit**, mirroring what `_adr_remove_status` and `_adr_add_link` do between them: replace the keyword line, keep the keyword **alone on its own line**, and leave Context, Decision, Consequences, and Compliance **byte-identical** when the target is `Accepted` or `Rejected`. Never rename the file — its date is the creation date (`adr-format.md` §12).
@@ -129,11 +140,23 @@ The predecessor's whole diff is one line:
 
 **6b. Interview for what is not on disk. Ask a minimum of 2 and a maximum of 4 questions — one quota, not two.** Do not pair that count with a "skip anything implicit" instruction; a model given both satisfies the number and drops the questions. A zero-question exit is usually wrong here, because the two things that give a record its value — the alternatives the team rejected and the downside it accepted — exist only in the user's head.
 
-**6c. Infer before asking, and draft candidate answers as options.** Infer the decision from the input, the date from `date +%F`, the status as `Proposed`, the author from `git config user.name`, and the technical half of Context from the code. Spend the questions on judgement, not on retrieval.
+**A gap the four questions cannot cover is marked or omitted, never filled.** The cap stays at four; what changes is where an unasked question goes — either a bullet suffixed ` — *(inferred)*` (`adr-format.md` §17) or nothing at all. Filling it with an unattributed guess is the one option removed, because a guess written as a plain bullet is indistinguishable from something the user told you and outlives every chance to correct it.
+
+**6c. Separate a lookup from a retrieval from an inference — only the third takes a marker** (`adr-format.md` §17). Draft candidate answers as options in every question you do ask.
+
+- **Lookups, which are not inferences and are never marked.** The date from `date +%F`, the author from `git config user.name`, and the status `Proposed` — a constant rather than a conclusion, because every new record starts there (§10).
+- **Retrieval — a plain bullet carrying its citation.** Reading a file to state *what is there*: "`infra/main.tf:1-40` declares none". The `path:line` citation is itself the provenance, so no marker is needed and none is added.
+- **Inference — asked about, marked, or omitted, in that order of preference.** Stating *why* it is there, what follows from it, or what the team must have weighed. An inference is never a plain bullet: ask it as one of your questions, or write it with the ` — *(inferred)*` suffix, or leave it out.
+
+Paraphrasing the user's own words into the Decision is neither retrieval nor inference — it is verifiable against the input in front of you, so it carries no marker.
+
+Spend the questions on judgement, not on retrieval.
 
 **6d. Detect a contradiction before writing.** If the description contradicts an `Accepted` record, do not write a parallel record — go to 5e, which stops and asks whether to supersede.
 
-**6e. Write the record** at `<resolved-log>/YYYY-MM-DD-<slug>.md`, satisfying all four positional constraints from `adr-format.md` §4 and carrying AWS's full section set. Enforce "We use…" in the Decision section and reject "should". On a same-day slug collision, ask — never overwrite.
+**6e. Write the record** at `<resolved-log>/YYYY-MM-DD-<slug>.md`, satisfying all four positional constraints from `adr-format.md` §4, carrying AWS's full section set, and shaped to §16's caps — Context 6 bullets, Decision 5, Consequences 6, Compliance 4, 30 words per bullet, and 450 words across those four sections together. Enforce "We use…" per Decision bullet and reject "should" (§3). On a same-day slug collision, ask — never overwrite.
+
+The template below is the format's only worked example of a compliant record, so read it for the things the caps do not state: bullets in all four body sections, the status keyword **alone on its own bare line and never bulleted** — `+ Accepted` defeats `_adr_remove_status` and leaves a later supersession asserting two states at once (§2) — a rejected alternative and its reason on one bullet, a `Positive:` and a `Negative, accepted:` bullet in Consequences, and one marked bullet showing where an unresolved claim goes.
 
 ```markdown
 # Use Postgres for the ledger
@@ -146,19 +169,27 @@ Proposed
 
 ## Context
 
-Why this decision is needed, what constrains it, and the alternatives the team considered — AWS puts rejected alternatives inside Context rather than in a section of their own.
++ The ledger must survive the loss of a single availability zone.
++ No data store is provisioned today — `infra/main.tf:1-40` declares none.
++ Rejected — DynamoDB: the team has no operational experience with it.
++ Rejected — self-managed Postgres on EC2: nobody is available to carry the pager.
 
 ## Decision
 
-We use Postgres 16 for the ledger.
++ We use Postgres 16 for the ledger.
++ We use RDS Multi-AZ rather than self-managed instances.
 
 ## Consequences
 
-Positive and negative, including the downside being accepted.
++ Positive: point-in-time recovery ships with RDS, so no backup tooling is built.
++ Negative, accepted: Multi-AZ roughly doubles the instance cost.
++ Negative, accepted: every deploy now waits on a schema migration.
++ Query latency under the reporting load is untested at this size — *(inferred)*
 
 ## Compliance
 
-How adherence to this decision is verified.
++ `infra/` declares exactly one `aws_db_instance` with engine `postgres`.
++ Not yet defined: nothing checks that migrations run before a deploy.
 
 ## Notes
 
@@ -168,7 +199,7 @@ How adherence to this decision is verified.
   + 0.1: Initial proposed version — 2026-08-20, Vincil Bishop
 ```
 
-Fill every section with real content from the input, the interview, and the code. Ship no placeholder text and no unfilled brackets.
+Fill every section from the input, the interview, and the files you cited. **`Not yet defined: <what is unverified>` is real content in Compliance** when nothing verifies the decision yet — it is the truthful answer rather than a placeholder, and inventing a check to avoid writing it is the failure it exists to prevent. That literal form is the only one of its kind permitted, and only in Compliance. Ship no unfilled brackets and no invented check.
 
 **6f. The author is the human from `git config user.name`, never the agent.** AWS requires an owner who "should actively maintain and communicate the ADR content", which an agent cannot do, and this repository's rule against `Co-Authored-By` trailers points the same way.
 
@@ -189,11 +220,12 @@ List every record including retired ones: a rejection an agent cannot see is a r
 
 ## Step 8: Report the state and the next command
 
-Finish **every** run — first run, write, transition, and refusal alike — by naming three things:
+Finish **every** run — first run, write, transition, and refusal alike — by naming three things, and a fourth whenever the record you just wrote holds a marker:
 
 1. The record's file path and its resulting status.
 2. What that status means for `/ai-plan` and `/ai-implement`: `Accepted` behaves as a confirmed constraint and stops a plan that violates it; `Proposed` warns and lets planning continue; `Rejected`, `Superseded`, and `Deprecated` load nothing.
 3. **The literal command for the next transition** — for example `/ai-adr accept use-postgres-for-the-ledger`.
+4. **Each bullet still carrying ` — *(inferred)*`, quoted, and `/ai-adr propose <slug>` as the command that resolves it.** Without this the user meets an outstanding marker when Step 5a refuses the accept, which is one run too late — and the marker is precisely the part of the record they are the only available source for.
 
 This is required output, not a nicety. It is the mechanism that removes the process knowledge the user would otherwise need, so a run that omits it has failed at the thing the skill exists to do.
 
@@ -205,9 +237,11 @@ This is required output, not a nicety. It is the mechanism that removes the proc
 - **Never edits Context, Decision, Consequences, or Compliance on an `Accepted` or `Rejected` record.**
 - **Never sets a status on its own initiative**, with the single sanctioned exception in Step 2d.
 - **Never claims that an agent honours a decision it loaded.** The pointer routes; it does not enforce.
+- **Never writes an alternative the user did not name as "considered"** (`adr-format.md` §17). A source listing options is a menu rather than deliberation — a dependency file naming three queue libraries is not evidence anyone weighed three. An alternative you found in the code is asked about or omitted, because writing it in as considered fabricates a discussion and closes a question the team never opened.
+- **Never writes a quantity it cannot trace to the user or to a cited file** (`adr-format.md` §17). An invented figure becomes the number a later decision is argued from, and marking it does not help — the defect is the missing source, not the agent's authorship.
 
 ## Constraints
 
-- **Voice**: apply `ai-skills-reference/voice.md`'s core rules to every record you write. Records are working artifacts, so the deliverable overlay does not apply.
+- **Voice**: apply `ai-skills-reference/voice.md`'s core rules to every record you write. Records are working artifacts, so the deliverable overlay does not apply. Its depth rule — compress the prose, never the analysis, and removing a concept to satisfy the standard is a failure of the standard — is satisfied **at record altitude** by `adr-format.md` §16: name a consequence in a clause rather than explaining it in a paragraph. The concept is kept; the paragraph is not. §16's word budget is never licence to drop a rejected alternative, an accepted downside, or a consequence for the planning pipeline, which is why §16 names all three on a never-cut list.
 - Read `adr-format.md` at the start of every run. It is the specification; this file is the procedure.
 - One record per decision. A record covering two decisions cannot be superseded without retiring both.
