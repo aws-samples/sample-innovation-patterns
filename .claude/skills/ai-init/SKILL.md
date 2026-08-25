@@ -226,6 +226,8 @@ Analyze each section:
 
 `Voice` and `Principles` are deliberately absent from this table. They ship with a fixed default, so a populated Voice section is never a gap — assessing it would re-interview a decision the skill already made.
 
+`## Audiences` is deliberately absent too, for a different reason: it is **optional, and this skill never interviews for it.** It is a top-level section declaring the readerships a project partitions its docs tree by, which `/ai-diataxis` reads to place a page; a project without one has a single audience, and that is the ordinary case rather than a gap. A project comes to have one at exactly two moments, neither of them here — the `/ai-diataxis-scaffold` audience question, asked once before any directory exists, and `/ai-diataxis` SURVEY offering it after a mode's contents list crosses seven items. **It is distinct from the `Audience` row above**, whose criterion is "Specifies who reads docs and what they know": that one calibrates register for `/ai-outline` and `/ai-draft` and selects no placement, while `## Audiences` selects placement and calibrates nothing. Add no frontmatter key for it and no Create Mode scaffold entry.
+
 Rank gaps by impact:
 1. **Objectives** — what everything else is validated against
 2. **Constraints** — boundaries every skill respects; note that an existing bullet ending in `*(inferred)*` is a confirmation opportunity, not a gap
