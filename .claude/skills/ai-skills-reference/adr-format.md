@@ -2,9 +2,9 @@
 
 Shared normative reference for the **decision log** — the directory of architectural decision records (ADRs) a project keeps, one short markdown file per architecturally significant decision. "Decision log" is `adr.github.io`'s own term for the collection, so this reference uses it rather than inventing a synonym.
 
-`/ai-adr` writes and transitions records against every rule here. `/ai-plan` and `/ai-implement` need only the log-path resolution rule (§11), the five states (§5), the four reader tolerances (§6), and the status-to-authority mapping (§15) — they read a status and never write one.
+`/ai-adr` writes and transitions records against every rule here, and it is the only writer. A **consumer** — any tool that reads the log rather than writing to it — needs only the log-path resolution and enumeration rules (§11), the five states (§5), the four reader tolerances (§6), and the status-to-authority mapping (§15). A consumer reads a status and never writes one. Whether a project's tooling gates on this log at all is that project's decision, and it belongs in a record rather than in this reference.
 
-The length budget (§16) and the provenance rule (§17) are **writer-only**, and named as such here so no consumer starts enforcing them. A reader that applied a 450-word cap or looked for a ` — *(inferred)*` marker would reject records already committed to the log — including AWS-shaped records written before this reference existed — and a consumer that never writes a record has nothing to gain from either rule.
+The length budget (§16), the provenance rule (§17), and the filing move (§18) are **writer-only**, and named as such here so no consumer starts enforcing them. A reader that applied a 450-word cap or looked for a ` — *(inferred)*` marker would reject records already committed to the log — including AWS-shaped records written before this reference existed — and a consumer that never writes a record has nothing to gain from either rule.
 
 Every rule cites the page or the script that establishes it. §14 names the two rules that are inferences rather than specifications.
 
@@ -124,7 +124,7 @@ One sanctioned exception: `/ai-adr` writes the log's own first record as `Accept
 
 ## §11. Resolving the log path, and creating a log
 
-Two rules, deliberately different. Conflating them creates a second log beside the one a project already has.
+Three rules. **RESOLUTION** finds the log, **ENUMERATION** turns it into a list of records, and **CREATION** makes a new one. Conflating the first with the last creates a second log beside the one a project already has.
 
 **RESOLUTION — every consumer.** Mirroring adr-tools' `_adr_dir`, walking up from the working directory and at each level:
 
@@ -134,11 +134,21 @@ Two rules, deliberately different. Conflating them creates a second log beside t
 
 Resolution ends at "no log exists", **not at a default path**. `_adr_dir` itself ends with a bare `echo doc/adr`, but a consumer handed a directory holding no records gains nothing from it, so every consumer treats the third outcome as *skip*.
 
+**ENUMERATION — every consumer.** Resolution hands back a directory; this rule turns it into a list of records. A record is any `*.md` file at the log root **or exactly one directory below it** whose filename begins with a digit:
+
+```sh
+find "$ADR_DIR" -mindepth 1 -maxdepth 2 -name '*.md' | grep -E '/[0-9][^/]*\.md$'
+```
+
+The leading-digit test is `adr-list`'s own filename filter with the recursion depth raised from zero to one. It excludes `README.md` — the index (§13) — and a `templates/` directory's own template, while admitting both a dated name and an adopted sequential one (`0001-…`). Depth is bounded at one because the directories below a log are filing buckets (§18) rather than a tree, so nothing legitimate sits deeper.
+
+**State the rule rather than leaving it implied.** A consumer that globs a single segment — `<log>/*.md`, matching files directly inside the log root and in no subdirectory of it — still finds every `Accepted` record, because §18 files those at the root. So the failure this rule prevents is not a broken hard gate. It is a **silent warn tier**: the `Proposed` records sit one level down, the consumer loads none of them, produces no warning, and reports nothing — which is indistinguishable from a project that has made no architectural decisions at all (§15).
+
 **CREATION — `/ai-adr`'s first-run branch alone.** A new log goes at **`docs/adr`**, and `.adr-dir` records that path immediately.
 
 **Why the two paths differ.** The probe reads `doc/adr` because that is where `adr init` with no argument writes, and where it writes no `.adr-dir` — so probing it is the only thing standing between a project that already keeps records there and a duplicate log at `docs/adr`. Creation uses the plural form because it matches the `docs_path` and `output_path` keys a project already has.
 
-**`.adr-dir` is the only carrier of the log path.** It is `adr-init`'s own one-line file (`echo "$1" > .adr-dir`), an ordinary tracked file, so the path survives a fresh clone; `cat` is the whole parser; and the `adr` CLI honours it, so `adr list` works in a log these skills created. No frontmatter key participates — `.context/README.md` holds nothing about the log, so `/ai-init` needs no change. Claim it as "the convention of adr-tools, the most widely packaged ADR toolchain, committed in roughly 300 public repositories", never as an ecosystem standard: no second tool reads it.
+**`.adr-dir` is the only carrier of the log path.** It is `adr-init`'s own one-line file (`echo "$1" > .adr-dir`), an ordinary tracked file, so the path survives a fresh clone; `cat` is the whole parser; and the `adr` CLI honours it, so `adr list` works in a log these skills created. No frontmatter key participates — a project's context file holds nothing about the log, so nothing that writes one needs to change. Claim it as "the convention of adr-tools, the most widely packaged ADR toolchain, committed in roughly 300 public repositories", never as an ecosystem standard: no second tool reads it.
 
 **Where a created log lands.** `docs/adr` nests inside a detected `docs_path` for Docusaurus, MkDocs, Jekyll, and the heuristic fallback, so in most consuming projects the records are published to the site, become sidebar entries, and fall under the link check that gates the docs build. Say so once on the first run, and name `doc/adr` as the alternative for a project that wants the log unpublished.
 
@@ -148,16 +158,24 @@ Records are named `YYYY-MM-DD-description.md`. AWS specifies no filename convent
 
 - The **date is the creation date**, written once and never rewritten, matching `manifest-update.md:73` — the leading position is always the date, never a sequence number. Renaming on acceptance would break every inbound link and would itself mutate a record whose value is that it does not move.
 - **Accepted downside: no short citable identifier.** Cross-references carry the full filename or the title, and number-keyed tooling does not apply — `adr-log`, the Backstage ADR plugin, and `@ADR(n)` annotations all key on the number.
-- **Accepted downside: `adr new` must not be run.** Its allocator is `ls | grep -Eo '^[0-9]+' | sed -e 's/^0*//' | sort -rn | head -1`, so in a dated log the maximum is the *year*: a 2026 log yields `2027-<slug>.md`, sorting between real dates, with nothing erroring. Create records with `/ai-adr`; use the CLI for `list`, `generate toc`, `generate graph`, and `link` only. `adr upgrade-repository` is untested here and excluded as a precaution rather than a demonstrated hazard.
+- **Accepted downside: `adr new` must not be run.** Its allocator is `ls | grep -Eo '^[0-9]+' | sed -e 's/^0*//' | sort -rn | head -1`, so in a dated log the maximum is the *year*: a 2026 log yields `2027-<slug>.md`, sorting between real dates, with nothing erroring. Create records with `/ai-adr`; use the CLI for `list`, `generate toc`, and `link` only. `adr upgrade-repository` is untested here and excluded as a precaution rather than a demonstrated hazard.
+- **Accepted downside: three of the four read commands narrow, and the fourth was already broken.** Once §18 files records by status, `list`, `generate toc`, and `link` see only the records at the log root — they glob a single segment. `generate graph` was already unusable against a dated log independently of filing, because it derives each node's identifier by deleting everything from the first hyphen onward, so every record created in one calendar year collapses into a single node.
+- **A cross-record reference is a filename citation in backticks, never a markdown link.** Write `` `2026-08-20-record-architecture-decisions.md` ``. The one exception is the `## Status` supersession line, which §6 tolerance 2 requires as a link and §7 permits editing, so it is recomputed whenever either endpoint moves. The mechanism: a body link written from `proposed/` resolves relative to that directory and breaks the moment §18 moves the record to the log root — and an accepted record's body may not be edited to repair it (§7), so the broken link is permanent.
 - On a **same-day slug collision**, ask. Never overwrite.
 
 ## §13. The index
 
-The log's index is **`<log>/README.md`**: a table of Date, linked title, and Status, listing **every record including retired ones** — a rejection an agent cannot see is a rejection it proposes again.
+The log's index is **`<log>/README.md`**, grouped under three headings in this order — `## Accepted`, `## Proposed`, `## Retired` — and listing **every record including retired ones**, because a rejection an agent cannot see is a rejection it proposes again.
+
+The first two groups carry Date and linked title. **`Retired` carries a third column holding the exact status**, because it is one group covering three states (§18): collapsing them would lose the difference between a decision the team declined and one it replaced, which is the part a reader years later cannot reconstruct.
+
+**Links are relative to the log root**, so a filed record's link carries its directory segment — `proposed/2026-08-25-file-records-by-status.md` — while an accepted record's link carries none.
+
+**A record's own `## Status` section wins over the index.** The index is a derived convenience and the record is the source, so a disagreement is **reported** naming the file, the group it was listed under, and the keyword — and never resolved by editing a record to match the index.
 
 `/ai-adr` maintains it on every write and every transition, carrying the same update-on-every-write obligation the working manifest does (`manifest-update.md`). It must be a **committed file** rather than generated on demand, because what routes an agent to it reads a file from disk and cannot run a command.
 
-`adr generate toc` is useful as a drift check, but it emits `* [$title]($link)` with **no status column** — so a check extracts titles and links from both sides before diffing, or it reports a difference on every run and gets ignored.
+`adr generate toc` is useful as a drift check, but it emits `* [$title]($link)` with **no status column** and reads only the log root (§12) — so a check extracts titles and links from both sides and compares them against the `## Accepted` group alone, or it reports a difference on every run and gets ignored.
 
 ## §14. Two labelled inferences
 
@@ -168,9 +186,9 @@ The changelog itself is an **AWS mandate** (AWS FAQ). Two rules about its conten
 
 ## §15. Consumers: absence is normal, and status maps onto the existing ladder
 
-A project with **no log is the normal case** for `/ai-plan` and `/ai-implement`. Both skip **silently** — a warning on every run in a project that has made no architectural decisions is noise.
+A project with **no log is the normal case**. A consumer skips **silently** when resolution finds none, because a warning on every run in a project that has made no architectural decisions is noise.
 
-When a log resolves, each record's status maps onto the constraint authority ladder those skills already run for the `*(inferred)*` marker. No second mechanism:
+When a log resolves, each record's status maps onto the constraint authority ladder a consumer already runs for the `*(inferred)*` marker. No second mechanism:
 
 | Status | Authority |
 |---|---|
@@ -212,9 +230,9 @@ Never cut:
 
 - **A rejected alternative and the reason it was rejected.** AWS requires Context to mention the solutions the team considered, and a rejection an agent cannot see is a rejection it proposes again.
 - **An accepted downside.** A record listing only upsides reads as advocacy, and the downside is the part a reader years later cannot reconstruct.
-- **A consequence for the planning pipeline** — what `/ai-plan` and `/ai-implement` do differently once this record is `Accepted` (§15).
+- **A consequence for whoever acts on the decision** — what changes, for a person or for a tool that reads this log, once this record is `Accepted` (§15). This is the bullet that makes a record actionable rather than descriptive: a record stating only what was decided leaves a reader with nothing to do differently.
 
-**No offloading.** A record stays self-contained on its project-specific content, so it cannot meet the budget by citing a pipeline artifact for its reasoning: `/ai-archive` retires working folders into `.archive/`, and a project may gitignore its working root outright, so the cited path may be absent from a fresh clone and the record then points at nothing. Citing a source file by `path:line` is different and encouraged — that is code, and it ships with the clone.
+**No offloading.** A record stays self-contained on its project-specific content, so it cannot meet the budget by citing a pipeline artifact for its reasoning: working folders get archived, and a project may gitignore its working root outright, so the cited path may be absent from a fresh clone and the record then points at nothing. Citing a source file by `path:line` is different and encouraged — that is code, and it ships with the clone.
 
 ## §17. Provenance of a record's claims
 
@@ -237,3 +255,40 @@ A record is read years later by someone holding none of today's context, so a cl
 **No asserted deliberation.** AWS requires Context to mention the solutions the team "considered", and a source listing options is a menu rather than deliberation — a dependency file naming three queue libraries is not evidence anyone weighed three queue libraries. An alternative the user did not name is either asked about or omitted, and never written as considered. Writing one in fabricates a discussion, and the record then closes a question the team never opened.
 
 **No unsourced quantities.** A number in a record traces to the user or to a cited file, or it does not appear at all. An invented "roughly 40% of requests", added to make a Context bullet concrete, becomes the figure a later decision is argued from — and no marker fixes it, because the problem is that the quantity has no source rather than that its source is the agent.
+
+## §18. Filing records by status
+
+**The move is writer-only** — `/ai-adr` performs it. Every consumer inherits only §11's ENUMERATION rule, and reads no directory name.
+
+A flat log gives a directory listing no status signal: `ls` cannot tell a decision that binds a plan from one the team rejected months ago. Filing answers that without adding a second source of truth.
+
+**The keyword is authoritative; the path is derived.** A consumer reads status from `## Status` and from nothing else. That is what holds a consumer's change to the single enumeration sentence §11 specifies, and it is why an invented directory cannot quietly become a sixth state (§5) — it produces a report instead.
+
+| Status | Location |
+|---|---|
+| `Accepted` | the log root |
+| `Proposed` | `<log>/proposed/` |
+| `Rejected`, `Superseded`, `Deprecated` | `<log>/retired/` |
+
+**Why `Accepted` sits at the root rather than in `accepted/`.** The layout is asymmetric on purpose. A consumer that never learned §11's rule globs one segment, and against this layout that glob returns exactly the binding records — so an un-upgraded reader keeps its hard gate. Under a symmetric layout the same glob returns nothing, the reader loads zero constraints, and it reports nothing, which is indistinguishable from a project that has made no decisions. Both layouts fail an un-upgraded reader somewhere; this one chooses where.
+
+**`retired/` holds three states because §15 gives all three identical authority** — `Rejected`, `Superseded`, and `Deprecated` each load nothing and print nothing. The name is a filing bucket rather than a status: **the state set stays five**, and `Retired` is not one of them. Two of the three could not be filed by keyword anyway, because a record the `adr` CLI superseded holds only `Superceded by [Title](file.md)` and no keyword at all (§6 tolerance 2).
+
+**A transition edits the keyword first and moves the file second.** The order is the recovery property. After the edit, a half-applied transition leaves the authoritative carrier correct and only the address stale — which the invariant below reports and a `git mv` repairs. The reverse order leaves a record asserting its old status from its new address, where the wrong carrier is the authoritative one.
+
+| Transition | Move |
+|---|---|
+| `Proposed → Accepted` | `proposed/X.md` → `X.md` |
+| `Proposed → Rejected` | `proposed/X.md` → `retired/X.md` |
+| `Accepted → Superseded` | `X.md` → `retired/X.md` |
+| `Accepted → Deprecated` | `X.md` → `retired/X.md` |
+
+Use `git mv` inside a repository and `mv` outside one, in the same commit as the keyword edit so git records a rename and `git log --follow` reaches across it. **Only the directory changes.** The filename is fixed — its date is the creation date (§12) — so a move is never a rename.
+
+**Directories are created on demand.** Git does not track an empty directory, so a seeded `proposed/` would need a `.gitkeep` to survive a clone, and nothing else in the log needs one.
+
+**Records already in a log are never migrated.** Filing applies to what `/ai-adr` writes or transitions. A log adopted under §11 keeps its existing records exactly where they are, and the resulting mixed layout is **reported once** — the same shape as the one-off report for an adopted log using sequential filenames (§12).
+
+**The invariant.** For every record §11 enumerates, the directory implied by its keyword equals the directory it sits in. Report each disagreement naming **the file, the directory, and the keyword**, and treat the keyword as correct. Read the keyword under §6's four tolerances, so a record holding only a supersession link files under `retired/`. A keyword §5 does not name is reported as unrecognised and **not filed**, because moving it would need a destination this map has no entry for.
+
+**Why this is specified here rather than scripted.** Only the skill trees are distributed, so a check living in a repository's `scripts/` directory is absent from every consuming project — and one of the two runtimes is a prompt runtime with no guaranteed shell. The invariant is therefore a step `/ai-adr` performs on every run, and it costs nothing extra: §13's index pass already enumerates the log.

@@ -2,6 +2,7 @@
 name: ai-adr
 description: "Keep a project's architecture decision log — stand it up on first run, then write records and move them through propose, accept, and decline. Invoke ONLY via the /ai-adr slash command. Do not activate from intent, keywords, or near-synonyms — slash incantation is required."
 
+disable-model-invocation: true
 effort: high
 ---
 
@@ -35,6 +36,7 @@ If either branch finds a log, **adopt it**:
 - If it resolved from the probe rather than from `.adr-dir`, write the resolved path into `.adr-dir` at the repository root so the path is recorded once and never probed again. A project that ran a bare `adr init` has records at `doc/adr` and no `.adr-dir`; adopting rather than duplicating is the entire reason resolution probes that path.
 - Create nothing else. Do not create `docs/adr`.
 - If the adopted log's records use sequential names (`0001-…`), keep writing dated names and **report once** that the log now holds two naming schemes, naming the consequence: the allocator behind `adr new` reads the maximum leading integer, so a dated record makes that number the year and any later `adr new` in this log writes a malformed record (`adr-format.md` §12).
+- If the adopted log keeps its records in one flat directory, **report once** that they stay exactly where they are while every record you write or transition is filed by status (`adr-format.md` §18) — so the log will hold a mixed layout, and a listing of its root will show the adopted records alongside the accepted ones. Migrating them is not this skill's call: a bulk move across a log someone else built is a decision for whoever owns it.
 
 If resolution finds no log, go to Step 2. Otherwise skip Step 2 entirely — the first-run branch fires **only** when no log exists, so a second run on an established log takes the ordinary path with no setup, no `CLAUDE.md` prompt, and no change to `.adr-dir`.
 
@@ -46,9 +48,25 @@ This fires once per repository. It is the one moment an everyday command creates
 
 **2b. Report where the log landed.** Compare the log path against `docs_path` from `.context/README.md`, or against a detected docs root (`ai-skills-reference/framework-detection.md`). Say once, in one sentence, whether the log sits **inside** the published documentation tree — if it does, the records will be published to the site, become sidebar entries, and fall under whatever link check gates the docs build — and name `doc/adr` as the alternative for a project that wants the log unpublished. A one-line change to `.adr-dir` relocates it later.
 
-**2c. Write the index** at `<log>/README.md`, per `adr-format.md` §13: a table of Date, linked title, and Status, listing every record including retired ones.
+When the log **is** inside the published tree, say one thing more: because filing moves an accepted record to the log root (`adr-format.md` §18), **accepting a record changes its route**, and any inbound link to the proposal's old address breaks at that moment — which fails the build outright under a link check set to throw. This is the one consequence of filing a reader cannot discover from a directory listing, so it is worth the sentence.
 
-**2d. Write the log's own first record**, dated with `date +%F`, titled so it reads as a decision (`Record architecture decisions`). Its Decision is that the project keeps an ADR log in this format; its Context is why; its Consequences record **both accepted downsides** — that dated filenames give no short citable identifier, so number-keyed tooling does not apply, and that `adr new` must not be run because in a dated log it allocates the filename from the calendar year. Status is `Accepted`.
+**2c. Write the index** at `<log>/README.md`, per `adr-format.md` §13: grouped under `## Accepted`, `## Proposed`, and `## Retired`, listing every record including retired ones, with each link relative to the log root so a filed record's link carries its directory segment.
+
+**2d. Write the log's own first record**, dated with `date +%F`, titled so it reads as a decision (`Record architecture decisions`). Its Context is why the project keeps a log; its Decision is that it keeps one in this format, and carries this bullet as well:
+
+```markdown
++ We use a person's explicit invocation of `/ai-adr` as the only route by which a record is written or moved; no agent invokes it and no agent edits this log.
+```
+
+Its Consequences record **both accepted downsides** — that dated filenames give no short citable identifier, so number-keyed tooling does not apply, and that `adr new` must not be run because in a dated log it allocates the filename from the calendar year — and the downside the prohibition above buys:
+
+```markdown
++ Negative, accepted: a decision an agent notices mid-task goes unrecorded unless a person acts on it.
+```
+
+Both additions fit inside `adr-format.md` §16's caps of 5 Decision bullets and 6 in Consequences, so neither displaces the two accepted downsides this step already requires — write all of them.
+
+**Put the prohibition in the record and not only in the skill**, because the record is the layer that survives what the other two do not: a project that declined the 2e pointer, and a runtime with no frontmatter field to refuse a model-initiated call. An agent told to read the log and nothing else meets the rule there or not at all. Status is `Accepted`, so it is written **at the log root** rather than in `proposed/` — filing follows the keyword (`adr-format.md` §18), and this is the one record born accepted. A first run therefore creates no subdirectory at all.
 
 Write it in `adr-format.md` §16's bulleted shape and inside its caps, like every other record, and carry **no ` — *(inferred)*` suffix in it**. A marker here could never be resolved: the record is written `Accepted` in one step, and an `Accepted` record's body is frozen (§7), so the marker would freeze in with it. That is achievable rather than a constraint you have to fight, because every claim in this record traces to this skill's own specification or to a path you can cite — it is the one record whose subject is the skill itself, so there is nothing to ask a user about.
 
@@ -62,7 +80,9 @@ The block is a **prose pointer naming the literal resolved path**. Never an `@pa
 <!-- ai-skills:adr-log -->
 ## Architecture Decisions
 
-This project keeps an architecture decision log at `docs/adr/`. Read `docs/adr/README.md` before planning or writing code — it indexes every decision with its status. A record whose status is `Accepted` is binding; one whose status is `Proposed` is under review. Record a new decision with `/ai-adr "<the decision>"`.
+This project keeps an architecture decision log at `docs/adr/`. Read `docs/adr/README.md` before planning or writing code — it indexes every decision with its status. A record whose status is `Accepted` is binding; one whose status is `Proposed` is under review.
+
+Records here are written only by a person running `/ai-adr "<the decision>"`. Do not invoke that command yourself, and do not create, edit, or move a file in this log by any other route. When you reach a decision that belongs in the log, say so and name the command for the user to run.
 <!-- /ai-skills:adr-log -->
 ```
 
@@ -115,7 +135,20 @@ This refusal is scoped to `accept` and `decline`. `deprecate` operates on an alr
 
 Never move a record to `Accepted`, `Rejected`, or `Deprecated` without an explicit human instruction.
 
-**5b. Apply a legal transition as a status-line edit**, mirroring what `_adr_remove_status` and `_adr_add_link` do between them: replace the keyword line, keep the keyword **alone on its own line**, and leave Context, Decision, Consequences, and Compliance **byte-identical** when the target is `Accepted` or `Rejected`. Never rename the file — its date is the creation date (`adr-format.md` §12).
+**5b. Apply a legal transition as a status-line edit *and* a move — in that order.** The edit mirrors what `_adr_remove_status` and `_adr_add_link` do between them: replace the keyword line, keep the keyword **alone on its own line**, and leave Context, Decision, Consequences, and Compliance **byte-identical** when the target is `Accepted` or `Rejected`. Then move the file to the directory its new status implies (`adr-format.md` §18):
+
+| Transition | Move |
+|---|---|
+| `Proposed → Accepted` | `proposed/X.md` → `X.md` |
+| `Proposed → Rejected` | `proposed/X.md` → `retired/X.md` |
+| `Accepted → Superseded` | `X.md` → `retired/X.md` |
+| `Accepted → Deprecated` | `X.md` → `retired/X.md` |
+
+**Edit first, move second, and never the reverse.** The order is the whole recovery property: if the run dies between the two, the record's authoritative carrier is already correct and only its address is stale — which Step 7 reports as a disagreement and a single `git mv` repairs. Move first and a record asserts its old status from its new address, so the wrong carrier is the authoritative one and the report points at the wrong thing.
+
+Use `git mv` inside a repository and `mv` outside one, in the **same commit as the edit** so git records a rename and `git log --follow` reaches across it. Create the destination directory on demand — git does not track an empty one.
+
+**Only the directory changes. Never rename the file** — its date is the creation date (`adr-format.md` §12), and a move is not a rename.
 
 On **accept** and on **decline** — the two transitions that cross the immutability boundary — also add one changelog row carrying today's date and the author, and bump the version. The bump to `1.0` on acceptance is an **inference** from AWS's example rather than a specification (`adr-format.md` §14); say so if the user asks why.
 
@@ -125,14 +158,20 @@ On **accept** and on **decline** — the two transitions that cross the immutabi
 
 **5e. On supersession, stop and ask rather than acting.** Judging whether two decisions genuinely conflict is the case where an immediate answer is also a wrong one, and acting on a wrong judgement retires a live decision and writes a replacement nobody sanctioned. On confirmation: write the new record with a link to the old one, change **only** the old record's status line, and record what changed in the **new** record's changelog — appending it to the old record's changelog violates immutability while appearing to honour the changelog mandate (`adr-format.md` §9).
 
-The predecessor's whole diff is one line:
+The predecessor changes in two ways and no others — its status line, and its address. It moves to `retired/`, and because the supersession line is a **link** rather than a filename citation (`adr-format.md` §12), that link is recomputed for the file's new location:
 
 ```diff
  ## Status
 
 -Accepted
-+Superseded by [Move the ledger to DynamoDB](2026-11-02-move-the-ledger-to-dynamodb.md)
++Superseded by [Move the ledger to DynamoDB](../proposed/2026-11-02-move-the-ledger-to-dynamodb.md)
 ```
+
+```sh
+git mv docs/adr/2026-08-20-use-postgres-for-the-ledger.md docs/adr/retired/
+```
+
+The link is the one part of a frozen record §7 permits editing, which is why it can be repaired at all. Recompute it from where each file *lands*, not from where it started: the successor is written to `proposed/` and the predecessor moves to `retired/`, so the relative path climbs one level and descends again. It is recomputed a second time when the successor is later accepted and moves to the log root.
 
 ## Step 6: Write a record
 
@@ -154,7 +193,7 @@ Spend the questions on judgement, not on retrieval.
 
 **6d. Detect a contradiction before writing.** If the description contradicts an `Accepted` record, do not write a parallel record — go to 5e, which stops and asks whether to supersede.
 
-**6e. Write the record** at `<resolved-log>/YYYY-MM-DD-<slug>.md`, satisfying all four positional constraints from `adr-format.md` §4, carrying AWS's full section set, and shaped to §16's caps — Context 6 bullets, Decision 5, Consequences 6, Compliance 4, 30 words per bullet, and 450 words across those four sections together. Enforce "We use…" per Decision bullet and reject "should" (§3). On a same-day slug collision, ask — never overwrite.
+**6e. Write the record** at `<resolved-log>/proposed/YYYY-MM-DD-<slug>.md` — every new record is `Proposed`, so `proposed/` is where filing puts it (`adr-format.md` §18). Create that directory on demand; git does not track an empty one, so it is not seeded ahead of the first record. The record satisfies all four positional constraints from `adr-format.md` §4, carries AWS's full section set, and is shaped to §16's caps — Context 6 bullets, Decision 5, Consequences 6, Compliance 4, 30 words per bullet, and 450 words across those four sections together. Enforce "We use…" per Decision bullet and reject "should" (§3). On a same-day slug collision, ask — never overwrite.
 
 The template below is the format's only worked example of a compliant record, so read it for the things the caps do not state: bullets in all four body sections, the status keyword **alone on its own bare line and never bulleted** — `+ Accepted` defeats `_adr_remove_status` and leaves a later supersession asserting two states at once (§2) — a rejected alternative and its reason on one bullet, a `Positive:` and a `Negative, accepted:` bullet in Consequences, and one marked bullet showing where an unresolved claim goes.
 
@@ -205,25 +244,50 @@ Fill every section from the input, the interview, and the files you cited. **`No
 
 ## Step 7: Update the index
 
-Add or update this record's row in `<log>/README.md` on **every** run — whether the run wrote a record or moved one. The index carries a status column, so a transition that leaves the index stale makes the one file an agent is routed to disagree with the records it indexes.
+Add or move this record's row in `<log>/README.md` on **every** run — whether the run wrote a record or moved one. A transition changes which group the row belongs under *and* the path its link carries, so a transition that leaves the index stale makes the one file an agent is routed to disagree with the records it indexes.
+
+Write it grouped, per `adr-format.md` §13. Links are relative to the log root, so a filed record's link carries its directory segment and an accepted record's does not:
 
 ```markdown
 # Architecture Decision Records
 
+## Accepted
+
+| Date | Decision |
+|---|---|
+| 2026-08-20 | [Record architecture decisions](2026-08-20-record-architecture-decisions.md) |
+
+## Proposed
+
+| Date | Decision |
+|---|---|
+| 2026-08-25 | [Use Postgres for the ledger](proposed/2026-08-25-use-postgres-for-the-ledger.md) |
+
+## Retired
+
 | Date | Decision | Status |
 |---|---|---|
-| 2026-08-20 | [Record architecture decisions](2026-08-20-record-architecture-decisions.md) | Accepted |
-| 2026-08-20 | [Use Postgres for the ledger](2026-08-20-use-postgres-for-the-ledger.md) | Proposed |
+| 2026-08-22 | [Use a wiki page](retired/2026-08-22-use-a-wiki-page.md) | Rejected |
 ```
 
-List every record including retired ones: a rejection an agent cannot see is a rejection it proposes again.
+List every record including retired ones: a rejection an agent cannot see is a rejection it proposes again. `Retired` keeps a Status column because it covers three states; the other two groups do not need one, because the heading already says it. Omit a group entirely when no record is in it rather than writing an empty table.
+
+**Then check the invariant, on every run** (`adr-format.md` §18) — including a run that only wrote a record, and a run that refused a transition and changed nothing. Enumerate the log per §11, and for each record compare the directory its `## Status` keyword implies against the directory it actually sits in. Report every disagreement naming **the file, the directory, and the keyword**:
+
+```
+DRIFT proposed/2026-08-25-use-postgres-for-the-ledger.md: path says 'proposed', ## Status says 'Accepted'
+```
+
+**Treat the keyword as correct** and offer the move that reconciles them; never edit a record's status to match its location. Read the keyword under §6's four tolerances, so a record holding only `Superceded by [...]` and no keyword belongs in `retired/` rather than being reported as unrecognised. A keyword §5 does not name is reported as unrecognised and left where it is — there is no destination for it.
+
+This is why an invented directory cannot become a sixth state: a record placed by hand in `<log>/deferred/` implies no directory the map allows, so it is reported rather than silently honoured. Checking every run rather than only writing runs is what catches a log drifted by a hand edit or a hand `git mv`, which is otherwise invisible until the next write. It costs nothing extra — the index pass above already enumerated the log.
 
 ## Step 8: Report the state and the next command
 
 Finish **every** run — first run, write, transition, and refusal alike — by naming three things, and a fourth whenever the record you just wrote holds a marker:
 
-1. The record's file path and its resulting status.
-2. What that status means for `/ai-plan` and `/ai-implement`: `Accepted` behaves as a confirmed constraint and stops a plan that violates it; `Proposed` warns and lets planning continue; `Rejected`, `Superseded`, and `Deprecated` load nothing.
+1. The record's file path and its resulting status. When a transition moved the file, give the **new** path and say it moved — a user who is told only that the status changed will not expect the address to differ afterwards.
+2. What that status means for anyone who reads the log: `Accepted` binds — work that violates it either changes or the record is superseded; `Proposed` is under review and carries no obligation yet; `Rejected`, `Superseded`, and `Deprecated` carry none at all. A tool that reads this log applies the same three tiers (`adr-format.md` §15).
 3. **The literal command for the next transition** — for example `/ai-adr accept use-postgres-for-the-ledger`.
 4. **Each bullet still carrying ` — *(inferred)*`, quoted, and `/ai-adr propose <slug>` as the command that resolves it.** Without this the user meets an outstanding marker when Step 5a refuses the accept, which is one run too late — and the marker is precisely the part of the record they are the only available source for.
 
@@ -231,9 +295,13 @@ This is required output, not a nicety. It is the mechanism that removes the proc
 
 ## What this skill never does
 
-- **Never runs `adr new` or `adr upgrade-repository`.** In a dated log the allocator behind `adr new` takes the maximum leading integer, which is the year, so a 2026 log yields `2027-<slug>.md` with nothing erroring. `adr upgrade-repository` is untested against a dated log and excluded as a precaution rather than a demonstrated hazard. `list`, `generate toc`, `generate graph`, and `link` are safe.
+- **Never runs except on a person's explicit invocation.** On Claude Code `disable-model-invocation: true` makes the harness refuse a model-initiated call, and the refusal also instructs the model not to reproduce the steps another way. Where no such field exists this bullet is the whole mechanism: if this skill is reached by anything other than a person typing the command, stop before writing or moving any file and tell the user to run it themselves. A record an agent wrote unasked is evidence that nobody deliberated, which is the one thing a decision log exists to be evidence of.
+- **Never runs `adr new` or `adr upgrade-repository`.** In a dated log the allocator behind `adr new` takes the maximum leading integer, which is the year, so a 2026 log yields `2027-<slug>.md` with nothing erroring. `adr upgrade-repository` is untested against a dated log and excluded as a precaution rather than a demonstrated hazard.
+- **Never claims the four read commands are safe.** `list`, `generate toc`, and `link` glob a single segment, so once records are filed by status they see only the records at the log root — useful, and no longer a full listing. `generate graph` was already unusable against a dated log independently of filing: it derives each node's identifier by deleting everything from the first hyphen onward, so every record created in one calendar year collapses into a single node labelled with whichever record was listed last.
+- **Never reads a directory name as a status.** The `## Status` keyword is the authoritative carrier and the path is derived from it (`adr-format.md` §18). Reading it the other way would let `mkdir <log>/deferred/` add a sixth state (§5) without anyone recording a decision.
+- **Never moves a record that was already in the log when it adopted it.** Filing applies to what this skill writes or transitions. The mixed layout that results is reported once (Step 1); a bulk migration across a log someone else built is a decision for whoever owns it.
 - **Never writes to `.context/README.md`** and never asks `/ai-init` for a log path. `.adr-dir` is the only carrier.
-- **Never renames a record.** The filename date is the creation date.
+- **Never renames a record.** The filename date is the creation date. A transition moves the file between directories (`adr-format.md` §18) and leaves the name untouched — a move is not a rename.
 - **Never edits Context, Decision, Consequences, or Compliance on an `Accepted` or `Rejected` record.**
 - **Never sets a status on its own initiative**, with the single sanctioned exception in Step 2d.
 - **Never claims that an agent honours a decision it loaded.** The pointer routes; it does not enforce.
@@ -242,6 +310,6 @@ This is required output, not a nicety. It is the mechanism that removes the proc
 
 ## Constraints
 
-- **Voice**: apply `ai-skills-reference/voice.md`'s core rules to every record you write. Records are working artifacts, so the deliverable overlay does not apply. Its depth rule — compress the prose, never the analysis, and removing a concept to satisfy the standard is a failure of the standard — is satisfied **at record altitude** by `adr-format.md` §16: name a consequence in a clause rather than explaining it in a paragraph. The concept is kept; the paragraph is not. §16's word budget is never licence to drop a rejected alternative, an accepted downside, or a consequence for the planning pipeline, which is why §16 names all three on a never-cut list.
+- **Voice**: apply `ai-skills-reference/voice.md`'s core rules to every record you write. Records are working artifacts, so the deliverable overlay does not apply. Its depth rule — compress the prose, never the analysis, and removing a concept to satisfy the standard is a failure of the standard — is satisfied **at record altitude** by `adr-format.md` §16: name a consequence in a clause rather than explaining it in a paragraph. The concept is kept; the paragraph is not. §16's word budget is never licence to drop a rejected alternative, an accepted downside, or a consequence for whoever acts on the decision, which is why §16 names all three on a never-cut list.
 - Read `adr-format.md` at the start of every run. It is the specification; this file is the procedure.
 - One record per decision. A record covering two decisions cannot be superseded without retiring both.
