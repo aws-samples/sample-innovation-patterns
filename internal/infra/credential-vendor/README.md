@@ -179,8 +179,7 @@ the pipeline stack does not exist.
 `arn:aws:iam::369530416671:role/InnovationPatternsGitLabCI`, with the group and project
 above read back off the live trust policy and matching this repository's origin.
 
-**Not verified:** no CI job has ever assumed it. The two-hop flow and the principal-tag
-conditions are transcribed from the reference implementation, which measured them against
-its own group and project — a matching trust policy is not proof that vending works. The
-first `integration-test:start` job proves or disproves it in `before_script`, at no cost:
-`aws sts get-caller-identity` runs before anything is uploaded or started.
+**Vending works — measured 2026-09-08.** The first `integration-test:start` job assumed this
+role, uploaded the archive and started a run, so the two-hop flow, the principal-tag
+conditions and all six permission grants are now exercised rather than transcribed. The
+build that followed failed on `/ipa-compose` assertions, well past anything this role does.

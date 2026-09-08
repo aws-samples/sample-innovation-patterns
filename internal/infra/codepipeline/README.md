@@ -62,7 +62,7 @@ The `Scenario` parameter selects it, constrained to the scenarios that exist:
 
 | `Scenario` | Drives | Model spend | Deploys |
 |---|---|---|---|
-| `compose` *(default)* | `/ipa-init`, `/ipa-compose` | **$0.94 — measured** | 1 free-but-real IAM stack |
+| `compose` *(default)* | `/ipa-init`, `/ipa-compose` | **$1.66 — measured here**, vs $0.94 on a laptop | 1 free-but-real IAM stack |
 | `deploy` | the full lifecycle | **unmeasured**, ceiling $15 | 7 billable stacks |
 
 **The default is `compose`, and that is a spend decision rather than a convenience.**
@@ -231,16 +231,36 @@ and 3 warnings (`W32`, `W84`, `W35`); `archive.py` produces a correct archive an
 correctly refuses a worktree; every `CONFIRM`-guarded target's dry run stops without
 acting.
 
-**Deployed, but not proven.** The stack has existed in 369530416671 / `us-east-1` since
-2026-08-18 — and it predates the `Scenario` and `FullMaxBudgetUsd` parameters, so
-**re-deploy it before the next run** or the run has no scenario selection at all. Its one
-execution, the same day, failed in the **Source** stage: `source/source.zip` returned
-Forbidden, because `start` was called with nothing uploaded (`make trigger` is what
-sequences the upload). The bucket is still empty.
+**The buildspec works end to end — measured 2026-09-08**, first run started from GitLab CI
+(`integration-test:start`, commit `5cac5a9`, build `0040ae14`, 8m46s wall). Every phase
+succeeded except `BUILD`, which failed on **two harness assertions about `/ipa-compose`'s
+output**, not on anything in this stack. What that run settles:
 
-**Not verified:** the buildspec has therefore still never executed — the runtime pairing,
-the credential-less profile inside CodeBuild, `dockerd` starting, and whether the harness
-completes at all on this compute are all untested. Expect to iterate on the install phase
-during the first run. Also note that `make test-compose` is currently **red** on a
-maintainer's laptop (`/ipa-compose` generates none of its claimed artifacts), so a first
-pipeline run is expected to fail for that reason and not because of anything here.
+- **The credential-less `ipa-it` profile resolves.** `boto3` reported
+  `resolved by 'container-role'`, i.e. the CodeBuild role, with no profile named — this was
+  labelled *inferred from the documented provider order* and is now measured.
+- **All nine preflight probes PASS**, including `docker_daemon` (server 28.5.2),
+  `bedrock_driver_model`, `bedrock_worker_model` and `iam_create_role`.
+- **`standard:8.0` + the `runtime-versions` pairing is right** (npm 11.7.0, uv 0.12.10).
+- **The `.git` assertion and the archive path work**: the install phase printed the exact
+  commit under test.
+- **`post_build` tore down its own namespace after the failure** — `it1c00008047`, one
+  stack, `ok`, pointer removed. Unconditional teardown does what it claims.
+
+**Cost, measured rather than projected:** the compose drive reported
+`cost=$1.66 turns=56 wall=336s`, against the $0.94 measured on a maintainer's laptop for
+the same scenario. Budget the higher figure: same scenario, different compute, ~75% more
+model spend, and still well inside `MaxBudgetUsd`'s $5.
+
+**Still not verified:** the `deploy` scenario has never run here, so the 120-minute
+`BuildTimeoutMinutes` ceiling and `FullMaxBudgetUsd` remain untested — and note the
+deployed stack still predates both `Scenario` and `FullMaxBudgetUsd`, so **re-deploy before
+selecting a scenario**. The earlier execution (2026-08-18) failed in the **Source** stage —
+`source/source.zip` returned Forbidden because `start` was called with nothing uploaded,
+which is what `make trigger` sequences.
+
+**`list-stacks` is not optional after a run.** The 2026-09-08 build's own teardown was
+clean, but its closing `list-stacks` found **seven billable stacks from a 2026-08-19
+namespace** (`it1e5bd7c3f3`: frontend, backend, queue, cognito, ecr, security, logs) still
+standing three weeks later. Unconditional `post_build` teardown covers the run that ran; it
+cannot clean up a run that was killed outside its own lifecycle.

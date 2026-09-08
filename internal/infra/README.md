@@ -63,9 +63,10 @@ job-level variable — `credential-vendor/README.md` says why not a project one)
 |---|---|
 | `codepipeline` stack | **deployed** in 369530416671 / `us-east-1`, created 2026-08-18 |
 | That stack's template | **behind this repository** — deployed before `Scenario` and `FullMaxBudgetUsd` existed, so re-deploy before the next run |
-| Runs | **one, failed at the Source stage**: `source/source.zip` returned Forbidden, i.e. `start` was called with nothing uploaded. The buildspec has still never executed |
-| `credential-vendor` stack | **deployed** 2026-09-08 as `InnovationPatternsGitLabCI`; never yet assumed by a job |
-| `.gitlab-ci.yml` | two manual jobs wired to that role; never yet run |
+| `credential-vendor` stack | **deployed** 2026-09-08 as `InnovationPatternsGitLabCI` |
+| Vending, and `integration-test:start` | **work** — first run started from GitLab CI on 2026-09-08 uploaded the archive and started the pipeline |
+| Runs | **two, both failed.** 2026-08-18 at the Source stage (`start` called with nothing uploaded). 2026-09-08 in `BUILD`, on two `/ipa-compose` assertions — 16 of 18 tests passed, every buildspec phase worked, and `post_build` tore its namespace down. See `codepipeline/README.md` for what that measured |
+| Left over from an earlier manual run | **seven billable stacks** under namespace `it1e5bd7c3f3`, standing since 2026-08-19. `make -C internal/integration-tests teardown-namespace NAMESPACE=it1e5bd7c3f3` |
 
 ## Conventions both directories share
 
