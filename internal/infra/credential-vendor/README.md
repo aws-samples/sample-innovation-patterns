@@ -6,19 +6,25 @@ Deployed once, by hand, per target account. Internal maintainer tooling — not 
 Its only purpose is to let a CI job do what `make -C ../codepipeline trigger` does: upload
 a source archive, start one pipeline execution, and read the result.
 
-## This may already be unnecessary
+## The pre-existing SDLC role is not a substitute — measured
 
-`.gitlab-ci.yml:32-43` carries a commented-out job documenting the mechanism and naming a
-role that **already exists**:
+A commented-out job used to name `arn:aws:iam::369530416671:role/ip-dev-sdlc-GitLab`, a
+role provisioned by the SDLC account vending rather than by this repository, and suggested
+this stack might be redundant. It is not, for two independent reasons (both read off the
+live role, 2026-09-08):
 
-```yaml
-AWS_CREDS_TARGET_ROLE: arn:aws:iam::369530416671:role/ip-dev-sdlc-GitLab
-```
+- **Its trust policy names a different GitLab project.** The conditions are
+  `GitLab:Group = personal_projects/alias_v/vincilb/candidate-reusable-assets` and
+  `GitLab:Project = innovation-patterns`, while this repository's origin is
+  `proserve/genaiid/other/candidate-reusable-assets/innovation-patterns`. A job here is
+  denied, and denied in the way this README warns about: nothing in the message names the
+  group as the reason.
+- **It holds `AdministratorAccess`.** Even with the group fixed, using it would put the
+  whole account inside the blast radius of a CI token, which is the thing this template
+  exists to avoid.
 
-That role was provisioned by the SDLC account vending, not by this repository. If it can
-already start the pipeline, this stack is redundant — check its policy before deploying a
-second role. This template exists for the case where it cannot, or where the pipeline
-lives in a different account.
+So the role deployed by this stack (`InnovationPatternsGitLabCI`) is what
+`.gitlab-ci.yml`'s `.integration-test-base` names.
 
 ## How the credentials arrive (two hops, two accounts)
 
@@ -36,10 +42,25 @@ set. No `id_tokens` block and no explicit assume-role step are needed.
 
 ## What this role can and cannot do
 
-**Can:** `s3:PutObject` on exactly one key; `s3:GetBucketVersioning`;
-`codepipeline:StartPipelineExecution` and three read actions on one pipeline;
+**Can:** `s3:PutObject` and `s3:AbortMultipartUpload` on exactly one key;
+`s3:GetBucketVersioning`; `codepipeline:StartPipelineExecution` and four read actions on
+one pipeline; `cloudformation:DescribeStacks` on the pipeline stack alone;
 `codebuild:BatchGetBuilds`/`BatchGetReports`/`DescribeTestCases` and three `logs:` read
 actions, scoped by the pipeline stack's naming convention.
+
+Three of those exist because the CI job runs `../codepipeline`'s **own Makefile targets**
+rather than a re-implementation of them, and each was a real AccessDenied rather than an
+anticipated one:
+
+| Grant | The call that needs it |
+|---|---|
+| `cloudformation:DescribeStacks` | `upload` resolves `SourceBucketName` from the pipeline stack — the bucket name is CloudFormation-generated |
+| `codepipeline:ListPipelineExecutions` | `watch` polls the *latest* execution, so it lists rather than being handed an id |
+| `s3:AbortMultipartUpload` | the ~11 MiB archive crosses the CLI's 8 MB multipart threshold; abort is what a *failed* upload calls |
+
+The alternative was a CI-only path that takes the bucket as a variable and polls by id.
+That path cannot drift from the stack it drives only for as long as someone keeps it in
+step, and the failure mode is a CI job that tests a bucket the pipeline is not watching.
 
 **Cannot:** deploy anything. Create, modify or delete any resource. Read any other bucket.
 Start a CodeBuild project directly — deliberately omitted, so a run must enter through the
@@ -116,8 +137,15 @@ The group path must include **every** subgroup —
 `proserve/genaiid/other/candidate-reusable-assets` for this repository. A partial path
 fails closed: assumption is denied with nothing indicating the path was wrong.
 
-Then set the `GitLabRoleArn` output as the `AWS_CREDS_TARGET_ROLE` CI/CD variable and
-uncomment the variables block in `.gitlab-ci.yml`.
+Then put the `GitLabRoleArn` output in `.gitlab-ci.yml` as `.integration-test-base`'s
+`AWS_CREDS_TARGET_ROLE`, and run the `integration-test:start` job from the GitLab UI.
+
+**Job-level, not a project CI/CD variable.** The runner vendors credentials into *any* job
+that has `AWS_CREDS_TARGET_ROLE` set, so a project variable hands an AWS session to
+`pages`, the ASH scans and both release jobs, none of which have any use for one. A project
+variable also *wins* over the value in `.gitlab-ci.yml`, so setting both leaves the file
+saying something that is not what runs. `.gitlab-ci.yml` is excluded from the public GitHub
+mirror, which is why an account-specific ARN can live there.
 
 ## What silently breaks vending
 
@@ -147,7 +175,12 @@ the explicit role name, suppressed with a reason); the group and project derive 
 from this repository's remote; the dry run stops without acting and correctly refuses when
 the pipeline stack does not exist.
 
-**Not verified:** the role has never been deployed, and no CI job has ever assumed it. The
-two-hop flow and the principal-tag conditions are transcribed from the reference
-implementation, which measured them against its own group and project — they are not
-measured here.
+**Deployed** (2026-09-08, account 369530416671, `us-east-1`, stack `ipa-gitlab-ci-role`) as
+`arn:aws:iam::369530416671:role/InnovationPatternsGitLabCI`, with the group and project
+above read back off the live trust policy and matching this repository's origin.
+
+**Not verified:** no CI job has ever assumed it. The two-hop flow and the principal-tag
+conditions are transcribed from the reference implementation, which measured them against
+its own group and project — a matching trust policy is not proof that vending works. The
+first `integration-test:start` job proves or disproves it in `before_script`, at no cost:
+`aws sts get-caller-identity` runs before anything is uploaded or started.

@@ -4,6 +4,10 @@ Two CloudFormation stacks that let the integration-test harness run somewhere ot
 than a maintainer's laptop. **Both are installed by hand, per account.** No CI job
 deploys either, and nothing in this repository deploys them automatically.
 
+Once both exist, CI can *start* a run — the two manual `integration-test:*` jobs in
+`.gitlab-ci.yml`. Starting is all it can do: the jobs call these same Makefile targets
+through a role that cannot create, modify or delete anything.
+
 | Directory | What it creates | Needs |
 |---|---|---|
 | `codepipeline/` | A versioned S3 bucket, a narrow pipeline role, a build role with `AdministratorAccess`, one CodeBuild project, one pipeline | `CAPABILITY_IAM` |
@@ -49,6 +53,20 @@ Step 3 is genuinely optional, and worth skipping until step 2 has passed at leas
 The pipeline is fully usable by hand; the role only exists to let a CI job do what
 `make trigger` does.
 
+After step 3, paste the role ARN into `.gitlab-ci.yml`'s `.integration-test-base` (a
+job-level variable — `credential-vendor/README.md` says why not a project one) and the
+`integration-test:start` job becomes a button in the GitLab UI.
+
+## State, as of 2026-09-08
+
+| | |
+|---|---|
+| `codepipeline` stack | **deployed** in 369530416671 / `us-east-1`, created 2026-08-18 |
+| That stack's template | **behind this repository** — deployed before `Scenario` and `FullMaxBudgetUsd` existed, so re-deploy before the next run |
+| Runs | **one, failed at the Source stage**: `source/source.zip` returned Forbidden, i.e. `start` was called with nothing uploaded. The buildspec has still never executed |
+| `credential-vendor` stack | **deployed** 2026-09-08 as `InnovationPatternsGitLabCI`; never yet assumed by a job |
+| `.gitlab-ci.yml` | two manual jobs wired to that role; never yet run |
+
 ## Conventions both directories share
 
 - **A bare `make` prints help and creates nothing.**
@@ -70,7 +88,14 @@ The pipeline is fully usable by hand; the role only exists to let a CI job do wh
 
 ## Which account?
 
-This is an open decision, not a detail. Three values currently disagree:
+**Settled by deployment: 369530416671 (`vincilb+ip-dev-Admin`).** Both stacks live there,
+and the credential-vendor role's trust policy names this repository's GitLab group, so a CI
+run cannot land anywhere else. What remains is a *disagreement inside the harness*, not an
+open choice — `preflight.py` still names an evaluation sandbox, which matters only for the
+manual runs recorded in `DECISIONS.md` and for anyone reading those figures as if they came
+from this account.
+
+The three values, for the record:
 
 | Source | Account / profile |
 |---|---|
@@ -81,8 +106,9 @@ This is an open decision, not a detail. Three values currently disagree:
 Inside the build there is no profile at all: the buildspec creates a credential-less
 `ipa-it` profile that resolves the container's own credentials, so the harness's
 requirement for a *named* profile is satisfied without one being configured. The
-disagreement only matters for the hand-run targets, and for deciding which account owns
-the stack. Settle it before wiring CI to it.
+disagreement only matters for the hand-run targets, and for reading the measured costs in
+`DECISIONS.md` — those figures come from the sandbox row, not from the account the stacks
+are now in.
 
 ## Security posture, stated once
 

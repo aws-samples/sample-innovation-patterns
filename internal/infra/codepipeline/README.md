@@ -29,6 +29,19 @@ make -C internal/infra/codepipeline logs               # tail the build
 A run's lifecycle is also available piecewise: `archive` (free), `upload` (free, starts
 nothing), `start CONFIRM=1`, `watch`.
 
+## Or from the GitLab UI
+
+`.gitlab-ci.yml` carries two manual jobs — `integration-test:start` and
+`integration-test:watch` — that call these same targets under the
+`InnovationPatternsGitLabCI` role. They are split because a `deploy`-scenario run can
+outlive a job timeout, and a lost job should cost a re-click of a poll rather than the
+result. Neither ever runs on a push; cancelling either does **not** stop the build, which is
+the safe direction, since its `post_build` teardown then still runs.
+
+The scenario is fixed by this stack's `Scenario` parameter — a job cannot choose it.
+`internal/infra/credential-vendor/README.md` covers the role and why its ARN is a job-level
+variable rather than a project one.
+
 ## Cost
 
 The stack at rest is close to free: an empty bucket, two IAM roles, a pipeline definition
@@ -218,9 +231,15 @@ and 3 warnings (`W32`, `W84`, `W35`); `archive.py` produces a correct archive an
 correctly refuses a worktree; every `CONFIRM`-guarded target's dry run stops without
 acting.
 
-**Not verified:** no run of this pipeline has ever executed. The stack has not been
-deployed, so the buildspec is unproven end to end — the runtime pairing, the
-credential-less profile inside CodeBuild, `dockerd` starting, and whether the harness
+**Deployed, but not proven.** The stack has existed in 369530416671 / `us-east-1` since
+2026-08-18 — and it predates the `Scenario` and `FullMaxBudgetUsd` parameters, so
+**re-deploy it before the next run** or the run has no scenario selection at all. Its one
+execution, the same day, failed in the **Source** stage: `source/source.zip` returned
+Forbidden, because `start` was called with nothing uploaded (`make trigger` is what
+sequences the upload). The bucket is still empty.
+
+**Not verified:** the buildspec has therefore still never executed — the runtime pairing,
+the credential-less profile inside CodeBuild, `dockerd` starting, and whether the harness
 completes at all on this compute are all untested. Expect to iterate on the install phase
 during the first run. Also note that `make test-compose` is currently **red** on a
 maintainer's laptop (`/ipa-compose` generates none of its claimed artifacts), so a first

@@ -203,8 +203,10 @@ deploy: ## Create/update the role. Needs CONFIRM=1. CREATES AN IAM ROLE.
 	echo ""; \
 	$(MAKE) --no-print-directory outputs; \
 	echo ""; \
-	echo "Next: set GitLabRoleArn as the AWS_CREDS_TARGET_ROLE CI/CD variable and"; \
-	echo "uncomment the variables block in .gitlab-ci.yml (lines 32-43)."
+	echo "Next: put GitLabRoleArn in .gitlab-ci.yml as the AWS_CREDS_TARGET_ROLE"; \
+	echo "of .integration-test-base — a JOB-level variable, not a project CI/CD"; \
+	echo "variable, so only the two integration-test jobs are vended credentials."; \
+	echo "Then run integration-test:start from the GitLab UI."
 
 outputs: ## Print the stack's outputs, including the role ARN
 	@$(AWS) cloudformation describe-stacks --stack-name "$(STACK_NAME)" \

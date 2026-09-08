@@ -30,18 +30,110 @@ stages:
   - deploy
   - release
 
-# AWS credential vendor: the internal code.aws.dev GitLab runner detects the
-# AWS_CREDS_TARGET_ROLE variable and vendors short-lived STS credentials for that
-# role into the job environment automatically — no id_tokens / assume-role block
-# needed. This job verifies the role assumption works before relying on it.
-# test:
-#   stage: test
-#   variables:
-#     AWS_CREDS_TARGET_ROLE: arn:aws:iam::369530416671:role/ip-dev-sdlc-GitLab
-#     AWS_DEFAULT_REGION: us-east-1
-#   script:
-#     - aws sts get-caller-identity
-#     - aws s3 ls
+# ---------------------------------------------------------------------------
+# Integration test on CodeBuild — two MANUAL jobs, run from the GitLab UI.
+#
+#   integration-test:start   manual. Zips this checkout, uploads it as the
+#                            pipeline's source, starts ONE execution and returns
+#                            in about a minute. BILLABLE — see the cost note.
+#   integration-test:watch   manual, free. Polls the latest execution until it
+#                            finishes. Separate from `start` so that a run
+#                            outliving the job timeout is a re-clickable poll
+#                            rather than a lost result.
+#
+# Both call the SAME targets a maintainer runs by hand
+# (internal/infra/codepipeline/Makefile), deliberately: a CI-only code path that
+# re-implements archive/upload/start is one that drifts from the stack it drives.
+# `make start` needs CONFIRM=1 there, and it is passed here — the guard exists to
+# stop an accidental laptop run, and clicking a job named "start" IS the confirm.
+#
+# WHAT THIS COSTS, because clicking is cheap and the run is not: LARGE CodeBuild
+# minutes up to the stack's BuildTimeoutMinutes ceiling, model spend, and every
+# stack the test itself deploys until its teardown runs. Which of those applies
+# is fixed by the pipeline stack's `Scenario` parameter — `compose` (~$0.94
+# measured) or `deploy` (unmeasured, $15 ceiling) — NOT by anything here. A job
+# cannot pick the scenario; re-deploy the stack to change it.
+#
+# Cancelling either job does NOT stop the CodeBuild run, and that is the safe
+# direction: the build's post_build tears down unconditionally, so letting it
+# finish on its own is what prevents orphaned stacks.
+#
+# `allow_failure: true` is not indifference to the result — it is what keeps
+# these MANUAL jobs non-blocking. Without it a first-stage manual job puts the
+# whole pipeline in `blocked` and `pages` never deploys. A failed run therefore
+# shows as a warning rather than a red pipeline; read the job.
+#
+# Nothing here runs automatically, on any branch, ever. Running from a feature
+# branch is a supported use — the archive is that branch's checkout.
+# ---------------------------------------------------------------------------
+.integration-test-base:
+  stage: test
+  needs: []
+  image: public.ecr.aws/docker/library/python:3.12-bookworm
+  variables:
+    # Set at JOB level, not as a project CI/CD variable. The internal
+    # code.aws.dev runner vendors short-lived STS credentials into any job that
+    # has this set — so at project level, `pages`, the ASH scans and the release
+    # jobs would each be handed an AWS session they have no use for. No
+    # id_tokens block and no assume-role step is needed; the runner does it.
+    #
+    # Account-specific by nature. .gitlab-ci.yml is excluded from the public
+    # GitHub mirror, so the ARN lives here rather than in a variable that would
+    # then apply everywhere. Deploy the role with
+    # `make -C internal/infra/credential-vendor deploy CONFIRM=1` and paste its
+    # GitLabRoleArn output.
+    AWS_CREDS_TARGET_ROLE: arn:aws:iam::369530416671:role/InnovationPatternsGitLabCI
+    AWS_DEFAULT_REGION: us-east-1
+    # archive.py zips the WORKING TREE and shells out to `git ls-files`,
+    # `git rev-parse HEAD` and `git status --porcelain` with check=True, so the
+    # archive must carry a real .git. A shallow clone satisfies those three
+    # calls, but the failure mode if it ever stops doing so is a bare
+    # CalledProcessError inside a pytest fixture, so the depth is not left to a
+    # default.
+    GIT_DEPTH: "0"
+  before_script:
+    # AWS CLI v2 from the official installer, not Debian's `awscli` package,
+    # which is v1. The Makefile targets were written and measured against v2.
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends make curl unzip
+    - curl -fsS "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip
+    - unzip -q /tmp/awscliv2.zip -d /tmp
+    - /tmp/aws/install
+    - aws --version
+    # Fails HERE, for free, if vending is broken. A wrong GitLab group or project
+    # in the role's trust policy is denied with nothing naming the cause, so the
+    # check is positioned before anything is uploaded or started.
+    - aws sts get-caller-identity
+  # Branch pipelines only, any branch, never on a tag pipeline. `$CI_COMMIT_BRANCH`
+  # is unset on both tag and merge-request pipelines, so this one condition is
+  # what keeps the job from being offered twice for a single push — the "may allow
+  # multiple pipelines to run for a single action" warning a bare `when: manual`
+  # earns. The trailing `when: never` makes the exclusion explicit rather than
+  # relying on rules' default.
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_TAG == null
+      when: manual
+      allow_failure: true
+    - when: never
+
+integration-test:start:
+  extends: .integration-test-base
+  script:
+    - make -C internal/infra/codepipeline archive
+    - make -C internal/infra/codepipeline upload
+    - make -C internal/infra/codepipeline start CONFIRM=1
+    - echo "Started. Poll it with the integration-test:watch job, or watch it here:"
+    - echo "https://us-east-1.console.aws.amazon.com/codesuite/codepipeline/pipelines/ipa-integration-test-pipeline/view?region=us-east-1"
+
+integration-test:watch:
+  extends: .integration-test-base
+  # Longer than this project's 1h default so a `deploy`-scenario run can be
+  # followed to the end. An instance runner's own maximum_timeout still caps it,
+  # and hitting either cap fails the job while the run continues — re-click this
+  # job to pick the poll back up.
+  timeout: 2h
+  script:
+    - make -C internal/infra/codepipeline watch
 
 # GitLab Pages deployment job - must be named "pages" to trigger Pages deployment
 # Builds Docusaurus documentation and publishes to https://<namespace>.gitlab.io/<project-name>/
