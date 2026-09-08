@@ -429,22 +429,33 @@ Always generate `scripts/env.mk`. This file consolidates all `.env` writes — s
 Load [MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) env.mk template. Generate:
 
 1. **Header**: Comment block with usage instructions, `-include .env`, `.PHONY` declarations.
-2. **Aggregate target**: `update-env: update-env-{tier1} update-env-{tier2} ...` listing all per-stack env targets.
-3. **Per-stack env targets**: For each stack in the composition that has `.env`-relevant outputs:
-   - **cognito** → `update-env-cognito` (writes OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_DISCOVERY_URL, OIDC_END_SESSION_ENDPOINT, OIDC_USER_POOL_ID)
-   - **ecr** → `update-env-ecr` (writes ECR_REPO_URI)
-   - **queue** → `update-env-sqs` (writes SQS_QUEUE_URL)
-   - **codepipeline** → `update-env-pipeline` (writes PIPELINE_STACK_NAME, PIPELINE_NAME, CODEBUILD_PROJECT_NAME, CODECOMMIT_STACK_NAME, CODECOMMIT_REPO_NAME, CODECOMMIT_CLONE_URL)
+2. **Aggregate target**: `update-env: update-env-{suffix1} update-env-{suffix2} ...` listing **every** per-stack env target generated below, in composition order.
+3. **Per-stack env targets**: one for each of these stacks that is in the composition, at **either** lifecycle — a deploy-lifecycle stack is not exempt:
+
+   | Stack in composition | Target | `.env` keys it writes |
+   |---|---|---|
+   | `cognito` | `update-env-cognito` | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_DISCOVERY_URL`, `OIDC_END_SESSION_ENDPOINT`, `OIDC_USER_POOL_ID`, `COGNITO_DOMAIN_PREFIX` |
+   | `ecr` | `update-env-ecr` | `ECR_REPO_URI` |
+   | `logs` | `update-env-logs` | `LOG_BUCKET_NAME` |
+   | `queue` | `update-env-sqs` | `SQS_QUEUE_URL`, `SQS_QUEUE_ARN` |
+   | `backend` | `update-env-backend` | `API_URL` |
+   | `frontend` | `update-env-frontend` | `APP_URL`, `BUCKET_NAME`, `DISTRIBUTION_ID` |
+   | `codepipeline` | `update-env-pipeline` | `PIPELINE_STACK_NAME`, `PIPELINE_NAME`, `CODEBUILD_PROJECT_NAME`, `CODECOMMIT_STACK_NAME`, `CODECOMMIT_REPO_NAME`, `CODECOMMIT_CLONE_URL` |
+   | `tfstate` (Terraform only) | `update-env-tfstate` | `TF_STATE_BUCKET` |
+
+   If the composition contains none of them, generate a no-op: `update-env: @echo "No environment variables to sync"`.
+
+   **[MAKEFILE_TEMPLATES.md](MAKEFILE_TEMPLATES.md) is authoritative for each target's body and its exact key set** — copy from it rather than reproducing it from this table. Where the two disagree, the template wins and this table is the bug.
 
 Each target uses `$(eval)` to query CloudFormation outputs and `grep -v` + `echo` to idempotently write to `.env`.
 
-**Stack presence rules**:
-- Generate `update-env-logs` when the composition includes `logs` (any lifecycle)
-- Generate `update-env-cognito` when the composition includes `cognito` (any lifecycle)
-- Generate `update-env-ecr` when the composition includes `ecr` (any lifecycle)
-- Generate `update-env-sqs` when the composition includes `queue` (any lifecycle)
-- Generate `update-env-pipeline` when the composition includes `codepipeline` (any lifecycle)
-- If no stacks with env outputs are present, generate a no-op: `update-env: @echo "No environment variables to sync"`
+**Every one of these targets has a consumer that fails without it, and most fail SILENTLY.** Omitting one produces a deployment that reports success:
+
+- No `update-env-backend` / `update-env-frontend` → `configure-frontend` writes a `window.__CONFIG__` naming no API and no identity provider. The stacks deploy, CloudFront serves the app, and it fails in the browser with nothing in any deployment log. `upload-frontend` and `invalidate-cf` also read `BUCKET_NAME` and `DISTRIBUTION_ID` from here.
+- No `COGNITO_DOMAIN_PREFIX` → the next `deploy-cognito` has nothing to pass, and post-deploy targets are forbidden from recomputing it: a recomputed prefix REPLACES `AWS::Cognito::UserPoolDomain` and destroys the live domain. This key is the only record of the deployed value.
+- No `SQS_QUEUE_ARN` → the backend's IAM policy has no queue to grant against.
+
+Both of those first two were generated missing in a measured run (`internal/integration-tests` compose scenario, 2026-09-08) because an earlier version of this step listed only the prepare stacks. The tier stacks are the ones whose absence is invisible.
 
 **Critical rules**:
 - All `$(eval)` variables use `_VAL` suffix to prevent collision with `.env`-sourced variables
