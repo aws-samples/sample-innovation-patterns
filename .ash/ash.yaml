@@ -276,28 +276,43 @@ global_settings:
     - rule_id: 'CKV_OPENAPI_5'
       path: 'web-client/openapi-schema.json'
       reason: 'Auto-generated OpenAPI spec has no security operations, but all API endpoints are protected by JWTAuthMiddleware with Cognito JWT validation'
-    # image-size 2.0.2 — infinite-loop DoS in the JXL/HEIF parsers (GHSA-5p2g-fcmc-qvqq,
-    # CVE-2025-71329) and in the ICNS parser (GHSA-w3rx-r6r6-pgpr, CVE-2025-71330).
+    # (Removed 2026-10-13: GHSA-5p2g-fcmc-qvqq-image-size and GHSA-w3rx-r6r6-pgpr-image-size.
+    # Both entries said no fix existed; image-size 2.0.3 now fixes both. The
+    # `image-size@2: ^2.0.3` floor in docs/package.json resolves 2.0.4 in the lock.)
     #
-    # NO FIX EXISTS. Both advisories record `last_affected: 2.0.2` with no fixed event,
-    # and 2.0.2 is `latest` on npm — the `legacy: 1.2.1` tag falls inside the affected
-    # range too, so downgrading does not help either. An override cannot resolve this.
+    # braces 3.0.3 — stack-exhaustion DoS through deeply nested brace patterns
+    # (GHSA-vfj7-8cjw-p6xm, CVE-2026-93687).
     #
-    # Not reachable by an attacker here. image-size is a build-time dependency of
-    # @docusaurus/mdx-loader, which measures images that are already committed to this
-    # repository; the docs build takes no untrusted input, and image-size appears in no
-    # runtime bundle. Triggering either parser loop requires commit access to this repo,
-    # at which point a crafted JXL/HEIF/ICNS file is not the interesting attack.
+    # NO FIX EXISTS. The advisory records `braces <= 3.0.3` with no patched version, and
+    # 3.0.3 is the latest release on npm. An override cannot resolve this.
     #
-    # Revisit when image-size publishes a patched release; remove these entries then.
-    - rule_id: 'GHSA-5p2g-fcmc-qvqq-image-size'
+    # Not reachable by an attacker here. braces is a build- and dev-server dependency of
+    # the docs site: micromatch (via fast-glob, @docusaurus/utils and
+    # http-proxy-middleware) and chokidar (via @docusaurus/core and webpack-dev-server).
+    # The patterns it expands come from this repository's own Docusaurus config and file
+    # paths. It is absent from the built site, so a crafted pattern requires commit access.
+    - rule_id: 'GHSA-vfj7-8cjw-p6xm-braces'
       path: 'docs/pnpm-lock.yaml'
-      reason: 'No fix published — advisory records last_affected 2.0.2 with no fixed version, and 2.0.2 is the latest release. Build-time only (via @docusaurus/mdx-loader), parses images committed to this repo, absent from every runtime bundle; no untrusted input reaches the JXL/HEIF parsers.'
-      expiration: '2026-11-30'
-    - rule_id: 'GHSA-w3rx-r6r6-pgpr-image-size'
+      reason: 'No fix published — advisory records braces <= 3.0.3 with no patched version, and 3.0.3 is the latest release. Build and dev-server only (micromatch via fast-glob/@docusaurus/utils, chokidar via @docusaurus/core/webpack-dev-server); expands glob patterns from this repo''s own config, absent from the built site; no untrusted pattern reaches it.'
+      expiration: '2026-12-12'
+    # http-cache-semantics 4.2.0 — a client max-stale directive can return a shared-cache
+    # entry that was zeroed for another user (GHSA-ch52-4w7c-c8xp, CVE-2026-93748).
+    #
+    # NO USABLE FIX. The advisory records `<= 4.2.0` with no patched version. 4.3.0 is
+    # outside that range only because it was published after the advisory: upstream closed
+    # the report (kornelski/http-cache-semantics#56) as not planned, and 4.3.0 contains no
+    # max-stale change. Upgrading would clear the scanner without fixing the flaw.
+    #
+    # Not reachable here. The only path is @docusaurus/core → update-notifier →
+    # latest-version → package-json → got → cacheable-request. got consults
+    # http-cache-semantics only when a `cache` option is passed; its default is undefined
+    # and package-json passes none. The update check is also a single-user request from a
+    # developer machine, not the shared cache the flaw requires, and the package is absent
+    # from the built site.
+    - rule_id: 'GHSA-ch52-4w7c-c8xp-http-cache-semantics'
       path: 'docs/pnpm-lock.yaml'
-      reason: 'No fix published — advisory records last_affected 2.0.2 with no fixed version, and 2.0.2 is the latest release. Build-time only (via @docusaurus/mdx-loader), parses images committed to this repo, absent from every runtime bundle; no untrusted input reaches the ICNS parser.'
-      expiration: '2026-11-30'
+      reason: 'No usable fix — advisory records <= 4.2.0 with no patched version; 4.3.0 falls outside the range only by date, upstream closed the issue as not planned, and 4.3.0 has no max-stale change. Reached only via update-notifier/package-json/got in @docusaurus/core; got uses http-cache-semantics only when a cache option is set and package-json sets none. Not a shared cache, absent from the built site.'
+      expiration: '2026-12-12'
     # uuid@8.3.2 — buffer bounds check in v3/v5/v6 when `buf` is provided (CVE-2026-41907, GHSA-w5hq-g745-h8pq).
     # Transitive via @docusaurus/core → webpack-dev-server → sockjs. sockjs calls uuidv4() without a
     # `buf` argument (node_modules/sockjs/lib/transport.js:37), so the bounds bug cannot be triggered.
