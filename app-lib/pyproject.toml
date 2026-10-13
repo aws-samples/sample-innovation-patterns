@@ -22,14 +22,20 @@ app-lib = "app_lib:main"
 rest = [
     "fastapi>=0.115.0,<1.0.0",
     "pynamodb>=6.1.0,<7.0.0",
-    "PyJWT[crypto]>=2.8.0,<3.0.0",
+    # 2.15.1 is the first release outside all 14 known PyJWT advisories, including
+    # GHSA-ffc3-869f-jxw9 (critical: asymmetric-PEM detection bypass in jwt.decode),
+    # GHSA-9j54-fg26-wv3r, GHSA-9v7f-9g4p-ffgj, GHSA-r6x4-923q-g947, GHSA-w2cx-738m-mc7w,
+    # GHSA-p4g4-x82p-q773, GHSA-42vr-xj54-vc7v, GHSA-gvp8-978c-rx2q, GHSA-hxm8-2xgr-2p9m,
+    # GHSA-w6j9-cwv2-h6wq, GHSA-8wjv-2p76-3863, GHSA-2gx3-rcp4-g85q, GHSA-jwrc-g2q2-pq5p,
+    # GHSA-x33g-cr3x-6449.
+    "PyJWT[crypto]>=2.15.1,<3.0.0",
     "uvicorn>=0.34.0,<1.0.0",
 ]
 
 api_lambda = [
     "fastapi>=0.115.0,<1.0.0",
     "pynamodb>=6.1.0,<7.0.0",
-    "PyJWT[crypto]>=2.8.0,<3.0.0",
+    "PyJWT[crypto]>=2.15.1,<3.0.0",  # GHSA-ffc3-869f-jxw9 et al.; see `rest`
     "uvicorn>=0.34.0,<1.0.0",
 ]
 
@@ -44,7 +50,7 @@ all = [
     "pytest-cov>=7.0.0,<8.0.0",
     "ruff>=0.14.10,<1.0.0",
     "fastapi>=0.115.0,<1.0.0",
-    "PyJWT[crypto]>=2.8.0,<3.0.0",
+    "PyJWT[crypto]>=2.15.1,<3.0.0",  # GHSA-ffc3-869f-jxw9 et al.; see `rest`
     "uvicorn>=0.34.0,<1.0.0",
     "ipykernel>=7.1.0,<8.0.0",
     "mkdocs>=1.6.1",
@@ -84,6 +90,16 @@ constraint-dependencies = [
     # click arrives via uvicorn and mkdocs. Command injection in click.edit(); neither
     # this library nor either parent calls it, but the floor is free.
     "click>=8.3.3",  # CVE-2026-7246 / GHSA-47fr-3ffg-hgmw / PYSEC-2026-2132
+    # anyio arrives via starlette and httpx, and ships in the Lambda image.
+    "anyio>=4.14.2",  # GHSA-82r6-8w77-94w6, GHSA-5p39-cfhj-2xmp
+    # urllib3 arrives via botocore, and ships in the Lambda image.
+    "urllib3>=2.8.0",  # GHSA-8988-9cw3-xx77, GHSA-vxq7-64xx-v4gw, GHSA-gh4c-6fx4-qh6g
+    # tornado arrives via ipykernel and jupyter-client (notebook tooling only).
+    # Also closes GHSA-mpf4-983q-p7j4, GHSA-8423-8fgw-73vq, GHSA-wwv5-g3v4-889x (6.5.8).
+    "tornado>=6.5.9",  # GHSA-c2m8-h5v5-343r, GHSA-chx6-46f5-w4vp, GHSA-3hv7-mjh2-fv65
+    # mkdocs-material is a direct dependency of `all` and the dev group (docs
+    # tooling only); this floor overrides their looser >=9.7.1.
+    "mkdocs-material>=9.7.7",  # GHSA-xvg9-69gf-fjrf
 ]
 
 [dependency-groups]
